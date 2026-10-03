@@ -1,3 +1,10 @@
+@import '@fontsource/courier-prime/latin-400.css';
+@import '@fontsource/courier-prime/latin-ext-400.css';
+@import '@fontsource/courier-prime/latin-400-italic.css';
+@import '@fontsource/courier-prime/latin-700.css';
+@import '@fontsource/courier-prime/latin-ext-700.css';
+@import '@fontsource/special-elite/latin-400.css';
+@import '@fontsource/special-elite/latin-ext-400.css';
 @import '@fontsource/poppins/latin-400.css';
 @import '@fontsource/poppins/latin-ext-400.css';
 @import '@fontsource/poppins/latin-400-italic.css';
@@ -8,8 +15,48 @@
 @import '@fontsource/poppins/latin-700.css';
 @import '@fontsource/poppins/latin-ext-700.css';
 
-/* Petrol als Akzent, klare Flächen (angelehnt an StoryGraph). Basiswerte = helles Thema */
+/*
+ * Themes: data-theme am <html> (gesetzt von lib/theme.ts). Ohne Attribut = „Nacht“ (Standard, Simon).
+ * Jede Palette setzt dieselben Variablen; neue Themes hier ergänzen und in theme.ts eintragen.
+ */
 :root {
+  --bg: #121516;
+  --bg-soft: #171b1c;
+  --surface: #1b1f20;
+  --surface-2: #242a2b;
+  --surface-3: #303738;
+  --line: #2c3334;
+  --text: #e9eded;
+  --muted: #95a0a1;
+  --accent: #5fb0b3;
+  --accent-2: #7cc6c8;
+  --accent-soft: #1f3536;
+  --accent-ink: #0e1a1b;
+  --star: #f5b82e;
+  --danger: #ec6f61;
+  --ok: #7cc493;
+  --progress: #5cb87a;
+  --wood: #5b4030;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.3);
+  --cover-shadow: 0 2px 4px rgb(0 0 0 / 0.4), 0 8px 18px rgb(0 0 0 / 0.35);
+  --glass: rgb(30 35 36 / 0.88);
+  --radius: 12px;
+  /* Schreibmaschine ist Standard; data-font="modern" schaltet auf Poppins */
+  --font: 'Courier Prime', 'Courier New', ui-monospace, monospace;
+  --font-head: 'Special Elite', 'Courier Prime', 'Courier New', monospace;
+  --head-weight: 400;
+  --nav-h: 76px;
+  --content-w: 1280px;
+  color-scheme: dark;
+}
+:root[data-font='modern'] {
+  --font: 'Poppins', system-ui, -apple-system, sans-serif;
+  --font-head: var(--font);
+  --head-weight: 600;
+}
+
+/* Hell: Petrol auf Weiß (angelehnt an StoryGraph) */
+:root[data-theme='light'] {
   --bg: #ffffff;
   --bg-soft: #f6f7f7;
   --surface: #ffffff;
@@ -22,63 +69,98 @@
   --accent-2: #2a6468;
   --accent-soft: #e3f0f0;
   --accent-ink: #ffffff;
-  --star: #f5b82e;
   --danger: #c8443a;
   --ok: #4a9a62;
-  --progress: #5cb87a;
   --shadow: 0 1px 2px rgb(20 40 40 / 0.06), 0 6px 20px rgb(20 40 40 / 0.07);
   --cover-shadow: 0 2px 4px rgb(0 0 0 / 0.12), 0 8px 16px rgb(0 0 0 / 0.12);
   --glass: rgb(255 255 255 / 0.88);
-  --radius: 12px;
-  --font: 'Poppins', system-ui, -apple-system, sans-serif;
-  --nav-h: 76px;
-  --content-w: 1280px;
   color-scheme: light;
 }
 
-/* Dunkel ist Standard (Simon); "light" erzwingt hell, "system" folgt der Geräteeinstellung */
-:root:not([data-theme='light']):not([data-theme='system']) {
-    --bg: #121516;
-    --bg-soft: #171b1c;
-    --surface: #1b1f20;
-    --surface-2: #242a2b;
-    --surface-3: #303738;
-    --line: #2c3334;
-    --text: #e9eded;
-    --muted: #95a0a1;
-    --accent: #5fb0b3;
-    --accent-2: #7cc6c8;
-    --accent-soft: #1f3536;
-    --accent-ink: #0e1a1b;
-    --danger: #ec6f61;
-    --ok: #7cc493;
-    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.3);
-    --cover-shadow: 0 2px 4px rgb(0 0 0 / 0.4), 0 8px 18px rgb(0 0 0 / 0.35);
-    --glass: rgb(30 35 36 / 0.88);
-    color-scheme: dark;
-  }
+/* Papier: Schreibmaschinenpapier, schwarze Tinte, rotes Farbband */
+:root[data-theme='paper'] {
+  --bg: #f3ebd7;
+  --bg-soft: #eee4cc;
+  --surface: #fbf6e8;
+  --surface-2: #ece2c8;
+  --surface-3: #dfd2b2;
+  --line: #d8c9a5;
+  --text: #2a2620;
+  --muted: #74695a;
+  --accent: #9c2f24;
+  --accent-2: #7d241b;
+  --accent-soft: #f1dcd2;
+  --accent-ink: #fffaf0;
+  --star: #c98a1b;
+  --danger: #b0352a;
+  --ok: #4d7f3f;
+  --progress: #6b8f4e;
+  --shadow: 0 1px 2px rgb(60 45 20 / 0.08), 0 6px 18px rgb(60 45 20 / 0.08);
+  --cover-shadow: 0 2px 4px rgb(60 40 10 / 0.18), 0 8px 16px rgb(60 40 10 / 0.16);
+  --glass: rgb(251 246 232 / 0.9);
+  color-scheme: light;
+}
 
-@media (prefers-color-scheme: dark) {
-  :root[data-theme='system'] {
-    --bg: #121516;
-    --bg-soft: #171b1c;
-    --surface: #1b1f20;
-    --surface-2: #242a2b;
-    --surface-3: #303738;
-    --line: #2c3334;
-    --text: #e9eded;
-    --muted: #95a0a1;
-    --accent: #5fb0b3;
-    --accent-2: #7cc6c8;
-    --accent-soft: #1f3536;
-    --accent-ink: #0e1a1b;
-    --danger: #ec6f61;
-    --ok: #7cc493;
-    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.3);
-    --cover-shadow: 0 2px 4px rgb(0 0 0 / 0.4), 0 8px 18px rgb(0 0 0 / 0.35);
-    --glass: rgb(30 35 36 / 0.88);
-    color-scheme: dark;
-  }
+/* Tinte: Nachtblau mit Gold */
+:root[data-theme='ink'] {
+  --bg: #10141f;
+  --bg-soft: #141a27;
+  --surface: #182030;
+  --surface-2: #212a3d;
+  --surface-3: #2c3750;
+  --line: #273149;
+  --text: #e9e6dd;
+  --muted: #9aa2b4;
+  --accent: #d9b25f;
+  --accent-2: #e9c983;
+  --accent-soft: #2e2a1e;
+  --accent-ink: #1a1408;
+  --danger: #ef7a6c;
+  --ok: #86c79a;
+  --progress: #d9b25f;
+  --glass: rgb(24 32 48 / 0.88);
+}
+
+/* Wald: dunkles Grün mit Moos */
+:root[data-theme='forest'] {
+  --bg: #111713;
+  --bg-soft: #151d18;
+  --surface: #19221c;
+  --surface-2: #223027;
+  --surface-3: #2d3d32;
+  --line: #29372e;
+  --text: #e6ece6;
+  --muted: #94a498;
+  --accent: #93c283;
+  --accent-2: #acd69e;
+  --accent-soft: #213326;
+  --accent-ink: #0f1a0f;
+  --star: #e8b546;
+  --progress: #93c283;
+  --glass: rgb(25 34 28 / 0.88);
+}
+
+/* Rosé: hell, Beere als Akzent */
+:root[data-theme='rose'] {
+  --bg: #fbf3f3;
+  --bg-soft: #f7ebec;
+  --surface: #ffffff;
+  --surface-2: #f6e8e9;
+  --surface-3: #ecd6d8;
+  --line: #ead7d9;
+  --text: #3a2a2e;
+  --muted: #86707a;
+  --accent: #a3405f;
+  --accent-2: #87334e;
+  --accent-soft: #f6dde5;
+  --accent-ink: #ffffff;
+  --danger: #c23b3b;
+  --ok: #4a8f62;
+  --progress: #c46a86;
+  --shadow: 0 1px 2px rgb(60 20 30 / 0.06), 0 6px 20px rgb(60 20 30 / 0.07);
+  --cover-shadow: 0 2px 4px rgb(0 0 0 / 0.12), 0 8px 16px rgb(0 0 0 / 0.12);
+  --glass: rgb(255 255 255 / 0.88);
+  color-scheme: light;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -100,7 +182,8 @@ body {
 }
 
 h1, h2, h3 {
-  font-weight: 600;
+  font-family: var(--font-head);
+  font-weight: var(--head-weight);
   letter-spacing: -0.01em;
   line-height: 1.15;
   margin: 0 0 0.5em;

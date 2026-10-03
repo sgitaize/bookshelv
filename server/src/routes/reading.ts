@@ -126,7 +126,7 @@ readingRoutes.get('/users', c => {
 function visibleUser(viewerId: number, id: number) {
   const owner = db.prepare('SELECT id, username, display_name AS displayName, shelf_visible AS shelfVisible, created_at AS createdAt, avatar FROM users WHERE id = ? AND disabled = 0').get(id) as
     { id: number; username: string; displayName: string; shelfVisible: number; createdAt: string; avatar: string | null } | undefined;
-  if (!owner) throw notFound('Nutzer');
+  if (!owner) throw notFound('Konto');
   return { ...owner, visible: !!owner.shelfVisible || owner.id === viewerId };
 }
 

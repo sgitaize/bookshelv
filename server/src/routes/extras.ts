@@ -33,7 +33,7 @@ extraRoutes.get('/users/:id/wishlist', c => {
   const u = requireUser(c);
   const id = idParam(c);
   const owner = db.prepare('SELECT shelf_visible FROM users WHERE id = ? AND disabled = 0').get(id) as { shelf_visible: number } | undefined;
-  if (!owner) throw notFound('Nutzer');
+  if (!owner) throw notFound('Konto');
   if (!owner.shelf_visible && id !== u.id) throw new HTTPException(403, { message: 'Dieses Regal ist privat' });
   return c.json(wishlistOf(id));
 });
@@ -62,7 +62,7 @@ extraRoutes.post('/books/:id/cover', async c => {
   if (!book) throw notFound('Buch');
   const ownsCopy = !!db.prepare('SELECT 1 FROM copies WHERE book_id = ? AND owner_id = ? AND removed_at IS NULL').get(book.id, u.id);
   const allowed = u.is_admin || book.created_by === u.id || (!book.cover && ownsCopy);
-  if (!allowed) throw new HTTPException(403, { message: 'Nur Ersteller oder Admin dürfen das Cover ersetzen' });
+  if (!allowed) throw new HTTPException(403, { message: 'Das Cover ersetzen dürfen nur, wer das Buch angelegt hat, und Admins' });
   const { image } = await body(c);
   const m = typeof image === 'string' ? image.match(/^data:image\/(webp|jpeg|png);base64,([A-Za-z0-9+/=]+)$/) : null;
   const buf = m ? Buffer.from(m[2], 'base64') : null;

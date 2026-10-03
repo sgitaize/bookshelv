@@ -33,8 +33,14 @@ export function ensureSetupToken() {
 
 const publicUser = (u: User) => ({
   id: u.id, username: u.username, displayName: u.display_name, isAdmin: !!u.is_admin,
-  shelfVisible: !!u.shelf_visible, createdAt: u.created_at, avatarUrl: avatarUrl(u.avatar)
+  shelfVisible: !!u.shelf_visible, createdAt: u.created_at, avatarUrl: avatarUrl(u.avatar), prefs: parsePrefs(u.prefs)
 });
+
+const THEMES = ['night', 'light', 'paper', 'ink', 'forest', 'rose', 'system'];
+const FONTS = ['typewriter', 'modern'];
+function parsePrefs(raw: string | undefined) {
+  try { return JSON.parse(raw || '{}') as Record<string, string>; } catch { return {}; }
+}
 
 authRoutes.get('/status', c => c.json({
   needsSetup: userCount() === 0, version: config.version, node: process.version
@@ -64,7 +70,7 @@ authRoutes.post('/login', async c => {
   const ok = row && !row.disabled && typeof b.password === 'string' && await verifyPassword(b.password, row.pw_hash);
   if (!ok) {
     recordLoginFailure(key);
-    throw new HTTPException(401, { message: 'Benutzername oder Passwort falsch' });
+    throw new HTTPException(401, { message: 'Anmeldename oder Passwort falsch' });
   }
   clearLoginFailures(key);
   startSession(c, row.id);
@@ -83,6 +89,13 @@ authRoutes.patch('/me', async c => {
   const b = await body(c);
   const name = str(b.displayName, 60);
   if (name) db.prepare('UPDATE users SET display_name = ? WHERE id = ?').run(name, u.id);
+  if (b.prefs && typeof b.prefs === 'object') {
+    const p = b.prefs as Record<string, unknown>;
+    const next = parsePrefs(u.prefs);
+    if (typeof p.theme === 'string' && THEMES.includes(p.theme)) next.theme = p.theme;
+    if (typeof p.font === 'string' && FONTS.includes(p.font)) next.font = p.font;
+    db.prepare('UPDATE users SET prefs = ? WHERE id = ?').run(JSON.stringify(next), u.id);
+  }
   if (typeof b.shelfVisible === 'boolean') db.prepare('UPDATE users SET shelf_visible = ? WHERE id = ?').run(b.shelfVisible ? 1 : 0, u.id);
   return c.json({ ok: true });
 });
@@ -189,7 +202,7 @@ authRoutes.post('/register', async c => {
     const inv = findInvite(String(b.token ?? ''));
     if (!inv) throw new HTTPException(403, { message: 'Einladung ungültig oder abgelaufen' });
     if (db.prepare('SELECT 1 FROM users WHERE username = ?').get(username))
-      throw new HTTPException(409, { message: 'Benutzername ist schon vergeben' });
+      throw new HTTPException(409, { message: 'Anmeldename ist schon vergeben' });
     const id = Number(db.prepare('INSERT INTO users (username, display_name, pw_hash, invited_by) VALUES (?, ?, ?, ?)')
       .run(username, str(b.displayName, 60) ?? username, hash, inv.createdBy).lastInsertRowid);
     db.prepare(`UPDATE invites SET used_by = ?, used_at = datetime('now') WHERE id = ?`).run(id, inv.id);

@@ -99,7 +99,7 @@ statsRoutes.get('/users/:id/stats', c => {
   const id = idParam(c);
   const owner = db.prepare('SELECT display_name, username, shelf_visible FROM users WHERE id = ? AND disabled = 0').get(id) as
     { display_name: string; username: string; shelf_visible: number } | undefined;
-  if (!owner) throw new HTTPException(404, { message: 'Nutzer nicht gefunden' });
+  if (!owner) throw new HTTPException(404, { message: 'Konto nicht gefunden' });
   if (!owner.shelf_visible && id !== u.id) throw new HTTPException(403, { message: 'Dieses Regal ist privat' });
   const y = c.req.query('year');
   if (y && !/^\d{4}$/.test(y)) throw new HTTPException(400, { message: 'Ungültige Zahl' });

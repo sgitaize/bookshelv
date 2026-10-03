@@ -21,7 +21,7 @@ Coming from another app? The importer reads Goodreads and StoryGraph exports dir
 
 It's invite-only. Every user can create invitation links, and there are no e-mail addresses involved, just a username and a password. The admin can block or delete users, reset passwords and clean up the catalogue.
 
-The interface is available in German and English and works as an installable app (PWA) on Android and iOS.
+The interface looks like it came out of a typewriter by default (Courier Prime and Special Elite, both served from your own server), or you switch to a plain modern font. There are seven colour themes, from Night and Paper to Ink, Forest and Rosé, and the choice follows you to every device. The interface is available in German and English and works as an installable app (PWA) on Android and iOS.
 
 ## Privacy
 

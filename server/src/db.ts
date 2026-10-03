@@ -245,6 +245,10 @@ const migrations: string[] = [
   );
   CREATE INDEX list_items_book ON list_items(book_id);
   CREATE INDEX copies_created ON copies(created_at);
+  `,
+  // 8: Darstellung pro Konto (Farbthema, Schrift) als JSON
+  `
+  ALTER TABLE users ADD COLUMN prefs TEXT NOT NULL DEFAULT '{}';
   `
 ];
 

@@ -173,7 +173,7 @@ bookRoutes.patch('/books/:id', async c => {
   const book = getBook(idParam(c));
   if (!book) throw notFound('Buch');
   // Katalogdaten sind geteilt: ändern darf, wer den Eintrag angelegt hat, oder ein Admin
-  if (!u.is_admin && book.created_by !== u.id) throw new HTTPException(403, { message: 'Nur Ersteller oder Admin dürfen Buchdaten ändern' });
+  if (!u.is_admin && book.created_by !== u.id) throw new HTTPException(403, { message: 'Buchdaten ändern dürfen nur, wer das Buch angelegt hat, und Admins' });
   const b = await body(c);
   const title = b.title !== undefined ? str(b.title, 300) : book.title;
   if (!title) throw new HTTPException(400, { message: 'Titel fehlt' });

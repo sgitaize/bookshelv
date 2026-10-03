@@ -63,7 +63,7 @@ socialRoutes.delete('/admin/users/:id/avatar', c => {
   requireAdmin(c);
   const id = idParam(c);
   const row = db.prepare('SELECT avatar FROM users WHERE id = ?').get(id) as { avatar: string | null } | undefined;
-  if (!row) throw notFound('Nutzer');
+  if (!row) throw notFound('Konto');
   db.prepare('UPDATE users SET avatar = NULL WHERE id = ?').run(id);
   removeAvatarFile(row.avatar);
   return c.json({ ok: true });

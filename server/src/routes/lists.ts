@@ -51,7 +51,7 @@ listRoutes.get('/users/:id/lists', c => {
   const u = requireUser(c);
   const id = idParam(c);
   const owner = db.prepare('SELECT shelf_visible FROM users WHERE id = ? AND disabled = 0').get(id) as { shelf_visible: number } | undefined;
-  if (!owner) throw notFound('Nutzer');
+  if (!owner) throw notFound('Konto');
   if (!owner.shelf_visible && id !== u.id) return c.json([]);
   return c.json(listsOf(id, id === u.id));
 });

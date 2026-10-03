@@ -62,7 +62,7 @@ adminRoutes.patch('/users/:id', async c => {
 adminRoutes.post('/users/:id/reset-password', async c => {
   requireAdmin(c);
   const id = idParam(c);
-  if (!db.prepare('SELECT 1 FROM users WHERE id = ?').get(id)) throw notFound('Nutzer');
+  if (!db.prepare('SELECT 1 FROM users WHERE id = ?').get(id)) throw notFound('Konto');
   const password = randomToken(9);
   db.prepare('UPDATE users SET pw_hash = ? WHERE id = ?').run(await hashPassword(password), id);
   db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
@@ -76,7 +76,7 @@ adminRoutes.delete('/users/:id', c => {
   anonymizeBorrower(id);
   purgeAvatar(id);
   retractFederatedReviews(id);
-  if (!db.prepare('DELETE FROM users WHERE id = ?').run(id).changes) throw notFound('Nutzer');
+  if (!db.prepare('DELETE FROM users WHERE id = ?').run(id).changes) throw notFound('Konto');
   return c.json({ ok: true });
 });
 

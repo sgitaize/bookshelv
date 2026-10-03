@@ -98,7 +98,7 @@ federationRoutes.post('/fed/inbox', async c => {
     case 'LoanOffer': {
       // Ein Nutzer der anderen Instanz verleiht einem unserer Nutzer ein Buch (oder ändert die Fälligkeit)
       const borrower = db.prepare('SELECT id FROM users WHERE username = ? AND disabled = 0').get(String(msg.borrower?.username ?? '')) as { id: number } | undefined;
-      if (!borrower) throw new HTTPException(404, { message: 'Nutzer nicht gefunden' });
+      if (!borrower) throw new HTTPException(404, { message: 'Konto nicht gefunden' });
       const actor = upsertActor(inst.id, msg.lender);
       const l = msg.loan ?? {};
       const isbn = msg.book?.isbn13 ? normalizeIsbn(String(msg.book.isbn13)) : null;
@@ -148,7 +148,7 @@ federationRoutes.post('/fed/lookup', async c => {
   if (!inst || inst.status !== 'linked') throw new HTTPException(403, { message: 'Nicht gekoppelt' });
   const u = db.prepare('SELECT id, username, display_name AS displayName FROM users WHERE username = ? AND disabled = 0')
     .get(String(msg.username ?? '')) as { id: number; username: string; displayName: string } | undefined;
-  if (!u) throw new HTTPException(404, { message: 'Nutzer nicht gefunden' });
+  if (!u) throw new HTTPException(404, { message: 'Konto nicht gefunden' });
   return c.json(u);
 });
 

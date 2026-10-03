@@ -1,4 +1,6 @@
 <script lang="ts">
+  // Bild in der gewählten App-Schrift zeichnen
+  const font = () => getComputedStyle(document.documentElement).getPropertyValue('--font').trim() || 'sans-serif';
   import { api, type Stats, type BookBrief } from '../lib/api.ts';
   import { toastError } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
@@ -43,7 +45,7 @@
       ctx.fillStyle = '#33777c';
       ctx.fillRect(x, y, w, h);
       ctx.fillStyle = '#e9eded';
-      ctx.font = `600 ${Math.round(w / 8)}px Poppins, sans-serif`;
+      ctx.font = `600 ${Math.round(w / 8)}px ${font()}`;
       wrap(ctx, b.title, x + 12, y + 24 + w / 8, w - 24, w / 7, 4);
     }
     ctx.restore();
@@ -71,6 +73,7 @@
 
   async function draw(s: Stats, cv: HTMLCanvasElement) {
     await document.fonts.ready;
+    await Promise.all(['400', '700'].map(wt => document.fonts.load(`${wt} 32px ${font()}`).catch(() => {})));
     const ctx = cv.getContext('2d')!;
     cv.width = W; cv.height = H;
     ctx.fillStyle = C.bg;
@@ -78,10 +81,10 @@
 
     // Kopf
     ctx.fillStyle = C.accent;
-    ctx.font = '600 64px Poppins, sans-serif';
+    ctx.font = `600 64px ${font()}`;
     ctx.fillText(t('wrap.title', { y: year }), 70, 130);
     ctx.fillStyle = C.muted;
-    ctx.font = '400 32px Poppins, sans-serif';
+    ctx.font = `400 32px ${font()}`;
     ctx.fillText(`@${s.user.username} · bookshelv`, 70, 180);
 
     // Vier Cover: erstes, letztes, längstes, kürzestes
@@ -93,7 +96,7 @@
       const x = 70 + i * (cw + gap);
       if (b) cover(ctx, imgs[i], b, x, 240, cw, ch);
       ctx.fillStyle = C.muted;
-      ctx.font = '500 26px Poppins, sans-serif';
+      ctx.font = `500 26px ${font()}`;
       ctx.fillText(label, x, 240 + ch + 40);
     });
 
@@ -110,10 +113,10 @@
       roundRect(ctx, x, 650, tw, 150, 18);
       ctx.fill();
       ctx.fillStyle = C.text;
-      ctx.font = '600 60px Poppins, sans-serif';
+      ctx.font = `600 60px ${font()}`;
       ctx.fillText(v, x + 28, 735);
       ctx.fillStyle = C.muted;
-      ctx.font = '400 26px Poppins, sans-serif';
+      ctx.font = `400 26px ${font()}`;
       ctx.fillText(l, x + 28, 778);
     });
 
@@ -122,17 +125,17 @@
     lists.filter(([, items]) => items.length).forEach(([title, items], i) => {
       const x = 70 + i * ((W - 140) / 2 + 12);
       ctx.fillStyle = C.accent;
-      ctx.font = '600 32px Poppins, sans-serif';
+      ctx.font = `600 32px ${font()}`;
       ctx.fillText(title, x, 870);
       ctx.fillStyle = C.text;
-      ctx.font = '400 30px Poppins, sans-serif';
+      ctx.font = `400 30px ${font()}`;
       items.forEach((it, j) => ctx.fillText(fit(ctx, `${j + 1}. ${it}`, (W - 140) / 2 - 30), x, 920 + j * 44));
     });
 
     // 5-Sterne-Bücher
     if (h.fiveStars.length) {
       ctx.fillStyle = C.star;
-      ctx.font = '600 32px Poppins, sans-serif';
+      ctx.font = `600 32px ${font()}`;
       ctx.fillText('★ ' + t('wrap.fiveStars'), 70, 1090);
       const five = h.fiveStars.slice(0, 6);
       const fimgs = await Promise.all(five.map(b => loadImg(b.coverUrl)));
@@ -142,7 +145,7 @@
 
     // Fuß
     ctx.fillStyle = C.muted;
-    ctx.font = '400 24px Poppins, sans-serif';
+    ctx.font = `400 24px ${font()}`;
     ctx.textAlign = 'right';
     ctx.fillText(location.host, W - 70, H - 40);
     ctx.textAlign = 'left';
