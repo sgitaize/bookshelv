@@ -9,7 +9,10 @@ set -a; source .env.deploy; set +a
 [ -f dist/server.js ] || { echo "Fehlt: dist/ – erst 'npm run build'"; exit 1; }
 
 SSH=(ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_USER@$DEPLOY_HOST")
-if [ -n "${DEPLOY_PASSWORD:-}" ]; then
+if [ -n "${DEPLOY_SSH_KEY:-}" ]; then
+  # Key hat Vorrang vor dem Passwort
+  SSH=(ssh -i "${DEPLOY_SSH_KEY/#\~/$HOME}" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new "$DEPLOY_USER@$DEPLOY_HOST")
+elif [ -n "${DEPLOY_PASSWORD:-}" ]; then
   export SSHPASS="$DEPLOY_PASSWORD"
   SSH=(sshpass -e "${SSH[@]}")
 fi
