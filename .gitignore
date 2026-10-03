@@ -3,5 +3,5 @@ dist/
 data/
 .env
 .env.*
-!.env.example
+!.env*.example
 .DS_Store
