@@ -8,6 +8,17 @@ cd "$(dirname "$0")/.."
 set -a; source .env.deploy; set +a
 [ -f dist/server.js ] || { echo "Fehlt: dist/ – erst 'npm run build'"; exit 1; }
 
+# Regel: Deploy nur von der festgelegten Maschine und nur, was auf GitHub (origin/main) liegt.
+# So landet nie Code auf Prod, der nicht im Repo gepflegt ist.
+fail() { echo "✗ Deploy abgebrochen: $1"; exit 1; }
+[ -n "${DEPLOY_FROM_HOST:-}" ] || fail "DEPLOY_FROM_HOST fehlt in .env.deploy"
+[ "$(hostname)" = "$DEPLOY_FROM_HOST" ] || fail "nur von '$DEPLOY_FROM_HOST' erlaubt, hier ist '$(hostname)'"
+[ "$(git rev-parse --abbrev-ref HEAD)" = main ] || fail "nicht auf Branch main"
+[ -z "$(git status --porcelain)" ] || fail "uncommittete Änderungen – erst committen und pushen"
+git fetch -q origin main || fail "GitHub nicht erreichbar"
+[ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || fail "lokales main ≠ origin/main – erst pushen bzw. pullen"
+COMMIT=$(git rev-parse --short HEAD)
+
 SSH=(ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_USER@$DEPLOY_HOST")
 if [ -n "${DEPLOY_SSH_KEY:-}" ]; then
   # Key hat Vorrang vor dem Passwort
@@ -34,7 +45,8 @@ COPYFILE_DISABLE=1 tar --no-xattrs -C dist -czf - server.js package.json public 
   tar -xzf - -C public.new
   mv public.new/server.js public.new/package.json .
   rm -rf public && mv public.new/public public && rm -rf public.new
+  echo $COMMIT > deployed-commit.txt
   touch tmp/restart.txt
   if [ -f data/setup-token.txt ]; then echo \"  Setup-Token: \$(cat data/setup-token.txt)\"; fi
 "
-echo "✓ Deployt. Passenger startet die App beim nächsten Aufruf neu."
+echo "✓ Deployt ($COMMIT). Passenger startet die App beim nächsten Aufruf neu."
