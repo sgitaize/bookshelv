@@ -16,6 +16,16 @@ export const reviewRoutes = router();
 
 const VISIBILITY = ['private', 'instance', 'federated'] as const;
 
+/** Stimmungen wie bei StoryGraph; LIGHT/DARK steuern die Stimmungskurve der Statistik */
+export const MOODS = ['adventurous', 'challenging', 'dark', 'emotional', 'funny', 'hopeful', 'informative', 'inspiring',
+  'lighthearted', 'mysterious', 'reflective', 'relaxing', 'romantic', 'sad', 'tense'];
+export const LIGHT = ['funny', 'hopeful', 'inspiring', 'lighthearted', 'relaxing', 'romantic'];
+export const DARK = ['challenging', 'dark', 'sad', 'tense'];
+export const PACES = ['slow', 'medium', 'fast'];
+export function parseMoods(raw: string | undefined): string[] {
+  try { const v = JSON.parse(raw || '[]'); return Array.isArray(v) ? v.filter(m => MOODS.includes(m)) : []; } catch { return []; }
+}
+
 /** Bewertung in halben Schritten oder null */
 function rating(v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null;
@@ -30,12 +40,13 @@ const VISIBLE = `(r.user_id = ? OR (r.visibility != 'private' AND u.disabled = 0
 
 type ReviewRow = {
   id: number; book_id: number; user_id: number; rating: number | null; text: string | null; visibility: string;
-  spoiler: number; created_at: string; updated_at: string; displayName: string; username: string; avatar?: string | null;
+  spoiler: number; moods?: string; pace?: string | null; created_at: string; updated_at: string; displayName: string; username: string; avatar?: string | null;
 };
 
 function reviewJson(r: ReviewRow, me: User, comments: Array<Record<string, unknown>> = []) {
   return {
     id: r.id, bookId: r.book_id, rating: r.rating, text: r.text, visibility: r.visibility, spoiler: !!r.spoiler,
+    moods: parseMoods(r.moods), pace: r.pace ?? null,
     createdAt: r.created_at, updatedAt: r.updated_at, mine: r.user_id === me.id,
     user: { id: r.user_id, displayName: r.displayName, username: r.username, avatarUrl: avatarUrl(r.avatar) },
     comments: comments.map(c => ({
@@ -119,7 +130,9 @@ reviewRoutes.put('/books/:id/review', async c => {
   const b = await body(c);
   const r = rating(b.rating);
   const text = str(b.text, 10000);
-  if (r === null && !text) {
+  const moods = Array.isArray(b.moods) ? [...new Set(b.moods.filter((m): m is string => typeof m === 'string' && MOODS.includes(m)))] : [];
+  const pace = typeof b.pace === 'string' && PACES.includes(b.pace) ? b.pace : null;
+  if (r === null && !text && !moods.length && !pace) {
     db.prepare('DELETE FROM reviews WHERE book_id = ? AND user_id = ?').run(id, u.id);
     federate(id, u.id, prev);
     return c.json(bookReviews(id, u));
@@ -127,10 +140,10 @@ reviewRoutes.put('/books/:id/review', async c => {
   // "federated" wird gespeichert, wirkt aber erst mit der Föderation (bis dahin wie "instance")
   const visibility = oneOf(b.visibility, VISIBILITY, 'instance');
   db.prepare(`
-    INSERT INTO reviews (book_id, user_id, rating, text, visibility, spoiler) VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO reviews (book_id, user_id, rating, text, visibility, spoiler, moods, pace) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT (book_id, user_id) DO UPDATE SET rating = excluded.rating, text = excluded.text,
-      visibility = excluded.visibility, spoiler = excluded.spoiler, updated_at = datetime('now')
-  `).run(id, u.id, r, text, visibility, b.spoiler ? 1 : 0);
+      visibility = excluded.visibility, spoiler = excluded.spoiler, moods = excluded.moods, pace = excluded.pace, updated_at = datetime('now')
+  `).run(id, u.id, r, text, visibility, b.spoiler ? 1 : 0, JSON.stringify(moods), pace);
   federate(id, u.id, prev);
   return c.json(bookReviews(id, u));
 });

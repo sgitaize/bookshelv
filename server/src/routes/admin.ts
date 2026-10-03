@@ -9,6 +9,7 @@ import { router, body, idParam, notFound } from '../util.ts';
 import { anonymizeBorrower } from './loans.ts';
 import { purgeAvatar } from './social.ts';
 import { retractFederatedReviews } from './reviews.ts';
+import { setting, setSetting } from '../federation.ts';
 
 export const adminRoutes = router();
 
@@ -129,4 +130,15 @@ adminRoutes.post('/refresh-genres', async c => {
     }
   }
   return c.json({ books: books.length, updated });
+});
+
+/** Instanz-Angaben: Link zum Impressum der betreibenden Person (leer = kein Link) */
+adminRoutes.get('/instance', c => { requireAdmin(c); return c.json({ imprintUrl: setting('imprint_url') ?? '' }); });
+adminRoutes.patch('/instance', async c => {
+  requireAdmin(c);
+  const b = await body(c);
+  const url = typeof b.imprintUrl === 'string' ? b.imprintUrl.trim() : '';
+  if (url && !/^https?:\/\/[^\s]+$/i.test(url)) throw new HTTPException(400, { message: 'Ungültige Adresse' });
+  setSetting('imprint_url', url.slice(0, 300));
+  return c.json({ imprintUrl: url });
 });

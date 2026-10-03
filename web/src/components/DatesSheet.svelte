@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { QueuedError } from '../lib/offline.svelte.ts';
   import { api, type Reading } from '../lib/api.ts';
   import { toastError } from '../lib/state.svelte.ts';
   import { t } from '../lib/i18n.svelte.ts';
@@ -21,7 +22,11 @@
     try {
       const r = await api.put<Reading>(`/books/${bookId}/reading`, { startedAt: started || null, ...(done ? { finishedAt: finished || null } : {}) });
       onsaved(r);
-    } catch (err) { toastError(err); } finally { busy = false; }
+    } catch (err) {
+      toastError(err);
+      // offline vorgemerkt: lokal übernehmen, Abgleich folgt
+      if (err instanceof QueuedError) onsaved({ ...reading, startedAt: started || null, ...(done ? { finishedAt: finished || null } : {}) });
+    } finally { busy = false; }
   }
 </script>
 

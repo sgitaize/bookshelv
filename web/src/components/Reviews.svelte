@@ -104,6 +104,9 @@
         <p class="text">{r.text}</p>
       {/if}
     {/if}
+    {#if r.moods?.length || r.pace}
+      <p class="tags">{#each r.moods ?? [] as m}<span>{t(`mood.${m}`)}</span>{/each}{#if r.pace}<span class="pace">{t('review.paceIs', { p: t(`pace.${r.pace}`) })}</span>{/if}</p>
+    {/if}
     <footer>
       <button class="ghost small" onclick={() => (openComments = toggle(openComments, r.id))}>
         💬 {r.comments.length ? tn('n.comments', r.comments.length) : t('comment.add')}
@@ -151,4 +154,7 @@
   .comment p { margin: 0.1rem 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
   .del { position: absolute; right: 0; top: -0.2rem; padding: 0.25rem; color: var(--muted); }
   .grow { flex: 1; min-width: 0; }
+  .tags { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.4rem 0 0; }
+  .tags span { font-size: 0.72rem; padding: 0.1em 0.6em; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+  .tags .pace { border: 1px solid var(--line); background: none; }
 </style>

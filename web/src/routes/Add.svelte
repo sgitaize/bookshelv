@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { api, ApiError, emptyCopy, type Book, type Copy, type CopyValues, type SearchHit } from '../lib/api.ts';
+  import { api, ApiError, emptyCopy, labels, type Reading, type Book, type Copy, type CopyValues, type SearchHit } from '../lib/api.ts';
   import { toast, toastError } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
   import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
@@ -15,7 +15,7 @@
   let tab = $state<Tab>((router.query.get('tab') as Tab) ?? 'scan');
 
   // ausgewähltes Buch, das ins Regal soll
-  let selected = $state<{ book: Book; owned: number } | null>(null);
+  let selected = $state<{ book: Book; owned: number; known: Reading | null } | null>(null);
   // Einstellungen vom letzten Buch übernehmen – praktisch beim Durchscannen eines ganzen Regals
   let copy = $state<CopyValues>(emptyCopy());
   let busy = $state(false);
@@ -94,9 +94,12 @@
   }
 
   async function select(book: Book) {
-    const detail = await api.get<{ copies: Copy[] }>(`/books/${book.id}`);
-    copy = { ...copy, notes: '', readStatus: 'unread' };
-    selected = { book, owned: detail.copies.filter(c => c.mine).length };
+    const detail = await api.get<{ copies: Copy[]; reading: Reading }>(`/books/${book.id}`);
+    // Schon bekannt (z. B. per Import ohne Exemplar)? Dann Lesestand und Daten übernehmen statt überschreiben
+    const r = detail.reading;
+    const known = r && (r.status !== 'unread' || r.favorite || r.progress) ? r : null;
+    copy = { ...copy, notes: '', readStatus: r?.status ?? 'unread', finishedAt: r?.finishedAt ?? undefined };
+    selected = { book, owned: detail.copies.filter(c => c.mine).length, known };
   }
 
   async function lookup(isbn: string) {
@@ -340,6 +343,7 @@
         <p class="muted small">{selected.book.authors.join(', ')}</p>
         <p class="muted small">{[selected.book.publisher, selected.book.year, selected.book.pages && t('book.pagesShort', { n: selected.book.pages })].filter(Boolean).join(' · ')}</p>
         {#if selected.owned}<p class="chip accent">{t('add.owned', { n: selected.owned })}</p>{/if}
+        {#if selected.known}<p class="chip">{t('add.known', { s: labels.read[selected.known.status] })}{#if selected.known.finishedAt} · {fmtDate(selected.known.finishedAt)}{/if}</p>{/if}
       </div>
     </div>
     <CopyForm bind:value={copy} />

@@ -2,6 +2,9 @@
   import Icon from './Icon.svelte';
   import { router } from '../lib/router.svelte.ts';
   import { notifications } from '../lib/state.svelte.ts';
+  import { pending, writes } from '../lib/offline.svelte.ts';
+  // Glocke zählt ungelesene Benachrichtigungen plus Offline-Scans, die noch auf dem Gerät warten
+  const badge = $derived(notifications.unread + pending.items.length + writes.items.length);
   import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
 
   const items = $derived([
@@ -28,9 +31,9 @@
     <input bind:value={q} type="search" placeholder={t('nav.search')} aria-label={t('nav.searchAria')} />
     <a href="/add?tab=scan" class="scan" aria-label={t('nav.scan')}><Icon name="scan" size={22} /></a>
   </form>
-  <a href="/notifications" class="bell" class:active={router.path === '/notifications'} aria-label={t('notif.bell', { n: notifications.unread })}>
+  <a href="/notifications" class="bell" class:active={router.path === '/notifications'} aria-label={t('notif.bell', { n: badge })}>
     <Icon name="bell" size={22} />
-    {#if notifications.unread}<span class="badge">{notifications.unread > 9 ? '9+' : notifications.unread}</span>{/if}
+    {#if badge}<span class="badge">{badge > 9 ? '9+' : badge}</span>{/if}
   </a>
   <nav class="desktop">
     {#each items as it}

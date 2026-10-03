@@ -1,7 +1,8 @@
 <script lang="ts">
   import { fly } from 'svelte/transition';
   import { router } from './lib/router.svelte.ts';
-  import { session, loadSession, toasts, pollNotifications } from './lib/state.svelte.ts';
+  import { session, loadSession, loadInstance, toasts, toast, pollNotifications } from './lib/state.svelte.ts';
+  import { api } from './lib/api.ts';
   import Nav from './components/Nav.svelte';
   import Auth from './routes/Auth.svelte';
   import Shelf from './routes/Shelf.svelte';
@@ -15,6 +16,7 @@
   import Loans from './routes/Loans.svelte';
   import History from './routes/History.svelte';
   import Notifications from './routes/Notifications.svelte';
+  import Privacy from './routes/Privacy.svelte';
   import Feed from './routes/Feed.svelte';
   import Wishlist from './routes/Wishlist.svelte';
   import Import from './routes/Import.svelte';
@@ -24,9 +26,10 @@
   import Stats from './routes/Stats.svelte';
   import Wrapup from './routes/Wrapup.svelte';
   import { t } from './lib/i18n.svelte.ts';
-  import { net } from './lib/offline.svelte.ts';
+  import { net, writes, flushWrites } from './lib/offline.svelte.ts';
 
   loadSession().catch(() => (session.me = null));
+  loadInstance();
 
   // Glocke aktuell halten: bei jedem Seitenwechsel (gedrosselt) und jede Minute
   $effect(() => { router.path; if (session.me && net.online) pollNotifications(); });
@@ -34,8 +37,16 @@
   let wasOffline = false;
   $effect(() => {
     if (!net.online) wasOffline = true;
-    else if (wasOffline) { wasOffline = false; loadSession().catch(() => {}); }
+    else if (wasOffline) { wasOffline = false; loadSession().then(sync).catch(() => {}); }
   });
+  // offline vorgemerkte Änderungen nachreichen (auch beim Start, falls die App offline geschlossen wurde)
+  async function sync() {
+    if (!session.me || !net.online || !writes.items.length) return;
+    const r = await flushWrites(api.sendPut);
+    if (r.ok) toast(t('offline.synced', { n: r.ok }));
+    if (r.failed) toast(t('offline.syncFailed', { n: r.failed }), 'error');
+  }
+  $effect(() => { if (session.me) sync(); });
   $effect(() => {
     const id = setInterval(() => pollNotifications(true), 60_000);
     return () => clearInterval(id);
@@ -51,6 +62,8 @@
 
 {#if session.me === undefined}
   <div class="boot"><div class="spinner"></div></div>
+{:else if session.me === null && router.path === '/privacy'}
+  <main><Privacy /></main>
 {:else if session.me === null}
   {#if invite}
     <Auth mode="register" inviteToken={invite.token} />
@@ -61,7 +74,7 @@
   {/if}
 {:else}
   <Nav />
-  {#if !net.online}<div class="offbar" role="status">{t('offline.bar')} <a href="/add">{t('offline.barScan')}</a></div>{/if}
+  {#if !net.online}<div class="offbar" role="status">{t('offline.bar')}{#if writes.items.length} {t('offline.barQueued', { n: writes.items.length })}{/if} <a href="/add">{t('offline.barScan')}</a></div>{/if}
   <main>
     {#key router.path + router.query.toString()}
       <div in:fly={{ y: 8, duration: 180 }}>
@@ -86,6 +99,7 @@
         {:else if router.path === '/stats'}<Stats />
         {:else if router.path === '/wrapup'}<Wrapup />
         {:else if router.path === '/settings'}<Settings />
+        {:else if router.path === '/privacy'}<Privacy />
         {:else if router.path === '/admin' && session.me.isAdmin}<Admin />
         {:else if invite}
           <div class="empty"><h2>{t('app.alreadyIn')}</h2><p>{t('app.passInvite')}</p><a class="btn" href="/">{t('app.toShelf')}</a></div>

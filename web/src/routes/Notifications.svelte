@@ -4,6 +4,8 @@
   import { t, type Key } from '../lib/i18n.svelte.ts';
   import Avatar from '../components/Avatar.svelte';
   import Cover from '../components/Cover.svelte';
+  import Icon from '../components/Icon.svelte';
+  import { pending, net, writes } from '../lib/offline.svelte.ts';
 
   let items = $state<NotificationItem[] | null>(null);
 
@@ -18,12 +20,30 @@
   });
 
   const href = (n: NotificationItem) =>
-    n.type === 'invite_accepted' ? `/people/${n.actor?.id}` : n.type.startsWith('loan') ? '/loans' : n.book ? `/book/${n.book.id}` : '/';
+    n.type === 'invite_accepted' ? `/people/${n.actor?.id}` : n.type.startsWith('loan') ? '/loans' : n.type === 'wish_available' && n.book ? `/book/${n.book.id}` : n.book ? `/book/${n.book.id}` : '/';
   const text = (n: NotificationItem) => t(`notif.${n.type}` as Key, { name: n.actor?.displayName ?? '–', title: n.book?.title ?? '' });
 </script>
 
 <section class="stack">
   <h1>{t('notif.title')}</h1>
+  {#if pending.items.length}
+    <a class="card item todo" href="/add">
+      <span class="ico"><Icon name="scan" size={20} /></span>
+      <div class="body">
+        <p>{t('notif.pendingScans', { n: pending.items.length })}</p>
+        <span class="muted small">{net.online ? t('notif.pendingScansGo') : t('notif.pendingScansOffline')}</span>
+      </div>
+    </a>
+  {/if}
+  {#if writes.items.length}
+    <div class="card item todo">
+      <span class="ico"><Icon name="activity" size={20} /></span>
+      <div class="body">
+        <p>{t('notif.queuedWrites', { n: writes.items.length })}</p>
+        <span class="muted small">{t('notif.queuedWritesInfo')}</span>
+      </div>
+    </div>
+  {/if}
   {#if items === null}
     <div class="spinner"></div>
   {:else if !items.length}
@@ -53,4 +73,6 @@
   .body { flex: 1; min-width: 0; }
   .body p { margin: 0 0 0.1rem; }
   .item :global(.cover.sm) { width: 40px; }
+  .todo { border-color: var(--accent); }
+  .ico { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 999px; background: var(--surface-2); color: var(--accent); }
 </style>

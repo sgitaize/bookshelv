@@ -2,8 +2,8 @@
   import { api, type ReadingListSummary, type ListVisibility } from '../lib/api.ts';
   import { toastError } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
-  import { t } from '../lib/i18n.svelte.ts';
-  import ListCard from '../components/ListCard.svelte';
+  import { t, tn } from '../lib/i18n.svelte.ts';
+  import Cover from '../components/Cover.svelte';
   import Sheet from '../components/Sheet.svelte';
   import Icon from '../components/Icon.svelte';
 
@@ -33,7 +33,30 @@
   {:else if !lists.length}
     <p class="empty">{t('list.hint')}</p>
   {:else}
-    <div class="grid">{#each lists as l (l.id)}<ListCard list={l} />{/each}</div>
+    <!-- eine Liste pro Zeile, Bücher seitlich scrollbar (wie die Reihen auf der Startseite) -->
+    {#each lists as l (l.id)}
+      <div class="lrow">
+        <div class="section-head">
+          <a class="lname" href="/lists/{l.id}">
+            <h2>{l.name}</h2>
+            <span class="muted small">{tn('list.books', l.count)}{#if l.visibility === 'private'} · {t('vis.private')}{/if}</span>
+          </a>
+          <a href="/lists/{l.id}" aria-label={l.name}><Icon name="arrow" size={22} /></a>
+        </div>
+        {#if l.preview.length}
+          <div class="book-row">
+            {#each l.preview as b (b.id)}
+              <a href="/book/{b.id}" title={b.title}><Cover url={b.coverUrl} title={b.title} authors={b.authors} /></a>
+            {/each}
+            {#if l.count > l.preview.length}
+              <a class="more" href="/lists/{l.id}"><span>+{l.count - l.preview.length}</span></a>
+            {/if}
+          </div>
+        {:else}
+          <a class="muted small" href="/lists/{l.id}">{t('list.emptyRow')}</a>
+        {/if}
+      </div>
+    {/each}
   {/if}
 </section>
 
@@ -50,6 +73,12 @@
 </Sheet>
 
 <style>
-  .grid { display: grid; gap: 0.7rem; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .lrow { padding-bottom: 0.4rem; border-bottom: 1px solid var(--line); }
+  .lrow:last-child { border-bottom: none; }
+  .lname { display: grid; gap: 0.1rem; min-width: 0; color: inherit; }
+  .lname:hover { text-decoration: none; }
+  .lname h2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1.1rem; }
+  .more { display: grid; place-items: center; aspect-ratio: 2 / 3; border-radius: 6px; background: var(--surface-2); color: var(--muted); font-weight: 600; }
+  .more:hover { text-decoration: none; color: var(--text); }
   .segmented { justify-self: start; }
 </style>

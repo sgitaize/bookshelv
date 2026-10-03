@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import { HTTPException } from 'hono/http-exception';
 import { db } from '../db.ts';
+import { wishAvailable } from '../notify.ts';
 import { requireUser, type User } from '../auth.ts';
 import { lookupIsbn, normalizeIsbn, searchCatalog, fetchCover, previewCover, deleteCoverFile, type BookData } from '../catalog.ts';
 import { router, body, str, int, oneOf, idParam, notFound } from '../util.ts';
@@ -275,9 +276,14 @@ bookRoutes.post('/copies', async c => {
   // Lesestatus gleich mit setzen (gehört zur Person, nicht zum Exemplar)
   // optional mit Datum („gelesen am …“ schon beim Eintragen)
   const day = (v: unknown) => (v === '' ? null : typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && v <= today() ? v : undefined);
-  if (b.readStatus !== undefined) setReading(u.id, bookId, { status: oneOf(b.readStatus, READ_STATUS, 'unread'), startedAt: day(b.startedAt), finishedAt: day(b.finishedAt) });
+  // gleicher Status ohne neue Daten → nichts anfassen (sonst gingen z. B. importierte Lesedaten verloren)
+  const cur = db.prepare('SELECT status FROM user_books WHERE user_id = ? AND book_id = ?').get(u.id, bookId) as { status: string } | undefined;
+  const same = cur?.status === b.readStatus && b.finishedAt === undefined && b.startedAt === undefined;
+  if (b.readStatus !== undefined && !same) setReading(u.id, bookId, { status: oneOf(b.readStatus, READ_STATUS, 'unread'), startedAt: day(b.startedAt), finishedAt: day(b.finishedAt) });
   // jetzt im Regal → nicht mehr auf der Wunschliste
   db.prepare('DELETE FROM wishlist WHERE user_id = ? AND book_id = ?').run(u.id, bookId);
+  // erstes eigenes Exemplar dieses Buchs → Freund*innen mit Wunschliste Bescheid geben
+  if (!db.prepare('SELECT 1 FROM copies WHERE book_id = ? AND owner_id = ? AND id != ?').get(bookId, u.id, id)) wishAvailable(u.id, bookId);
   return c.json({ id });
 });
 

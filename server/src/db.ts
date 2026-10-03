@@ -275,6 +275,11 @@ const migrations: string[] = [
   ALTER TABLE copies ADD COLUMN quiet INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE reviews ADD COLUMN quiet INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE list_items ADD COLUMN quiet INTEGER NOT NULL DEFAULT 0;
+  `,
+  // 10: Stimmungen + Tempo an Bewertungen (StoryGraph-Vorbild, für Statistik und Stimmungskurve)
+  `
+  ALTER TABLE reviews ADD COLUMN moods TEXT NOT NULL DEFAULT '[]';
+  ALTER TABLE reviews ADD COLUMN pace TEXT;
   `
 ];
 

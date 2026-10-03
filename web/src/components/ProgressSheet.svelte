@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { QueuedError } from '../lib/offline.svelte.ts';
   import { api, percent, type BookBrief, type ReadStatus } from '../lib/api.ts';
   import { toast, toastError } from '../lib/state.svelte.ts';
   import Sheet from './Sheet.svelte';
@@ -32,7 +33,10 @@
       toast(status === 'read' ? t('progress.finished', { title: item.book.title }) : t('progress.saved'));
       onsaved();
       onclose();
-    } catch (e) { toastError(e); } finally { busy = false; }
+    } catch (e) {
+      toastError(e);
+      if (e instanceof QueuedError) onclose();
+    } finally { busy = false; }
   }
 </script>
 

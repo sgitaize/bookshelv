@@ -49,6 +49,7 @@ export function cachedMe<T>(): T | null {
 }
 export function forgetMe() {
   try { localStorage.removeItem(ME); } catch { /* egal */ }
+  clearApiCache();
 }
 
 /**
@@ -61,4 +62,64 @@ export async function warmOfflineCache() {
     const [, { default: wasmUrl }] = await Promise.all([import('zxing-wasm/reader'), import('zxing-wasm/reader/zxing_reader.wasm?url')]);
     await fetch(wasmUrl);
   } catch { /* nächster Versuch beim nächsten Start */ }
+}
+
+// ---------- Änderungen ohne Netz (Lesestand, Bewertungen) ----------
+
+/**
+ * Nur idempotente PUTs kommen in die Warteschlange: gleiche Adresse = letzter Stand gewinnt
+ * (beim Lesestand werden die Felder zusammengeführt). Liegt je Konto im localStorage, Abgleich beim Wieder-online-Sein.
+ */
+export type QueuedWrite = { url: string; body: Record<string, unknown>; at: string };
+export const QUEUEABLE = /^\/books\/\d+\/(reading|review)$/;
+export const writes = $state<{ items: QueuedWrite[] }>({ items: [] });
+const wkey = (id: number) => `bookshelv-writes-${id}`;
+
+/** Wird vom API-Client geworfen, wenn eine Änderung offline vorgemerkt wurde (kein Fehler im eigentlichen Sinn) */
+export class QueuedError extends Error { queued = true; }
+
+function saveWrites() {
+  if (!pending.userId) return;
+  try { localStorage.setItem(wkey(pending.userId), JSON.stringify(writes.items)); } catch { /* voll/privat */ }
+}
+export function loadWrites(userId: number) {
+  try { writes.items = JSON.parse(localStorage.getItem(wkey(userId)) ?? '[]'); } catch { writes.items = []; }
+}
+export function queueWrite(url: string, body: Record<string, unknown>) {
+  const prev = writes.items.find(w => w.url === url);
+  const merged = prev && url.endsWith('/reading') ? { ...prev.body, ...body } : body;
+  writes.items = [...writes.items.filter(w => w.url !== url), { url, body: merged, at: new Date().toISOString() }];
+  saveWrites();
+}
+
+/**
+ * Vorgemerkte Änderungen nacheinander senden. Netzfehler → abbrechen und später erneut;
+ * Ablehnung durch den Server (4xx, z. B. Buch inzwischen gelöscht) → verwerfen und mitzählen.
+ */
+export async function flushWrites(send: (url: string, body: unknown) => Promise<unknown>) {
+  let ok = 0, failed = 0;
+  for (const w of [...writes.items]) {
+    try { await send(w.url, w.body); ok++; }
+    catch (e) {
+      if (isNetworkError(e)) break;
+      failed++;
+    }
+    // nur genau diesen Eintrag entfernen – eine neuere Änderung an derselben Adresse bleibt stehen
+    writes.items = writes.items.filter(x => x.url !== w.url || x.at !== w.at);
+    saveWrites();
+  }
+  return { ok, failed };
+}
+
+// ---------- Lesecache: zuletzt geladene Daten offline anzeigen ----------
+
+const API_CACHE = 'bookshelv-api-v1';
+export async function cacheGet(url: string, data: unknown) {
+  try { await (await caches.open(API_CACHE)).put(url, new Response(JSON.stringify(data), { headers: { 'content-type': 'application/json' } })); } catch { /* kein Cache-API */ }
+}
+export async function cachedGet<T>(url: string): Promise<T | undefined> {
+  try { const r = await (await caches.open(API_CACHE)).match(url); return r ? (await r.json()) as T : undefined; } catch { return undefined; }
+}
+export function clearApiCache() {
+  try { caches.delete(API_CACHE); } catch { /* egal */ }
 }

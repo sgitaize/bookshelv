@@ -10,6 +10,7 @@ import {
 import { router, body, str, idParam, notFound } from '../util.ts';
 import { anonymizeBorrower } from './loans.ts';
 import { notify } from '../notify.ts';
+import { setting } from '../federation.ts';
 import { avatarUrl, purgeAvatar } from './social.ts';
 import { retractFederatedReviews } from './reviews.ts';
 
@@ -38,12 +39,15 @@ const publicUser = (u: User) => ({
 
 const THEMES = ['night', 'light', 'paper', 'ink', 'forest', 'rose', 'system'];
 const FONTS = ['typewriter', 'modern'];
+const VISIBILITIES = ['private', 'instance', 'federated'];
 function parsePrefs(raw: string | undefined) {
   try { return JSON.parse(raw || '{}') as Record<string, string>; } catch { return {}; }
 }
 
 authRoutes.get('/status', c => c.json({
-  needsSetup: userCount() === 0, version: config.version, node: process.version
+  needsSetup: userCount() === 0, version: config.version, node: process.version,
+  // Impressum der betreibenden Person (Admin → Instanz); Datenschutzhinweis liefert die App selbst (/privacy)
+  imprintUrl: setting('imprint_url')
 }));
 
 authRoutes.post('/setup', async c => {
@@ -94,6 +98,7 @@ authRoutes.patch('/me', async c => {
     const next = parsePrefs(u.prefs);
     if (typeof p.theme === 'string' && THEMES.includes(p.theme)) next.theme = p.theme;
     if (typeof p.font === 'string' && FONTS.includes(p.font)) next.font = p.font;
+    if (typeof p.reviewVisibility === 'string' && VISIBILITIES.includes(p.reviewVisibility)) next.reviewVisibility = p.reviewVisibility;
     db.prepare('UPDATE users SET prefs = ? WHERE id = ?').run(JSON.stringify(next), u.id);
   }
   if (typeof b.shelfVisible === 'boolean') db.prepare('UPDATE users SET shelf_visible = ? WHERE id = ?').run(b.shelfVisible ? 1 : 0, u.id);

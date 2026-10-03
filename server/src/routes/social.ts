@@ -6,6 +6,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { HTTPException } from 'hono/http-exception';
 import { db } from '../db.ts';
+import { loanReminders } from '../notify.ts';
 import { config } from '../config.ts';
 import { requireUser, requireAdmin } from '../auth.ts';
 import { router, body, int, oneOf, idParam, notFound } from '../util.ts';
@@ -91,10 +92,15 @@ export function purgeAvatar(userId: number) {
 const unread = (userId: number) =>
   (db.prepare('SELECT COUNT(*) AS n FROM notifications WHERE user_id = ? AND read_at IS NULL').get(userId) as { n: number }).n;
 
-socialRoutes.get('/notifications/count', c => c.json({ unread: unread(requireUser(c).id) }));
+socialRoutes.get('/notifications/count', c => {
+  const u = requireUser(c);
+  loanReminders(u.id);
+  return c.json({ unread: unread(u.id) });
+});
 
 socialRoutes.get('/notifications', c => {
   const u = requireUser(c);
+  loanReminders(u.id);
   const rows = db.prepare(`
     SELECT n.id, n.type, n.ref_id AS refId, n.created_at AS createdAt, n.read_at AS readAt, n.actor_label AS actorLabel,
            a.id AS actorId, a.display_name AS actorName, a.avatar AS actorAvatar,

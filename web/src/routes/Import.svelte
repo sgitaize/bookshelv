@@ -1,6 +1,6 @@
 <script lang="ts">
   import { api } from '../lib/api.ts';
-  import { toast, toastError } from '../lib/state.svelte.ts';
+  import { session, toast, toastError } from '../lib/state.svelte.ts';
   import { t, fmtDate, type Key } from '../lib/i18n.svelte.ts';
   import { parseCsv, convert, convertMapped, guessMapping, listNames, FIELDS, type ImportItem, type ImportSource, type Mapping, type Field } from '../lib/importers.ts';
   import Icon from '../components/Icon.svelte';
@@ -39,7 +39,7 @@
   let reviews = $state(true);
   let wishlist = $state(true);
   let lists = $state(true);
-  let visibility = $state<'instance' | 'private'>('instance');
+  let visibility = $state<'instance' | 'private'>(session.me?.prefs?.reviewVisibility === 'private' ? 'private' : 'instance');
   let conflict = $state<'ask' | 'mine' | 'theirs'>('ask');
   let running = $state(false);
   let done = $state(0);
@@ -86,8 +86,28 @@
     return (await api.post<{ results: Result[] }>('/import', { items: batch, options, importId })).results;
   }
 
+  // Der Import läuft aus der App heraus (Pakete à 8) – Bildschirm wachhalten und vor dem Schließen warnen
+  let wake: { release: () => Promise<void> } | null = null;
+  let startedAt = 0;
+  const eta = $derived.by(() => {
+    if (!running || done < 8 || !startedAt) return null;
+    const min = Math.ceil((((Date.now() - startedAt) / done) * (items.length - done)) / 60000);
+    return min > 0 ? min : null;
+  });
+  async function keepAwake(on: boolean) {
+    try {
+      if (on) wake = await (navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void> }> } }).wakeLock?.request('screen') ?? null;
+      else { await wake?.release(); wake = null; }
+    } catch { /* nicht unterstützt oder abgelehnt */ }
+  }
+  const onLeave = (e: BeforeUnloadEvent) => { if (running) e.preventDefault(); };
+  // Sperre geht beim Wechsel in den Hintergrund verloren → beim Zurückkommen neu anfordern
+  const onVisible = () => { if (running && document.visibilityState === 'visible') keepAwake(true); };
+
   async function start() {
     running = true;
+    startedAt = Date.now();
+    keepAwake(true);
     results = []; done = 0; open = [];
     const all = items;
     // ein Import = ein Journal-Eintrag, damit er später rückgängig gemacht werden kann
@@ -108,6 +128,7 @@
     }
     running = false;
     finished = true;
+    keepAwake(false);
   }
 
   /** Entscheidungen anwenden: nur „Import übernehmen“ muss noch einmal gesendet werden */
@@ -142,6 +163,9 @@
     failed: results.filter(r => r.result === 'failed')
   });
 </script>
+
+<svelte:window onbeforeunload={onLeave} />
+<svelte:document onvisibilitychange={onVisible} />
 
 <section class="stack">
   <h1>{t('imp.title')}</h1>
@@ -244,9 +268,12 @@
         {/if}
       {/if}
 
+      {#if !finished}
+        <p class="note small" class:warn={running}>{t('imp.stayOpen')}</p>
+      {/if}
       {#if running || finished}
         <div class="bar"><span style="width: {(done / items.length) * 100}%"></span></div>
-        <p class="small muted">{t('imp.progress', { n: done, total: items.length })}</p>
+        <p class="small muted">{t('imp.progress', { n: done, total: items.length })}{#if eta} · {t('imp.eta', { n: eta })}{/if}</p>
       {/if}
       {#if !finished}
         <button class="primary" onclick={start} disabled={running}>{running ? t('imp.running') : t('imp.start', { n: items.length })}</button>
@@ -322,4 +349,6 @@
   .choices label { display: flex; gap: 0.45rem; align-items: baseline; padding: 0.45rem 0.6rem; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; overflow-wrap: anywhere; min-width: 0; }
   .choices label.on { border-color: var(--accent); }
   .src { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent); font-weight: 600; flex: none; }
+  .note { margin: 0; padding: 0.6rem 0.8rem; border-radius: 10px; background: var(--surface-2); color: var(--muted); }
+  .note.warn { color: var(--text); border: 1px solid var(--accent); }
 </style>

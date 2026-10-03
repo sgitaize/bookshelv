@@ -2,7 +2,7 @@
   import { t } from '../lib/i18n.svelte.ts';
 
   // Säulendiagramm, eine Reihe in der Akzentfarbe. Tooltip bei Hover/Antippen, Tabelle zum Aufklappen.
-  let { data, unit = '', label }: { data: { label: string; value: number; tip?: string }[]; unit?: string; label: string } = $props();
+  let { data, unit = '', label, onpick }: { data: { label: string; value: number; tip?: string }[]; unit?: string; label: string; onpick?: (i: number) => void } = $props();
 
   let active = $state<number | null>(null);
   const max = $derived(Math.max(1, ...data.map(d => d.value)));
@@ -26,7 +26,7 @@
     <div class="bars">
       {#each data as d, i}
         <button class="col" class:on={active === i}
-          onmouseenter={() => (active = i)} onfocus={() => (active = i)} onclick={() => (active = active === i ? null : i)}
+          onmouseenter={() => (active = i)} onfocus={() => (active = i)} onclick={() => (onpick && d.value ? onpick(i) : (active = active === i ? null : i))}
           aria-label="{d.label}: {d.value}{unit}">
           <span class="bar" style="height: {(d.value / top) * 100}%">
             {#if i === maxIdx && active === null}<span class="peak">{d.value}</span>{/if}

@@ -1,4 +1,5 @@
 import { t, i18n } from './i18n.svelte.ts';
+import { net, isNetworkError, QUEUEABLE, QueuedError, queueWrite, cacheGet, cachedGet } from './offline.svelte.ts';
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public data?: unknown) {
@@ -6,7 +7,31 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Offline: GETs fallen auf die zuletzt geladene Antwort zurück, Lesestand/Bewertung werden vorgemerkt (QueuedError).
+ * Alles andere wirft wie gehabt den Netzfehler.
+ */
 async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
+  try {
+    const data = await send<T>(method, url, body);
+    if (method === 'GET' && !url.startsWith('/notifications') && !url.startsWith('/status')) cacheGet(`/api${url}`, data);
+    return data;
+  } catch (e) {
+    if (!isNetworkError(e)) throw e;
+    net.online = false;
+    if (method === 'GET') {
+      const hit = await cachedGet<T>(`/api${url}`);
+      if (hit !== undefined) return hit;
+    }
+    if (method === 'PUT' && QUEUEABLE.test(url)) {
+      queueWrite(url, (body ?? {}) as Record<string, unknown>);
+      throw new QueuedError(t('offline.queued'));
+    }
+    throw e;
+  }
+}
+
+async function send<T>(method: string, url: string, body?: unknown): Promise<T> {
   // Schreibende Anfragen immer als JSON – sonst lehnt der CSRF-Schutz sie ab (z. B. DELETE ohne Inhalt)
   const json = method !== 'GET';
   const res = await fetch(`/api${url}`, {
@@ -25,7 +50,9 @@ export const api = {
   post: <T>(url: string, body: unknown = {}) => request<T>('POST', url, body),
   patch: <T>(url: string, body: unknown) => request<T>('PATCH', url, body),
   put: <T>(url: string, body: unknown) => request<T>('PUT', url, body),
-  del: <T>(url: string, body?: unknown) => request<T>('DELETE', url, body)
+  del: <T>(url: string, body?: unknown) => request<T>('DELETE', url, body),
+  /** ohne Offline-Logik (Abgleich der Warteschlange) */
+  sendPut: (url: string, body: unknown) => send('PUT', url, body)
 };
 
 // ---------- Typen ----------
@@ -68,8 +95,15 @@ export type Home = {
 
 export type Visibility = 'private' | 'instance' | 'federated';
 export type ReviewComment = { id: number; text: string; createdAt: string; user: { id: number; displayName: string; avatarUrl: string | null }; canDelete: boolean };
+export const MOODS = ['adventurous', 'challenging', 'dark', 'emotional', 'funny', 'hopeful', 'informative', 'inspiring',
+  'lighthearted', 'mysterious', 'reflective', 'relaxing', 'romantic', 'sad', 'tense'] as const;
+export type Mood = (typeof MOODS)[number];
+export const PACES = ['slow', 'medium', 'fast'] as const;
+export type Pace = (typeof PACES)[number];
+
 export type Review = {
   id: number; bookId: number; rating: number | null; text: string | null; visibility: Visibility; spoiler: boolean;
+  moods: Mood[]; pace: Pace | null;
   createdAt: string; updatedAt: string; mine: boolean; user: { id: number; displayName: string; username: string; avatarUrl: string | null };
   comments: ReviewComment[];
 };
@@ -122,7 +156,7 @@ export type Loan = {
 export type Loans = { lent: Loan[]; borrowed: Loan[]; history: Loan[] };
 
 export type NotificationItem = {
-  id: number; type: 'loan_new' | 'loan_returned' | 'comment' | 'invite_accepted'; refId: number | null; createdAt: string; read: boolean;
+  id: number; type: 'loan_new' | 'loan_returned' | 'comment' | 'invite_accepted' | 'loan_due' | 'loan_overdue' | 'wish_available'; refId: number | null; createdAt: string; read: boolean;
   actor: { id: number | null; displayName: string; avatarUrl: string | null } | null; book: BookBrief | null;
 };
 export type FeedItem = {
@@ -156,12 +190,14 @@ export const percent = (progress: number | null, pages: number | null) =>
 
 export const inviteUrl = (token: string) => `${location.origin}/invite/${token}`;
 
+export type StatGroup<N extends string = string> = { name: N; n: number; ids: number[] };
 export type Stats = {
   years: string[]; year: string | null; user: { displayName: string; username: string };
-  totals: { books: number; pages: number; avgRating: number | null; avgDays: number | null; rated: number; dnf: number };
-  perMonth: { month: number; books: number; pages: number }[]; perYear: { name: string; n: number }[];
-  ratings: { rating: number; n: number }[]; genres: { name: string; n: number }[]; authors: { name: string; n: number }[];
-  formats: { name: 'print' | 'ebook' | 'none'; n: number }[]; languages: { name: string; n: number }[];
+  totals: { books: number; pages: number; avgPages: number | null; avgRating: number | null; avgDays: number | null; rated: number; withMood: number; dnf: number };
+  perMonth: { month: number; books: number; pages: number; ids: number[]; mood: number | null }[]; perYear: StatGroup[];
+  ratings: { rating: number; n: number; ids: number[] }[]; genres: StatGroup[]; authors: StatGroup[];
+  formats: StatGroup<'print' | 'ebook' | 'none'>[]; languages: StatGroup[]; pageBuckets: StatGroup[];
+  moods: StatGroup<Mood>[]; paces: StatGroup<Pace>[]; books: Record<number, BookBrief>;
   highlights: { first: BookBrief | null; last: BookBrief | null; longest: BookBrief | null; shortest: BookBrief | null; fiveStars: BookBrief[] };
 };
 

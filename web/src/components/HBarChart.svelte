@@ -2,17 +2,19 @@
   import { t } from '../lib/i18n.svelte.ts';
 
   // Rangliste als liegende Balken (Genres, Autoren, Formate) – eine Reihe, Werte rechts in Textfarbe
-  let { data, label }: { data: { label: string; value: number }[]; label: string } = $props();
+  let { data, label, onpick }: { data: { label: string; value: number; pct?: string }[]; label: string; onpick?: (i: number) => void } = $props();
   const max = $derived(Math.max(1, ...data.map(d => d.value)));
 </script>
 
 <figure class="chart" aria-label={label}>
   <ol>
-    {#each data as d}
+    {#each data as d, i}
       <li title="{d.label}: {d.value}">
-        <span class="lbl">{d.label}</span>
-        <span class="track"><span class="bar" style="width: {(d.value / max) * 100}%"></span></span>
-        <span class="val">{d.value}</span>
+        <svelte:element this={onpick ? 'button' : 'div'} class="row" role={onpick ? undefined : 'presentation'} onclick={() => onpick?.(i)}>
+          <span class="lbl">{d.label}</span>
+          <span class="track"><span class="bar" style="width: {(d.value / max) * 100}%"></span></span>
+          <span class="val">{d.value}{#if d.pct}<small> · {d.pct}</small>{/if}</span>
+        </svelte:element>
       </li>
     {/each}
   </ol>
@@ -25,12 +27,15 @@
 <style>
   .chart { margin: 0; }
   ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
-  li { display: grid; grid-template-columns: minmax(6rem, 38%) 1fr 2rem; align-items: center; gap: 0.6rem; }
+  .row { display: grid; grid-template-columns: minmax(6rem, 38%) 1fr auto; align-items: center; gap: 0.6rem; width: 100%; padding: 0; border: none; background: none; border-radius: 0; text-align: left; font: inherit; color: inherit; }
+  button.row { cursor: pointer; }
+  button.row:hover, button.row:active { background: none; transform: none; }
+  .val small { font-size: 0.72rem; }
   .lbl { font-size: 0.82rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .track { height: 12px; }
   .bar { display: block; height: 100%; background: var(--accent); border-radius: 0 4px 4px 0; min-width: 2px; }
-  li:hover .bar { background: var(--accent-2); }
-  .val { font-size: 0.8rem; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+  .row:hover .bar { background: var(--accent-2); }
+  .val { font-size: 0.8rem; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; min-width: 2rem; white-space: nowrap; }
   .table { margin-top: 0.5rem; font-size: 0.8rem; color: var(--muted); }
   .table summary { cursor: pointer; }
   table { border-collapse: collapse; margin-top: 0.3rem; }

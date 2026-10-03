@@ -35,6 +35,20 @@ await page.waitForFunction(() => !document.querySelector('.ps'), { timeout: 1500
 const wish = await page.evaluate(() => fetch('/api/wishlist').then(r => r.json()));
 check('offline scan completed to wishlist', wish.some(w => w.book.isbn13 === '9783847901846' || /Babel/.test(w.book.title)), JSON.stringify(wish.map(w => w.book.title)));
 check('queue emptied', (await page.evaluate(id => JSON.parse(localStorage.getItem(`bookshelv-scans-${id}`) ?? '[]').length, me.id)) === 0);
+
+// Lesecache + Änderungs-Warteschlange: Buchseite offline aus dem Cache, vorgemerkter Lesestand wird online übertragen
+await page.goto(base + '/book/1', { waitUntil: 'networkidle0' });
+const title = await page.evaluate(() => document.querySelector('h1')?.textContent ?? '');
+await page.setOfflineMode(true);
+await page.goto(base + '/book/1', { waitUntil: 'domcontentloaded' }).catch(() => {});
+await page.waitForFunction(t => document.querySelector('h1')?.textContent === t, { timeout: 8000 }, title).catch(() => {});
+check('book page from cache offline', title && (await page.evaluate(() => document.querySelector('h1')?.textContent)) === title, title);
+await page.evaluate(id => localStorage.setItem(`bookshelv-writes-${id}`, JSON.stringify([{ url: '/books/1/reading', body: { status: 'reading', progress: 42 }, at: new Date().toISOString() }])), me.id);
+await page.setOfflineMode(false);
+await page.goto(base + '/', { waitUntil: 'networkidle0' });
+await page.waitForFunction(id => JSON.parse(localStorage.getItem(`bookshelv-writes-${id}`) ?? '[]').length === 0, { timeout: 10000 }, me.id).catch(() => {});
+const rd = await page.evaluate(() => fetch('/api/books/1').then(r => r.json()));
+check('queued reading synced', rd.reading?.progress === 42 && rd.reading?.status === 'reading', JSON.stringify(rd.reading));
 await browser.close();
 console.log(`Offline-Test: ${ok} ok, ${fail} fehlgeschlagen`);
 if (fail) process.exitCode = 1;

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { api, inviteUrl, type Invite } from '../lib/api.ts';
-  import { session, toast, toastError } from '../lib/state.svelte.ts';
+  import { session, toast, toastError, instance } from '../lib/state.svelte.ts';
   import Icon from '../components/Icon.svelte';
   import FederationAdmin from '../components/FederationAdmin.svelte';
   import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
@@ -9,6 +9,12 @@
   type AdminUser = { id: number; username: string; displayName: string; isAdmin: boolean; disabled: boolean; createdAt: string; invitedBy: string | null; copies: number; lastLogin: string | null; hasAvatar: boolean };
 
   let stats = $state<Stats | null>(null);
+  let imprintUrl = $state(instance.imprintUrl);
+  async function saveInstance(e: SubmitEvent) {
+    e.preventDefault();
+    try { instance.imprintUrl = (await api.patch<{ imprintUrl: string }>('/admin/instance', { imprintUrl })).imprintUrl; toast(t('admin.saved')); }
+    catch (err) { toastError(err); }
+  }
   let users = $state<AdminUser[]>([]);
   let invites = $state<Invite[]>([]);
   let resetFor = $state<{ name: string; password: string } | null>(null);
@@ -119,6 +125,13 @@
       {/each}
     </div>
   </div>
+
+  <form class="card stack" onsubmit={saveInstance}>
+    <h2>{t('admin.instance')}</h2>
+    <label class="field"><span>{t('admin.imprintUrl')}</span><input type="url" bind:value={imprintUrl} placeholder="https://…/impressum" maxlength="300" /></label>
+    <span class="muted small">{t('admin.imprintInfo')} · <a href="/privacy">{t('privacy.title')}</a></span>
+    <button class="primary">{t('common.save')}</button>
+  </form>
 
   <FederationAdmin />
 

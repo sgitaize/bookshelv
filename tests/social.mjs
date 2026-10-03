@@ -46,6 +46,27 @@ check('comment notification', n.items.some(i => i.type === 'comment' && i.book?.
 check('mark read', (await anna('POST', '/notifications/read')).data.unread === 0 && (await anna('GET', '/notifications/count')).data.unread === 0);
 await anna('POST', `/reviews/${rev.id}/comments`, { text: 'Danke' });
 check('no self-notification', (await anna('GET', '/notifications/count')).data.unread === 0);
+
+// Verleih-Erinnerungen (bald fällig / überfällig) an beide Seiten, je Verleih nur einmal
+const isoDay = d => new Date(Date.now() + d * 86400_000).toISOString().slice(0, 10);
+const due = (await simon('POST', `/copies/${copy.id}/loans`, { borrowerId: annaId, lentAt: isoDay(-10), dueAt: isoDay(1) })).data;
+await anna('POST', '/notifications/read');
+n = (await anna('GET', '/notifications')).data;
+check('loan_due to borrower', n.items.some(i => i.type === 'loan_due' && i.refId === due.id), JSON.stringify(n.items.slice(0, 2)));
+check('loan_due to lender', (await simon('GET', '/notifications')).data.items.some(i => i.type === 'loan_due' && i.refId === due.id && i.actor?.id === annaId));
+await anna('GET', '/notifications/count');
+check('loan_due once', (await anna('GET', '/notifications')).data.items.filter(i => i.type === 'loan_due' && i.refId === due.id).length === 1);
+await anna('POST', `/loans/${due.id}/return`);
+
+// Wunschliste: Freund*in stellt das Buch ins Regal → Benachrichtigung
+const wb = (await simon('POST', '/books', { title: 'Wunschbuch für die Glocke', authors: ['Testerin'] })).data;
+await anna('PUT', `/books/${wb.id}/wishlist`, {});
+await anna('POST', '/notifications/read');
+await simon('POST', '/copies', { bookId: wb.id, format: 'print', binding: 'paperback' });
+n = (await anna('GET', '/notifications')).data;
+check('wish_available', n.items.some(i => i.type === 'wish_available' && i.book?.id === wb.id), JSON.stringify(n.items[0]));
+await simon('POST', '/copies', { bookId: wb.id, format: 'ebook' });
+check('wish_available only once', (await anna('GET', '/notifications')).data.items.filter(i => i.type === 'wish_available' && i.book?.id === wb.id).length === 1);
 const inv = (await simon('POST', '/invites', {})).data;
 const carl = client();
 await carl('POST', '/register', { token: inv.token, username: 'carl', password: 'geheim1234' });

@@ -6,7 +6,7 @@ export const THEMES = ['night', 'light', 'paper', 'ink', 'forest', 'rose', 'syst
 export type Theme = (typeof THEMES)[number];
 export const FONTS = ['typewriter', 'modern'] as const;
 export type Font = (typeof FONTS)[number];
-export type Prefs = { theme?: Theme; font?: Font };
+export type Prefs = { theme?: Theme; font?: Font; reviewVisibility?: 'private' | 'instance' | 'federated' };
 
 /** Vorschaufarben für die Auswahl (Hintergrund, Fläche, Akzent) und Farbe der Browserleiste */
 export const SWATCH: Record<Exclude<Theme, 'system'>, [string, string, string]> = {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { QueuedError } from '../lib/offline.svelte.ts';
   import { api, labels, emptyCopy, percent, type Book, type Copy, type CopyValues, type Reading, type ReadStatus } from '../lib/api.ts';
   import ProgressSheet from '../components/ProgressSheet.svelte';
   import Reviews from '../components/Reviews.svelte';
@@ -68,7 +69,10 @@
       data!.reading = await api.put<Reading>(`/books/${id}/reading`, patch);
       // gerade fertig gelesen/abgebrochen → erst fragen, wann (vorbelegt mit heute), danach zum Bewerten einladen
       if ((patch.status === 'read' || patch.status === 'dnf') && before !== patch.status) { datesJust = true; datesOpen = true; }
-    } catch (e) { toastError(e); }
+    } catch (e) {
+      toastError(e);
+      if (e instanceof QueuedError) data!.reading = { ...data!.reading, ...patch };
+    }
   }
 
   const fmtDate = (d: string | null) => fmtD(d);

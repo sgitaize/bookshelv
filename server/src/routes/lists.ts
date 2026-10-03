@@ -15,14 +15,14 @@ type ListRow = { id: number; user_id: number; name: string; description: string 
 
 const BRIEF = 'b.id AS bookId, b.title, b.subtitle, b.authors, b.year, b.pages, b.cover';
 
-/** Listen eines Nutzers mit Anzahl und den ersten vier Covern (für die Kachel) */
+/** Listen eines Nutzers mit Anzahl und den ersten 20 Covern (Reihe in der Listenübersicht, Kachel nimmt drei) */
 export function listsOf(ownerId: number, includePrivate: boolean) {
   const rows = db.prepare(`
     SELECT l.*, (SELECT COUNT(*) FROM list_items WHERE list_id = l.id) AS n
     FROM lists l WHERE l.user_id = ? ${includePrivate ? '' : "AND l.visibility = 'instance'"}
     ORDER BY l.updated_at DESC
   `).all(ownerId) as Array<ListRow & { n: number }>;
-  const covers = db.prepare(`SELECT ${BRIEF} FROM list_items li JOIN books b ON b.id = li.book_id WHERE li.list_id = ? ORDER BY li.position LIMIT 4`);
+  const covers = db.prepare(`SELECT ${BRIEF} FROM list_items li JOIN books b ON b.id = li.book_id WHERE li.list_id = ? ORDER BY li.position LIMIT 20`);
   return rows.map(l => ({
     id: l.id, name: l.name, description: l.description, visibility: l.visibility, updatedAt: l.updated_at, count: l.n,
     preview: (covers.all(l.id) as Array<Record<string, unknown>>).map(bookBrief)
