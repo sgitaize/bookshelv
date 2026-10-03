@@ -112,6 +112,28 @@ async function dnbQuery(query: string, max: number): Promise<BookData[]> {
     .filter((b): b is BookData => b !== null);
 }
 
+/**
+ * Genres aus dem MARC21-Datensatz der DNB: oai_dc liefert nur die grobe Sachgruppe ("B Belletristik"),
+ * das eigentliche Genre steht in Feld 655 (GND-Gattung) und in der Buchhandels-Warengruppe (653 "(VLB-WN)…").
+ */
+export async function dnbGenres(isbn: string): Promise<string[]> {
+  const res = await get(`https://services.dnb.de/sru/dnb?version=1.1&operation=searchRetrieve&recordSchema=MARC21-xml`
+    + `&maximumRecords=1&query=${encodeURIComponent('num=' + isbn)}`);
+  if (!res) return [];
+  const xml = await res.text();
+  const fields = (tag: string) => [...xml.matchAll(new RegExp(`<datafield tag="${tag}"[^>]*>([\\s\\S]*?)</datafield>`, 'g'))]
+    .map(m => [...m[1].matchAll(/<subfield code="a">([^<]*)<\/subfield>/g)].map(x => decodeXml(x[1]).trim()));
+  const genres: string[] = [];
+  for (const [a] of fields('655')) if (a) genres.push(a);
+  for (const subs of fields('653')) for (const a of subs) {
+    // "(VLB-WN)2121: Taschenbuch / Belletristik/Krimis, Thriller, Spionage" → "Krimis, Thriller, Spionage"
+    const m = a.match(/^\(VLB-WN\)\d+:\s*(.*)$/);
+    if (m) genres.push(...m[1].split('/').map(x => x.trim()).filter(x => x && !/^(Taschenbuch|Hardcover|Softcover)$/i.test(x)));
+  }
+  // zu allgemein, steht bei fast jedem Roman
+  return [...new Set(genres)].filter(g => g !== 'Fiktionale Darstellung');
+}
+
 // ---------- Open Library ----------
 
 type OlEdition = {
@@ -162,7 +184,7 @@ async function olSearch(q: string, max: number): Promise<SearchHit[]> {
 
 /** Metadaten zu einer ISBN aus allen Quellen zusammenführen. */
 export async function lookupIsbn(isbn13: string): Promise<BookData | null> {
-  const [dnb, ol] = await Promise.all([dnbQuery(`num=${isbn13}`, 1).then(r => r[0] ?? null), olByIsbn(isbn13)]);
+  const [dnb, ol, genres] = await Promise.all([dnbQuery(`num=${isbn13}`, 1).then(r => r[0] ?? null), olByIsbn(isbn13), dnbGenres(isbn13)]);
   if (!dnb && !ol) return null;
   // DNB-Titel sind für deutsche Bücher meist korrekter, Open Library ergänzt Lücken
   const a = dnb ?? ol!, b = ol ?? dnb!;
@@ -175,7 +197,8 @@ export async function lookupIsbn(isbn13: string): Promise<BookData | null> {
     year: a.year ?? b.year,
     pages: b.pages ?? a.pages,
     language: a.language ?? b.language,
-    subjects: [...new Set([...a.subjects, ...b.subjects])].slice(0, 15),
+    // Genres zuerst, dann Sachgruppen; die DDC-Sprachgruppe ("830 Deutsche Literatur" → "Deutsche Literatur") bleibt dahinter
+    subjects: [...new Set([...genres, ...a.subjects, ...b.subjects])].slice(0, 15),
     source: [dnb && 'dnb', ol && 'openlibrary'].filter(Boolean).join('+')
   };
 }

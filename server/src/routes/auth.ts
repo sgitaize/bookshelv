@@ -8,6 +8,7 @@ import {
   checkLoginThrottle, recordLoginFailure, clearLoginFailures, randomToken, type User
 } from '../auth.ts';
 import { router, body, str, idParam, notFound } from '../util.ts';
+import { anonymizeBorrower } from './loans.ts';
 
 export const authRoutes = router();
 
@@ -124,6 +125,7 @@ authRoutes.delete('/me', async c => {
   if (u.is_admin && (db.prepare('SELECT COUNT(*) AS n FROM users WHERE is_admin = 1').get() as { n: number }).n === 1)
     throw new HTTPException(409, { message: 'Du bist der einzige Admin – ernenne zuerst einen anderen Admin' });
   endSession(c);
+  anonymizeBorrower(u.id);
   db.prepare('DELETE FROM users WHERE id = ?').run(u.id);
   return c.json({ ok: true });
 });

@@ -4,8 +4,9 @@ import { HTTPException } from 'hono/http-exception';
 import { db } from '../db.ts';
 import { config } from '../config.ts';
 import { requireAdmin, hashPassword, randomToken } from '../auth.ts';
-import { deleteCoverFile, prunePreviews } from '../catalog.ts';
+import { deleteCoverFile, prunePreviews, dnbGenres } from '../catalog.ts';
 import { router, body, idParam, notFound } from '../util.ts';
+import { anonymizeBorrower } from './loans.ts';
 
 export const adminRoutes = router();
 
@@ -70,6 +71,7 @@ adminRoutes.delete('/users/:id', c => {
   const me = requireAdmin(c);
   const id = idParam(c);
   if (id === me.id) throw new HTTPException(400, { message: 'Eigenes Konto bitte über die Einstellungen löschen' });
+  anonymizeBorrower(id);
   if (!db.prepare('DELETE FROM users WHERE id = ?').run(id).changes) throw notFound('Nutzer');
   return c.json({ ok: true });
 });
@@ -99,4 +101,22 @@ adminRoutes.post('/cleanup', c => {
   prunePreviews(0);
   db.exec('VACUUM');
   return c.json({ books: orphans.length, invites: Number(invites) });
+});
+
+/** Genres für vorhandene Bücher aus dem DNB-MARC-Datensatz nachladen (nacheinander, um die DNB zu schonen) */
+adminRoutes.post('/refresh-genres', async c => {
+  requireAdmin(c);
+  const books = db.prepare('SELECT id, isbn13, subjects FROM books WHERE isbn13 IS NOT NULL').all() as { id: number; isbn13: string; subjects: string }[];
+  let updated = 0;
+  for (const b of books) {
+    const genres = await dnbGenres(b.isbn13);
+    if (!genres.length) continue;
+    const old = JSON.parse(b.subjects) as string[];
+    const merged = [...new Set([...genres, ...old])].slice(0, 15);
+    if (JSON.stringify(merged) !== b.subjects) {
+      db.prepare('UPDATE books SET subjects = ? WHERE id = ?').run(JSON.stringify(merged), b.id);
+      updated++;
+    }
+  }
+  return c.json({ books: books.length, updated });
 });

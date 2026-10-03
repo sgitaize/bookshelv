@@ -10,6 +10,7 @@ import { authRoutes } from './routes/auth.ts';
 import { bookRoutes } from './routes/books.ts';
 import { readingRoutes } from './routes/reading.ts';
 import { reviewRoutes } from './routes/reviews.ts';
+import { loanRoutes } from './routes/loans.ts';
 import { adminRoutes } from './routes/admin.ts';
 import { router } from './util.ts';
 import { translate } from './i18n.ts';
@@ -38,6 +39,7 @@ app.route('/api', authRoutes);
 app.route('/api', bookRoutes);
 app.route('/api', readingRoutes);
 app.route('/api', reviewRoutes);
+app.route('/api', loanRoutes);
 app.route('/api/admin', adminRoutes);
 app.all('/api/*', c => c.json({ error: translate('Unbekannter Endpunkt', c.req.header('x-lang')) }, 404));
 

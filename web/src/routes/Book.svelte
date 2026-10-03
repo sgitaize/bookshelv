@@ -2,6 +2,7 @@
   import { api, labels, emptyCopy, percent, type Book, type Copy, type CopyValues, type Reading, type ReadStatus } from '../lib/api.ts';
   import ProgressSheet from '../components/ProgressSheet.svelte';
   import Reviews from '../components/Reviews.svelte';
+  import LendSheet from '../components/LendSheet.svelte';
   import { toast, toastError } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
   import { t, tn, i18n, fmtDate as fmtD } from '../lib/i18n.svelte.ts';
@@ -15,6 +16,15 @@
   let data = $state<{ book: Book; copies: Copy[]; canEdit: boolean; reading: Reading } | null>(null);
   let progressOpen = $state(false);
   let askReview = $state(false);
+  let lendCopy = $state<number | null>(null);
+
+  async function gotBack(loanId: number) {
+    try {
+      await api.post(`/loans/${loanId}/return`, {});
+      toast(t('loan.returned'));
+      await load();
+    } catch (e) { toastError(e); }
+  }
   let editing = $state<{ copyId: number | null; values: CopyValues } | null>(null);
   let editBook = $state<{ title: string; subtitle: string; authors: string; publisher: string; year: string; pages: string } | null>(null);
   let busy = $state(false);
@@ -164,6 +174,17 @@
           <strong>{describe(c)}</strong>
           {#if c.sprayedEdges}<div class="row tags"><span class="chip edge">{t('copy.edges')}</span></div>{/if}
           {#if c.notes}<p class="muted small note">{c.notes}</p>{/if}
+          {#if c.loan}
+            <p class="loaninfo small">
+              <Icon name="users" size={14} /> {t('loan.lentTo', { name: c.loan.borrowerName ?? '–' })} · {t('loan.since', { d: fmtDate(c.loan.lentAt) })}{#if c.loan.dueAt} · {t('loan.dueOn', { d: fmtDate(c.loan.dueAt) })}{/if}
+            </p>
+            <div class="row loanacts">
+              <button class="small primary" onclick={() => gotBack(c.loan!.id!)}><Icon name="check" size={14} /> {t('loan.back')}</button>
+              <a class="small" href="/loans">{t('loan.all')}</a>
+            </div>
+          {:else}
+            <button class="small lendbtn" onclick={() => (lendCopy = c.id)}><Icon name="users" size={14} /> {t('loan.lend')}</button>
+          {/if}
         </div>
         <button class="icon ghost" aria-label={t('common.edit')}
           onclick={() => (editing = { copyId: c.id, values: { format: c.format, binding: c.binding, sprayedEdges: c.sprayedEdges, readStatus: c.readStatus, notes: c.notes ?? '' } })}>
@@ -179,7 +200,7 @@
           <span class="avatar">{c.ownerName.slice(0, 1).toUpperCase()}</span>
           <div class="grow">
             <strong>{c.ownerName}</strong>
-            <div class="muted small">{describe(c)} · {labels.read[c.readStatus]}</div>
+            <div class="muted small">{describe(c)} · {labels.read[c.readStatus]}{#if c.loan} · {c.loan.borrowerName ? t('loan.at', { name: c.loan.borrowerName }) : t('loan.lentOut')}{/if}</div>
           </div>
           {#if c.sprayedEdges}<span class="chip edge">{t('copy.edges')}</span>{/if}
         </a>
@@ -192,6 +213,8 @@
   <ProgressSheet item={progressOpen ? { book: data.book, progress: data.reading.progress, status: data.reading.status } : null}
     onclose={() => (progressOpen = false)} onsaved={load} />
 {/if}
+
+<LendSheet copyId={lendCopy} title={data?.book.title ?? ''} onclose={() => (lendCopy = null)} onsaved={load} />
 
 <Sheet open={!!editing} onclose={() => (editing = null)} title={editing?.copyId ? t('book.editCopy') : t('book.addCopy')}>
   {#if editing}
@@ -261,6 +284,11 @@
   .fmt { color: var(--accent); }
   .tags { margin-top: 0.3rem; gap: 0.3rem; }
   .note { margin: 0.4rem 0 0; white-space: pre-wrap; }
+  .loaninfo { margin: 0.5rem 0 0; display: flex; align-items: center; gap: 0.35rem; color: var(--accent); font-weight: 500; flex-wrap: wrap; }
+  .loanacts { margin-top: 0.4rem; gap: 0.6rem; }
+  button.small { padding: 0.35em 0.75em; font-size: 0.82rem; }
+  a.small { font-size: 0.82rem; }
+  .lendbtn { margin-top: 0.5rem; }
   .avatar {
     width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0;
     background: var(--surface-3); font-weight: 700; color: var(--accent);

@@ -33,11 +33,15 @@ const EN: Record<string, string> = {
   'Ungültige ISBN': 'Invalid ISBN',
   'Ungültige Zahl': 'Invalid number',
   'Ungültiger Text': 'Invalid text',
+  'Dieses Exemplar ist schon verliehen': 'This copy is already lent out',
+  'An wen? Person auswählen oder Namen eingeben': 'To whom? Pick a person or enter a name',
+  'An dich selbst kannst du nicht verleihen': 'You cannot lend a book to yourself',
+  'Rückgabe kann nicht vor dem Verleihdatum liegen': 'The return date cannot be before the lending date',
   'Zu viele Fehlversuche – bitte in ein paar Minuten erneut versuchen': 'Too many failed attempts – please try again in a few minutes'
 };
 
 const NOUNS: Record<string, string> = {
-  Buch: 'Book', Einladung: 'Invitation', Exemplar: 'Copy', Kommentar: 'Comment', Nutzer: 'User', Review: 'Review', Eintrag: 'Entry'
+  Buch: 'Book', Einladung: 'Invitation', Exemplar: 'Copy', Kommentar: 'Comment', Nutzer: 'User', Review: 'Review', Eintrag: 'Entry', Verleih: 'Loan'
 };
 
 export function translate(msg: string, lang: string | undefined): string {

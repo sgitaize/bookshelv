@@ -5,6 +5,7 @@ import { requireUser, type User } from '../auth.ts';
 import { lookupIsbn, normalizeIsbn, searchCatalog, fetchCover, previewCover, type BookData } from '../catalog.ts';
 import { router, body, str, int, oneOf, idParam, notFound } from '../util.ts';
 import { setReading, readingJson, READ_STATUS, type ReadingRow } from './reading.ts';
+import { openLoanFor } from './loans.ts';
 
 export const bookRoutes = router();
 
@@ -141,8 +142,20 @@ bookRoutes.get('/books/:id', c => {
     book: bookJson(book),
     canEdit: !!u.is_admin || book.created_by === u.id,
     reading: readingJson(reading),
-    copies: copies.map(cp => ({ ...cp, sprayedEdges: !!cp.sprayedEdges, mine: cp.ownerId === u.id,
-      notes: cp.ownerId === u.id ? cp.notes : null }))
+    copies: copies.map(cp => {
+      const mine = cp.ownerId === u.id;
+      const loan = openLoanFor(cp.id as number);
+      const borrowerName = loan?.borrower_id
+        ? (db.prepare('SELECT display_name AS n FROM users WHERE id = ?').get(loan.borrower_id) as { n: string } | undefined)?.n ?? null
+        : null;
+      return {
+        ...cp, sprayedEdges: !!cp.sprayedEdges, mine, notes: mine ? cp.notes : null,
+        // Verleih: Verleiher sieht alles, andere nur registrierte Entleiher (keine Freitext-Namen Dritter)
+        loan: !loan ? null : mine
+          ? { id: loan.id, borrowerId: loan.borrower_id, borrowerName: borrowerName ?? loan.borrower_name, lentAt: loan.lent_at, dueAt: loan.due_at, note: loan.note }
+          : { id: null, borrowerId: loan.borrower_id, borrowerName, lentAt: loan.lent_at, dueAt: null, note: null }
+      };
+    })
   });
 });
 

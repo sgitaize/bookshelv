@@ -60,6 +60,15 @@
     } catch (e) { toastError(e); }
   }
 
+  let refreshing = $state(false);
+  async function refreshGenres() {
+    refreshing = true;
+    try {
+      const r = await api.post<{ books: number; updated: number }>('/admin/refresh-genres');
+      toast(t('admin.genresDone', { n: r.updated, total: r.books }));
+    } catch (e) { toastError(e); } finally { refreshing = false; }
+  }
+
   const mb = (b: number) => `${(b / 1024 / 1024).toFixed(1)} MB`;
   const date = (d: string | null) => d ? fmtDate(d) : '–';
 </script>
@@ -81,6 +90,7 @@
     <div class="card spread">
       <span class="muted small">{t('admin.orphans', { n: stats.orphanBooks })} · bookshelv {stats.version} · Node {stats.node}</span>
       <button onclick={cleanup}><Icon name="trash" size={16} /> {t('admin.cleanup')}</button>
+      <button onclick={refreshGenres} disabled={refreshing}><Icon name="sparkle" size={16} /> {refreshing ? t('admin.genresBusy') : t('admin.genres')}</button>
     </div>
   {/if}
 

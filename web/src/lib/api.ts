@@ -96,10 +96,20 @@ export type Profile = {
   favorites: BookBrief[]; reading: BookBrief[];
 };
 
+export type CopyLoan = { id: number | null; borrowerId: number | null; borrowerName: string | null; lentAt: string; dueAt: string | null; note: string | null };
+
 export type Copy = {
   id: number; format: Format; binding: Binding | null; sprayedEdges: boolean; readStatus: ReadStatus;
   notes: string | null; createdAt: string; ownerId: number; ownerName: string; mine: boolean;
+  loan: CopyLoan | null;
 };
+
+export type Loan = {
+  id: number; copyId: number; lentAt: string; dueAt: string | null; returnedAt: string | null; overdue: boolean; note: string | null;
+  lender: { id: number; displayName: string }; borrower: { id: number | null; displayName: string } | null; mine: boolean;
+  copy: { format: Format; binding: Binding | null }; book: BookBrief;
+};
+export type Loans = { lent: Loan[]; borrowed: Loan[]; history: Loan[] };
 
 export type SearchHit = {
   isbn13: string; title: string; subtitle: string | null; authors: string[]; publisher: string | null;

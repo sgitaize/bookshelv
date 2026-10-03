@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { api, percent, ago, fmtRating, type Home, type ReadingItem, type RecentReview } from '../lib/api.ts';
+  import { api, percent, ago, fmtRating, type Home, type ReadingItem, type RecentReview, type Loans } from '../lib/api.ts';
   import Stars from '../components/Stars.svelte';
   import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
   import { session, toastError } from '../lib/state.svelte.ts';
@@ -11,8 +11,10 @@
   let editing = $state<ReadingItem | null>(null);
 
   let recent = $state<RecentReview[]>([]);
+  let loans = $state<Loans | null>(null);
   const load = () => Promise.all([
     api.get<Home>('/home').then(r => (home = r)),
+    api.get<Loans>('/loans').then(r => (loans = r)),
     api.get<RecentReview[]>('/reviews/recent').then(r => (recent = r))
   ]).catch(toastError);
   $effect(() => { load(); });
@@ -65,6 +67,27 @@
       </div>
     </section>
     <hr class="sep" />
+  {/if}
+
+  {#if loans?.lent.some(l => l.overdue)}
+    <a class="card overdue" href="/loans">⚠ {t('loan.overdueHome', { n: loans.lent.filter(l => l.overdue).length })}</a>
+  {/if}
+
+  {#if loans?.borrowed.length}
+    <section>
+      <div class="section-head">
+        <h2>{t('loan.borrowedHome')}</h2>
+        <a href="/loans?tab=borrowed" aria-label={t('loan.all')}><Icon name="arrow" /></a>
+      </div>
+      <div class="book-row">
+        {#each loans.borrowed as l (l.id)}
+          <a href="/book/{l.book.id}" class="borrowed">
+            <Cover url={l.book.coverUrl} title={l.book.title} authors={l.book.authors} />
+            <span class="from" class:late={l.overdue}>{t('loan.from', { name: l.lender.displayName })}</span>
+          </a>
+        {/each}
+      </div>
+    </section>
   {/if}
 
   {#if home.toRead.length}
@@ -155,6 +178,12 @@
   .pct { position: relative; font-size: 0.72rem; font-weight: 600; color: var(--text); padding-left: 6px; line-height: 22px; display: block; text-align: left; }
   .pen { padding: 0.25rem; color: var(--muted); }
   section { margin-bottom: 1.6rem; }
+  .overdue { display: block; margin-bottom: 1.4rem; color: var(--danger); font-weight: 600; border-color: color-mix(in srgb, var(--danger) 50%, transparent); }
+  .overdue:hover { text-decoration: none; }
+  .borrowed { display: grid; gap: 0.35rem; color: var(--text); }
+  .borrowed:hover { text-decoration: none; }
+  .from { font-size: 0.75rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .from.late { color: var(--danger); font-weight: 600; }
   .feed { display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
   .item { display: flex; gap: 0.9rem; padding: 0.8rem; color: var(--text); align-items: flex-start; }
   .item:hover { text-decoration: none; border-color: var(--surface-3); }
