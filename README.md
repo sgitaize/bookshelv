@@ -27,6 +27,8 @@ The interface looks like it came out of a typewriter by default (Courier Prime a
 
 The browser only ever talks to your own server. Catalogue searches and cover images are fetched server-side and cached locally, so the DNB and Open Library never see your users' IP addresses. There are no external fonts, CDNs, analytics or tracking. The only cookie is the session cookie, so no cookie banner is needed. Users can export all of their data as JSON and delete their account themselves, and each user decides whether others can see their shelf.
 
+If you run an instance in Germany (or anywhere else that wants an imprint), fill in your details under Admin → Instance. bookshelv then generates an imprint and a privacy policy that matches what the app actually does, at `/legal`, linked from the sign-in page and the settings. Your details stay in your database and never end up in the repository.
+
 ## How it's built
 
 The backend is Node.js with [Hono](https://hono.dev) and the SQLite driver that ships with Node (`node:sqlite`, Node 22.13 or newer). esbuild bundles it into a single `server.js` with no `node_modules`, which is what makes it easy to run on ordinary shared hosting. The frontend is Svelte 5 with Vite. Barcode scanning uses the browser's BarcodeDetector where available and falls back to zxing-wasm (served from your own server).

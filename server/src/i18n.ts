@@ -50,6 +50,7 @@ const EN: Record<string, string> = {
   'Ungültige Adresse – Format @name@instanz': 'Invalid address – format @name@instance',
   'Diese Instanz ist nicht gekoppelt': 'This instance is not linked',
   'Ungültige Adresse': 'Invalid address',
+  'Ungültige E-Mail-Adresse': 'Invalid email address',
   'Eigene Adresse ist nicht bekannt': 'This instance does not know its own address yet',
   'Das ist diese Instanz': 'That is this instance',
   'Dort läuft keine erreichbare bookshelv-Instanz': 'No reachable bookshelv instance at that address',

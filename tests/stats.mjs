@@ -36,6 +36,11 @@ check('imprint bad url 400', (await req('PATCH', '/admin/instance', { imprintUrl
 await req('PATCH', '/admin/instance', { imprintUrl: 'https://example.org/imprint' });
 check('imprint in status', (await req('GET', '/status')).data.imprintUrl === 'https://example.org/imprint');
 await req('PATCH', '/admin/instance', { imprintUrl: '' });
+check('operator bad email 400', (await req('PATCH', '/admin/instance', { operator: { name: 'Erika Muster', email: 'kein-mail' } })).status === 400);
+await req('PATCH', '/admin/instance', { operator: { name: 'Erika Muster', street: 'Musterweg 1', city: '12345 Musterstadt', email: 'erika@example.org', junk: 'x' } });
+const legal = await (await fetch('http://localhost:3999/api/legal')).json();
+check('legal public + sanitized', legal.operator.name === 'Erika Muster' && legal.operator.city === '12345 Musterstadt' && !('junk' in legal.operator), JSON.stringify(legal));
+check('status hasOperator', (await req('GET', '/status')).data.hasOperator === true);
 s = (await req('GET', '/stats')).data;
 check('all years perYear', s.year === null && s.perYear.length >= 1);
 check('bad year 400', (await req('GET', '/stats?year=20x4')).status === 400);

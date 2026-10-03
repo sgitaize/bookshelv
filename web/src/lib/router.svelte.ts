@@ -12,7 +12,7 @@ class Router {
       const a = (e.target as Element).closest('a');
       if (!a || a.target || a.hasAttribute('download') || a.origin !== location.origin) return;
       e.preventDefault();
-      this.go(a.pathname + a.search);
+      this.go(a.pathname + a.search + a.hash);
     });
   }
 
@@ -22,7 +22,12 @@ class Router {
   }
 
   go(to: string, replace = false) {
-    if (to === location.pathname + location.search) return;
+    const [target, hash] = to.split('#');
+    // gleiche Seite, nur andere Sprungmarke → nur scrollen
+    if (target === location.pathname + location.search) {
+      if (hash) { history.replaceState({}, '', to); document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth' }); }
+      return;
+    }
     history[replace ? 'replaceState' : 'pushState']({}, '', to);
     this.sync();
     scrollTo({ top: 0 });

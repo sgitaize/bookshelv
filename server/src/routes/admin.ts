@@ -132,13 +132,32 @@ adminRoutes.post('/refresh-genres', async c => {
   return c.json({ books: books.length, updated });
 });
 
-/** Instanz-Angaben: Link zum Impressum der betreibenden Person (leer = kein Link) */
-adminRoutes.get('/instance', c => { requireAdmin(c); return c.json({ imprintUrl: setting('imprint_url') ?? '' }); });
+/**
+ * Instanz-Angaben für Impressum + Datenschutz: Angaben der betreibenden Person (liegen nur in der DB, nie im Repo)
+ * oder ersatzweise ein Link auf ein eigenes Impressum. Daraus erzeugt die App die Seite /legal.
+ */
+const OPERATOR_FIELDS = { name: 120, org: 120, street: 120, city: 120, email: 200, phone: 60, website: 300, hoster: 200, authority: 300 } as const;
+export type Operator = Partial<Record<keyof typeof OPERATOR_FIELDS, string>>;
+export function operator(): Operator {
+  try { return JSON.parse(setting('operator') ?? '{}') as Operator; } catch { return {}; }
+}
+adminRoutes.get('/instance', c => { requireAdmin(c); return c.json({ imprintUrl: setting('imprint_url') ?? '', operator: operator() }); });
 adminRoutes.patch('/instance', async c => {
   requireAdmin(c);
   const b = await body(c);
   const url = typeof b.imprintUrl === 'string' ? b.imprintUrl.trim() : '';
   if (url && !/^https?:\/\/[^\s]+$/i.test(url)) throw new HTTPException(400, { message: 'Ungültige Adresse' });
   setSetting('imprint_url', url.slice(0, 300));
-  return c.json({ imprintUrl: url });
+  if (b.operator && typeof b.operator === 'object') {
+    const src = b.operator as Record<string, unknown>;
+    const next: Operator = {};
+    for (const [k, max] of Object.entries(OPERATOR_FIELDS) as [keyof Operator, number][]) {
+      const v = typeof src[k] === 'string' ? (src[k] as string).trim().slice(0, max) : '';
+      if (v) next[k] = v;
+    }
+    if (next.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next.email)) throw new HTTPException(400, { message: 'Ungültige E-Mail-Adresse' });
+    if (next.website && !/^https?:\/\/[^\s]+$/i.test(next.website)) throw new HTTPException(400, { message: 'Ungültige Adresse' });
+    setSetting('operator', JSON.stringify(next));
+  }
+  return c.json({ imprintUrl: setting('imprint_url') ?? '', operator: operator() });
 });

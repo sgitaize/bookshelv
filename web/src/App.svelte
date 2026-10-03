@@ -16,7 +16,8 @@
   import Loans from './routes/Loans.svelte';
   import History from './routes/History.svelte';
   import Notifications from './routes/Notifications.svelte';
-  import Privacy from './routes/Privacy.svelte';
+  import Legal from './routes/Legal.svelte';
+  const LEGAL = ['/legal', '/privacy', '/imprint'];
   import Feed from './routes/Feed.svelte';
   import Wishlist from './routes/Wishlist.svelte';
   import Import from './routes/Import.svelte';
@@ -62,8 +63,8 @@
 
 {#if session.me === undefined}
   <div class="boot"><div class="spinner"></div></div>
-{:else if session.me === null && router.path === '/privacy'}
-  <main><Privacy /></main>
+{:else if session.me === null && LEGAL.includes(router.path)}
+  <main><Legal /></main>
 {:else if session.me === null}
   {#if invite}
     <Auth mode="register" inviteToken={invite.token} />
@@ -99,7 +100,7 @@
         {:else if router.path === '/stats'}<Stats />
         {:else if router.path === '/wrapup'}<Wrapup />
         {:else if router.path === '/settings'}<Settings />
-        {:else if router.path === '/privacy'}<Privacy />
+        {:else if LEGAL.includes(router.path)}<Legal />
         {:else if router.path === '/admin' && session.me.isAdmin}<Admin />
         {:else if invite}
           <div class="empty"><h2>{t('app.alreadyIn')}</h2><p>{t('app.passInvite')}</p><a class="btn" href="/">{t('app.toShelf')}</a></div>

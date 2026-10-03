@@ -9,11 +9,21 @@
   type AdminUser = { id: number; username: string; displayName: string; isAdmin: boolean; disabled: boolean; createdAt: string; invitedBy: string | null; copies: number; lastLogin: string | null; hasAvatar: boolean };
 
   let stats = $state<Stats | null>(null);
-  let imprintUrl = $state(instance.imprintUrl);
+  // Angaben für Impressum + Datenschutz (/legal); liegen nur in der Datenbank dieser Instanz
+  type Operator = { name?: string; org?: string; street?: string; city?: string; email?: string; phone?: string; website?: string; hoster?: string; authority?: string };
+  const OP_FIELDS = ['name', 'org', 'street', 'city', 'email', 'phone', 'website', 'hoster', 'authority'] as const;
+  let imprintUrl = $state('');
+  let op = $state<Operator>({});
+  $effect(() => {
+    api.get<{ imprintUrl: string; operator: Operator }>('/admin/instance').then(r => { imprintUrl = r.imprintUrl; op = r.operator; }).catch(toastError);
+  });
   async function saveInstance(e: SubmitEvent) {
     e.preventDefault();
-    try { instance.imprintUrl = (await api.patch<{ imprintUrl: string }>('/admin/instance', { imprintUrl })).imprintUrl; toast(t('admin.saved')); }
-    catch (err) { toastError(err); }
+    try {
+      const r = await api.patch<{ imprintUrl: string; operator: Operator }>('/admin/instance', { imprintUrl, operator: op });
+      instance.imprintUrl = r.imprintUrl; op = r.operator;
+      toast(t('admin.saved'));
+    } catch (err) { toastError(err); }
   }
   let users = $state<AdminUser[]>([]);
   let invites = $state<Invite[]>([]);
@@ -128,8 +138,19 @@
 
   <form class="card stack" onsubmit={saveInstance}>
     <h2>{t('admin.instance')}</h2>
-    <label class="field"><span>{t('admin.imprintUrl')}</span><input type="url" bind:value={imprintUrl} placeholder="https://…/impressum" maxlength="300" /></label>
-    <span class="muted small">{t('admin.imprintInfo')} · <a href="/privacy">{t('privacy.title')}</a></span>
+    <p class="muted small">{t('admin.operatorInfo')} <a href="/legal">{t('admin.legalPreview')}</a></p>
+    <div class="opgrid">
+      {#each OP_FIELDS as f}
+        <label class="field"><span>{t(`admin.op.${f}`)}</span>
+          <input bind:value={op[f]} type={f === 'email' ? 'email' : f === 'website' ? 'url' : f === 'phone' ? 'tel' : 'text'} placeholder={t(`admin.opPh.${f}`)} maxlength="300" />
+        </label>
+      {/each}
+    </div>
+    <details>
+      <summary class="small">{t('admin.imprintExternal')}</summary>
+      <label class="field"><span>{t('admin.imprintUrl')}</span><input type="url" bind:value={imprintUrl} placeholder="https://…/impressum" maxlength="300" /></label>
+      <span class="muted small">{t('admin.imprintInfo')}</span>
+    </details>
     <button class="primary">{t('common.save')}</button>
   </form>
 
@@ -178,4 +199,5 @@
   .acts button.small, button.small { padding: 0.4em 0.8em; font-size: 0.82rem; }
   .pwbox { position: fixed; z-index: 60; left: 50%; top: 50%; translate: -50% -50%; width: min(420px, 92vw); display: grid; gap: 0.8rem; }
   .pwbox code { font-size: 1.4rem; background: var(--surface-2); padding: 0.6rem; border-radius: 8px; text-align: center; user-select: all; }
+  .opgrid { display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); }
 </style>

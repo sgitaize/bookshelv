@@ -1,7 +1,7 @@
 <script lang="ts">
   import { forgetMe } from '../lib/offline.svelte.ts';
   import { api, inviteUrl, type Invite } from '../lib/api.ts';
-  import { session, loadSession, toast, toastError, instance } from '../lib/state.svelte.ts';
+  import { session, loadSession, toast, toastError } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
   import Icon from '../components/Icon.svelte';
   import { t, tn, i18n, fmtDate, type Key } from '../lib/i18n.svelte.ts';
@@ -245,7 +245,7 @@
   <p class="muted small about">
     {t('settings.free')} · <a href="https://github.com/sgitaize/bookshelv" target="_blank" rel="noopener">{t('settings.source')}</a>
     · {t('settings.builtBy')} <a href="https://sgitaize.aize-it.de" target="_blank" rel="noopener">sgitaize</a>
-    · <a href="/privacy">{t('privacy.title')}</a>{#if instance.imprintUrl} · <a href={instance.imprintUrl} target="_blank" rel="noopener">{t('privacy.imprint')}</a>{/if}
+    · <a href="/legal#impressum">{t('privacy.imprint')}</a> · <a href="/legal#datenschutz">{t('privacy.title')}</a>
   </p>
 </section>
 

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { api } from '../lib/api.ts';
-  import { loadSession, session, instance } from '../lib/state.svelte.ts';
+  import { loadSession, session } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
   import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
 
@@ -96,7 +96,7 @@
   <footer class="muted small">
     <a href="https://github.com/sgitaize/bookshelv" target="_blank" rel="noopener">bookshelv</a> – {t('auth.footer')}
     · <a href="https://sgitaize.aize-it.de" target="_blank" rel="noopener">sgitaize</a>
-    · <a href="/privacy">{t('privacy.title')}</a>{#if instance.imprintUrl} · <a href={instance.imprintUrl} target="_blank" rel="noopener">{t('privacy.imprint')}</a>{/if}
+    · <a href="/legal#impressum">{t('privacy.imprint')}</a> · <a href="/legal#datenschutz">{t('privacy.title')}</a>
     · <button class="lang" onclick={() => i18n.set(i18n.lang === 'de' ? 'en' : 'de')}>{i18n.lang === 'de' ? 'English' : 'Deutsch'}</button>
   </footer>
 </main>

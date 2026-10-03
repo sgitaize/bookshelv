@@ -11,6 +11,7 @@ import { router, body, str, idParam, notFound } from '../util.ts';
 import { anonymizeBorrower } from './loans.ts';
 import { notify } from '../notify.ts';
 import { setting } from '../federation.ts';
+import { operator } from './admin.ts';
 import { avatarUrl, purgeAvatar } from './social.ts';
 import { retractFederatedReviews } from './reviews.ts';
 
@@ -47,8 +48,12 @@ function parsePrefs(raw: string | undefined) {
 authRoutes.get('/status', c => c.json({
   needsSetup: userCount() === 0, version: config.version, node: process.version,
   // Impressum der betreibenden Person (Admin → Instanz); Datenschutzhinweis liefert die App selbst (/privacy)
-  imprintUrl: setting('imprint_url')
+  imprintUrl: setting('imprint_url'),
+  hasOperator: !!operator().name
 }));
+
+/** Impressum + Datenschutz (öffentlich, auch abgemeldet) */
+authRoutes.get('/legal', c => c.json({ imprintUrl: setting('imprint_url') || null, operator: operator() }));
 
 authRoutes.post('/setup', async c => {
   const b = await body(c);
