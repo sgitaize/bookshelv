@@ -9,7 +9,7 @@
     { href: '/library', icon: 'library', label: t('nav.library'), active: router.path === '/library' },
     { href: '/add', icon: 'scan', label: t('nav.add'), active: router.path === '/add' },
     { href: '/people', icon: 'users', label: t('nav.friends'), active: router.path.startsWith('/people') },
-    { href: '/me', icon: 'user', label: t('nav.profile'), active: ['/me', '/settings', '/admin', '/loans', '/history', '/wishlist', '/import'].includes(router.path) }
+    { href: '/me', icon: 'user', label: t('nav.profile'), active: ['/me', '/settings', '/admin', '/loans', '/history', '/wishlist', '/import', '/stats', '/wrapup'].includes(router.path) }
   ]);
 
   let q = $state('');

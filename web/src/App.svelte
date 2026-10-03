@@ -18,6 +18,8 @@
   import Feed from './routes/Feed.svelte';
   import Wishlist from './routes/Wishlist.svelte';
   import Import from './routes/Import.svelte';
+  import Stats from './routes/Stats.svelte';
+  import Wrapup from './routes/Wrapup.svelte';
   import { t } from './lib/i18n.svelte.ts';
 
   loadSession().catch(() => (session.me = null));
@@ -66,6 +68,8 @@
         {:else if router.path === '/wishlist'}<Wishlist />
         {:else if personWish}<Wishlist userId={Number(personWish.id)} />
         {:else if router.path === '/import'}<Import />
+        {:else if router.path === '/stats'}<Stats />
+        {:else if router.path === '/wrapup'}<Wrapup />
         {:else if router.path === '/settings'}<Settings />
         {:else if router.path === '/admin' && session.me.isAdmin}<Admin />
         {:else if invite}

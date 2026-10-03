@@ -35,7 +35,7 @@
     <div class="stats">
       <a href="/library"><b>{home.counts.books}</b><span>{t('home.onShelf')}</span></a>
       <span class="div"></span>
-      <a href="/library?filter=read"><b>{home.counts.readThisYear}</b><span>{t('home.readYear', { year: new Date().getFullYear() })}</span></a>
+      <a href="/stats"><b>{home.counts.readThisYear}</b><span>{t('home.readYear', { year: new Date().getFullYear() })}</span></a>
       <span class="div"></span>
       <a href="/library?filter=unread"><b>{home.toReadCount}</b><span>{t('home.unread')}</span></a>
     </div>

@@ -154,3 +154,12 @@ export const percent = (progress: number | null, pages: number | null) =>
   progress ? Math.min(100, Math.round((progress / (pages || 100)) * 100)) : 0;
 
 export const inviteUrl = (token: string) => `${location.origin}/invite/${token}`;
+
+export type Stats = {
+  years: string[]; year: string | null; user: { displayName: string; username: string };
+  totals: { books: number; pages: number; avgRating: number | null; avgDays: number | null; rated: number; dnf: number };
+  perMonth: { month: number; books: number; pages: number }[]; perYear: { name: string; n: number }[];
+  ratings: { rating: number; n: number }[]; genres: { name: string; n: number }[]; authors: { name: string; n: number }[];
+  formats: { name: 'print' | 'ebook' | 'none'; n: number }[]; languages: { name: string; n: number }[];
+  highlights: { first: BookBrief | null; last: BookBrief | null; longest: BookBrief | null; shortest: BookBrief | null; fiveStars: BookBrief[] };
+};

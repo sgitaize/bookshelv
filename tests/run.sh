@@ -17,6 +17,7 @@ node api.mjs "$T"
 node loans.mjs
 node social.mjs
 node extras.mjs
+node stats.mjs
 # Föderation: zwei weitere frische Instanzen
 FA=$(mktemp -d); FB=$(mktemp -d)
 for d in "$FA" "$FB"; do cp -r ../dist/server.js ../dist/package.json ../dist/public "$d/"; done
@@ -29,6 +30,7 @@ for i in $(seq 1 50); do curl -sf localhost:3997/api/status >/dev/null && curl -
 node federation.mjs "$FA" "$FB"
 
 if [ "${1:-}" = "--ui" ]; then
-  node overflow.mjs "$T" ""
+  node overflow.mjs "$T" "${SHOTS:-}"
+  [ -n "${SHOTS:-}" ] && cp "$T"/shot-*.png "${SHOTDIR:-/tmp}/" 2>/dev/null || true
   LANG_EN=1 node overflow.mjs "$T" ""
 fi

@@ -10,7 +10,7 @@ await page.goto(base, { waitUntil: 'networkidle0' });
 const inputs = await page.$$('input');
 await inputs[0].type('simon'); await inputs[1].type('geheim1234');
 await page.click('button.primary'); await page.waitForNetworkIdle();
-const pages = ['/', '/library', '/book/1', '/add?tab=scan', '/add?tab=search&q=dune', '/add?tab=manual', '/people', '/people/2', '/people/2/shelf', '/me', '/settings', '/admin', '/loans', '/history', '/notifications', '/feed', '/admin', '/wishlist', '/import'];
+const pages = ['/', '/library', '/book/1', '/add?tab=scan', '/add?tab=search&q=dune', '/add?tab=manual', '/people', '/people/2', '/people/2/shelf', '/me', '/settings', '/admin', '/loans', '/history', '/notifications', '/feed', '/admin', '/wishlist', '/import', '/stats', '/stats?year=2024', '/wrapup?year=2024'];
 const sizes = [[320, 568, true], [375, 667, true], [390, 844, true], [768, 1024, true], [820, 1180, true], [1024, 768, false], [1440, 900, false], [1920, 1080, false]];
 let problems = 0;
 for (const [w, h, mobile] of sizes) {
