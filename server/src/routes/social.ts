@@ -8,7 +8,7 @@ import { HTTPException } from 'hono/http-exception';
 import { db } from '../db.ts';
 import { config } from '../config.ts';
 import { requireUser, requireAdmin } from '../auth.ts';
-import { router, body, int, idParam, notFound } from '../util.ts';
+import { router, body, int, oneOf, idParam, notFound } from '../util.ts';
 import { bookBrief } from './books.ts';
 
 export const socialRoutes = router();
@@ -125,29 +125,46 @@ socialRoutes.post('/notifications/read', async c => {
 // ---------- Feed ----------
 
 /**
- * Aktivitäten anderer: angefangen, fertig gelesen, bewertet. Wer sein Regal privat geschaltet hat,
- * erscheint nicht; private Reviews ohnehin nicht. Sortiert nach Zeitpunkt, Blättern über ?before=<ts>.
+ * Aktivitätsfeed: ins Regal gestellt, angefangen, fertig, abgebrochen, bewertet, zu einer Leseliste hinzugefügt.
+ * scope=friends (Standard: alle außer mir), me (nur meine) oder all; ?user= für ein Profil, ?book= als Buch-Historie.
+ * Wer sein Regal privat geschaltet hat, erscheint nur bei sich selbst; private Reviews/Listen ebenso.
+ * Blättern über ?before=<ts>.
  */
 socialRoutes.get('/feed', c => {
   const u = requireUser(c);
-  const before = c.req.query('before') ?? '9999';
-  const limit = int(c.req.query('limit'), 1, 100) ?? 30;
+  const q = c.req.query();
+  const before = q.before ?? '9999';
+  const limit = int(q.limit, 1, 100) ?? 30;
+  const scope = oneOf(q.scope, ['friends', 'me', 'all'] as const, 'friends');
+  const userId = int(q.user, 1, Number.MAX_SAFE_INTEGER);
+  const bookId = int(q.book, 1, Number.MAX_SAFE_INTEGER);
+  const where = ['e.ts < :before', '(e.user_id = :me OR (u.shelf_visible = 1 AND e.pub = 1))'];
+  const params: Record<string, string | number> = { me: u.id, before, limit };
+  if (userId) { where.push('e.user_id = :user'); params.user = userId; }
+  else if (!bookId && scope === 'friends') where.push('e.user_id != :me');
+  else if (!bookId && scope === 'me') where.push('e.user_id = :me');
+  if (bookId) { where.push('e.book_id = :book'); params.book = bookId; }
   const rows = db.prepare(`
     SELECT e.* FROM (
-      SELECT 'started' AS type, ub.started_at || ' ' || time(ub.updated_at) AS ts, ub.user_id, ub.book_id, NULL AS rating, NULL AS text, NULL AS spoiler, NULL AS reviewId
-        FROM user_books ub WHERE ub.started_at IS NOT NULL AND ub.status = 'reading'
+      SELECT 'added' AS type, c.created_at AS ts, c.owner_id AS user_id, c.book_id, NULL AS rating, NULL AS text, NULL AS spoiler, NULL AS refId, c.format AS extra, 1 AS pub
+        FROM copies c
       UNION ALL
-      SELECT 'finished', ub.finished_at || ' ' || time(ub.updated_at), ub.user_id, ub.book_id, NULL, NULL, NULL, NULL
-        FROM user_books ub WHERE ub.finished_at IS NOT NULL AND ub.status = 'read'
+      SELECT 'started', ub.started_at || ' ' || time(ub.updated_at), ub.user_id, ub.book_id, NULL, NULL, NULL, NULL, NULL, 1
+        FROM user_books ub WHERE ub.started_at IS NOT NULL AND ub.status != 'unread'
       UNION ALL
-      SELECT 'reviewed', r.updated_at, r.user_id, r.book_id, r.rating, r.text, r.spoiler, r.id
-        FROM reviews r WHERE r.visibility != 'private'
+      SELECT CASE ub.status WHEN 'dnf' THEN 'dnf' ELSE 'finished' END, ub.finished_at || ' ' || time(ub.updated_at), ub.user_id, ub.book_id, NULL, NULL, NULL, NULL, NULL, 1
+        FROM user_books ub WHERE ub.finished_at IS NOT NULL AND ub.status IN ('read', 'dnf')
+      UNION ALL
+      SELECT 'reviewed', r.updated_at, r.user_id, r.book_id, r.rating, r.text, r.spoiler, r.id, NULL, r.visibility != 'private'
+        FROM reviews r
+      UNION ALL
+      SELECT 'listed', li.added_at, l.user_id, li.book_id, NULL, NULL, NULL, l.id, l.name, l.visibility = 'instance'
+        FROM list_items li JOIN lists l ON l.id = li.list_id
     ) e
-    JOIN users u ON u.id = e.user_id AND u.disabled = 0 AND u.shelf_visible = 1
-    JOIN books b ON b.id = e.book_id
-    WHERE e.user_id != ? AND e.ts < ?
-    ORDER BY e.ts DESC LIMIT ?
-  `).all(u.id, before, limit) as Array<Record<string, unknown>>;
+    JOIN users u ON u.id = e.user_id AND u.disabled = 0
+    WHERE ${where.join(' AND ')}
+    ORDER BY e.ts DESC LIMIT :limit
+  `).all(params) as Array<Record<string, unknown>>;
   const users = new Map<number, { displayName: string; avatar: string | null }>();
   const userOf = (id: number) => {
     if (!users.has(id)) users.set(id, db.prepare('SELECT display_name AS displayName, avatar FROM users WHERE id = ?').get(id) as { displayName: string; avatar: string | null });
@@ -158,7 +175,9 @@ socialRoutes.get('/feed', c => {
     const usr = userOf(r.user_id as number);
     const text = r.text as string | null;
     return {
-      type: r.type, ts: r.ts, rating: r.rating, reviewId: r.reviewId,
+      type: r.type, ts: r.ts, rating: r.rating, reviewId: r.type === 'reviewed' ? r.refId : null,
+      list: r.type === 'listed' ? { id: r.refId, name: r.extra } : null,
+      format: r.type === 'added' ? r.extra : null,
       text: r.spoiler ? null : text && text.length > 280 ? text.slice(0, 280) + '…' : text, spoiler: !!r.spoiler,
       user: { id: r.user_id, displayName: usr.displayName, avatarUrl: avatarUrl(usr.avatar) },
       book: bookBrief(b)

@@ -93,7 +93,7 @@ reviewRoutes.get('/books/:id/reviews', c => {
 
 /** Eigene Review anlegen/ändern; ohne Sterne und Text wird sie gelöscht */
 /** Föderierte Reviews an gekoppelte Instanzen verteilen bzw. dort zurückziehen */
-function federate(bookId: number, userId: number, prevId: number | null) {
+export function federate(bookId: number, userId: number, prevId: number | null) {
   const row = db.prepare(`
     SELECT r.*, u.username, u.display_name, b.isbn13 FROM reviews r JOIN users u ON u.id = r.user_id JOIN books b ON b.id = r.book_id
     WHERE r.book_id = ? AND r.user_id = ?

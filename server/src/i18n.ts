@@ -4,6 +4,10 @@
  */
 const EN: Record<string, string> = {
   'Interner Fehler': 'Internal error',
+  'Name fehlt': 'Name is missing',
+  'Höchstens 200 Listen': 'At most 200 lists',
+  'Liste ist voll (max. 500 Bücher)': 'List is full (max. 500 books)',
+  'Höchstens 5 verschiedene Bücher': 'At most 5 different books',
   'Unbekannter Endpunkt': 'Unknown endpoint',
   'Aktuelles Passwort falsch': 'Current password is wrong',
   'Benutzername ist schon vergeben': 'This username is already taken',
@@ -38,7 +42,6 @@ const EN: Record<string, string> = {
   'An dich selbst kannst du nicht verleihen': 'You cannot lend a book to yourself',
   'Rückgabe kann nicht vor dem Verleihdatum liegen': 'The return date cannot be before the lending date',
   'Dieses Exemplar ist gerade verliehen – erst als zurückbekommen markieren': 'This copy is currently lent out – mark it as returned first',
-  'Name fehlt': 'Name is missing',
   'Bild fehlt oder hat ein ungültiges Format': 'Image is missing or has an invalid format',
   'Bild ist zu groß': 'Image is too large',
   'Ungültige Adresse – Format @name@instanz': 'Invalid address – format @name@instance',
@@ -53,7 +56,7 @@ const EN: Record<string, string> = {
 };
 
 const NOUNS: Record<string, string> = {
-  Buch: 'Book', Einladung: 'Invitation', Exemplar: 'Copy', Kommentar: 'Comment', Nutzer: 'User', Review: 'Review', Eintrag: 'Entry', Verleih: 'Loan'
+  Buch: 'Book', Einladung: 'Invitation', Exemplar: 'Copy', Kommentar: 'Comment', Nutzer: 'User', Review: 'Review', Eintrag: 'Entry', Verleih: 'Loan', Liste: 'List'
 };
 
 export function translate(msg: string, lang: string | undefined): string {

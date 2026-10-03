@@ -112,6 +112,10 @@ authRoutes.get('/me/export', c => {
     reviews: db.prepare(`SELECT r.*, b.title FROM reviews r JOIN books b ON b.id = r.book_id WHERE r.user_id = ?`).all(u.id),
     comments: db.prepare('SELECT * FROM comments WHERE user_id = ?').all(u.id),
     loans: db.prepare('SELECT * FROM loans WHERE lender_id = ? OR borrower_id = ?').all(u.id, u.id),
+    wishlist: db.prepare('SELECT w.*, b.isbn13, b.title FROM wishlist w JOIN books b ON b.id = w.book_id WHERE w.user_id = ?').all(u.id),
+    lists: db.prepare('SELECT * FROM lists WHERE user_id = ?').all(u.id).map(l => ({
+      ...l, items: db.prepare('SELECT li.*, b.isbn13, b.title FROM list_items li JOIN books b ON b.id = li.book_id WHERE li.list_id = ? ORDER BY li.position').all(l.id as number)
+    })),
     invites: db.prepare('SELECT token, note, created_at, expires_at, used_at FROM invites WHERE created_by = ?').all(u.id)
   };
   c.header('Content-Disposition', `attachment; filename="bookshelv-${u.username}.json"`);

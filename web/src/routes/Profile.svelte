@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { api, type Profile } from '../lib/api.ts';
+  import { api, type Profile, type FeedItem, type ReadingListSummary } from '../lib/api.ts';
+  import TopSheet from '../components/TopSheet.svelte';
+  import FeedList from '../components/FeedList.svelte';
+  import ListCard from '../components/ListCard.svelte';
   import { session, toastError } from '../lib/state.svelte.ts';
   import Cover from '../components/Cover.svelte';
   import Icon from '../components/Icon.svelte';
@@ -10,11 +13,17 @@
   let { userId }: { userId?: number } = $props();
 
   let p = $state<Profile | null>(null);
+  let lists = $state<ReadingListSummary[]>([]);
+  let activity = $state<FeedItem[]>([]);
+  let topOpen = $state(false);
   const own = $derived(!userId || userId === session.me?.id);
 
   $effect(() => {
     p = null;
-    api.get<Profile>(`/users/${userId ?? session.me!.id}/profile`).then(r => (p = r)).catch(toastError);
+    const id = userId ?? session.me!.id;
+    api.get<Profile>(`/users/${id}/profile`).then(r => (p = r)).catch(toastError);
+    api.get<ReadingListSummary[]>(`/users/${id}/lists`).then(r => (lists = r)).catch(() => {});
+    api.get<{ items: FeedItem[] }>(`/feed?user=${id}&limit=5`).then(r => (activity = r.items)).catch(() => {});
   });
 </script>
 
@@ -25,6 +34,16 @@
     <div class="bigav"><Avatar name={p.displayName} url={p.avatarUrl} size={88} /></div>
     <h1>@{p.username}</h1>
     {#if p.displayName !== p.username}<p class="muted name">{p.displayName}</p>{/if}
+    <!-- Top 5 als Untertitel, jeder Titel verlinkt -->
+    {#if p.top.length}
+      <p class="top">
+        <span class="toplbl">{t('top.label')}</span>
+        {#each p.top as b, i (b.id)}{#if i}<span class="dot" aria-hidden="true">·</span>{/if}<a href="/book/{b.id}">{b.title}</a>{/each}
+        {#if own}<button class="icon ghost tiny" onclick={() => (topOpen = true)} aria-label={t('top.edit')}><Icon name="edit" size={14} /></button>{/if}
+      </p>
+    {:else if own}
+      <button class="ghost small topadd" onclick={() => (topOpen = true)}><Icon name="star" size={14} /> {t('top.add')}</button>
+    {/if}
 
     <div class="stats">
       <a href={own ? '/library' : `/people/${p.id}/shelf`}><b>{p.counts.books}</b><span>{t('profile.books')}</span></a>
@@ -59,6 +78,19 @@
           {/each}
         </div>
       {/if}
+      {#if lists.length || own}
+        <div class="section-head"><h2>{t('list.title')}</h2>{#if own}<a href="/lists" aria-label={t('list.all')}><Icon name="arrow" /></a>{/if}</div>
+        {#if lists.length}
+          <div class="lists">{#each lists.slice(0, 6) as l (l.id)}<ListCard list={l} />{/each}</div>
+        {:else}
+          <p class="muted small">{t('list.hint')}</p>
+        {/if}
+      {/if}
+
+      {#if activity.length}
+        <div class="section-head"><h2>{t('feed.recent')}</h2><a href={`/feed?user=${p.id}`} aria-label={t('feed.all')}><Icon name="arrow" /></a></div>
+        <div class="act"><FeedList items={activity} /></div>
+      {/if}
     {:else}
       <p class="muted">{t('profile.private')}</p>
     {/if}
@@ -67,6 +99,7 @@
       {#if own}
         <a class="btn dark" href="/library"><Icon name="library" size={16} /> {t('shelf.mine')}</a>
         <a class="btn" href="/stats"><Icon name="chart" size={16} /> {t('stats.title')}</a>
+        <a class="btn" href="/lists"><Icon name="list" size={16} /> {t('list.title')}</a>
         <a class="btn" href="/loans"><Icon name="users" size={16} /> {t('loan.title')}</a>
         <a class="btn" href="/history"><Icon name="book" size={16} /> {t('hist.title')}</a>
         <a class="btn" href="/wishlist"><Icon name="bookmark" size={16} /> {t('wish.count', { n: p.wishlistCount })}</a>
@@ -78,6 +111,7 @@
       {/if}
     </div>
   </section>
+  <TopSheet open={topOpen} current={p.top} onclose={() => (topOpen = false)} onsaved={top => { p!.top = top; topOpen = false; }} />
 {/if}
 
 <style>
@@ -85,6 +119,14 @@
   .bigav { margin: 0.8rem 0; }
   h1 { color: var(--accent); font-size: 1.4rem; margin: 0; }
   .name { margin: 0.1rem 0 0; }
+  .top { margin: 0.5rem 0 0; font-size: 0.9rem; line-height: 1.5; color: var(--muted); max-width: 100%; overflow-wrap: anywhere; }
+  .top a { color: var(--text); font-weight: 550; }
+  .toplbl { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); margin-right: 0.35rem; font-weight: 600; }
+  .dot { margin: 0 0.35rem; }
+  .tiny { width: 26px; height: 26px; min-height: 0; padding: 0; vertical-align: middle; }
+  .topadd { margin-top: 0.4rem; }
+  .lists { width: 100%; display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); text-align: left; margin-bottom: 1.4rem; }
+  .act { width: 100%; text-align: left; }
   .stats {
     display: flex; align-items: center; width: 100%; margin: 1.3rem 0 2rem;
     border: 1px solid var(--line); border-radius: 8px; padding: 0.9rem 0.5rem;

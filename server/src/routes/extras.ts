@@ -13,6 +13,7 @@ import { normalizeIsbn, fetchCover, deleteCoverFile } from '../catalog.ts';
 import { importIsbn, getBook, bookBrief, bookJson, type BookRow } from './books.ts';
 import { setReading } from './reading.ts';
 import { imageType } from './social.ts';
+import { federate } from './reviews.ts';
 
 export const extraRoutes = router();
 
@@ -80,7 +81,7 @@ extraRoutes.post('/books/:id/cover', async c => {
 type ImportItem = {
   isbn?: string; title?: string; authors?: string[]; status?: string; rating?: number | null; review?: string | null;
   spoiler?: boolean; finishedAt?: string | null; startedAt?: string | null; addedAt?: string | null;
-  owned?: boolean; format?: string; binding?: string | null;
+  owned?: boolean; format?: string; binding?: string | null; resolve?: string[]; lists?: string[];
 };
 
 const isDate = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
@@ -115,6 +116,8 @@ extraRoutes.post('/import', async c => {
   const o = (b.options ?? {}) as Record<string, unknown>;
   const copies = oneOf(o.copies, ['owned', 'all', 'none'] as const, 'owned');
   const visibility = oneOf(o.visibility, ['private', 'instance', 'federated'] as const, 'instance');
+  // Unterschiede zum Bestand: ask = melden, mine = bookshelv behalten, theirs = Import übernehmen
+  const policy = oneOf(o.conflict, ['ask', 'mine', 'theirs'] as const, 'mine');
   const results = [];
   for (const it of items) {
     try {
@@ -131,27 +134,68 @@ extraRoutes.post('/import', async c => {
           .run(book.id, u.id, format, binding, isDate(it.addedAt) ? `${it.addedAt} 12:00:00` : null);
         done.push('copy');
       }
+      // Abgleich mit dem Bestand: Lücken werden gefüllt, echte Unterschiede je nach Regel übernommen,
+      // behalten oder als Konflikt zurückgemeldet (Einzelfall-Entscheidung im Browser, dann erneut mit resolve)
+      const conflicts: Array<{ field: 'status' | 'finishedAt' | 'rating' | 'review'; mine: unknown; theirs: unknown }> = [];
+      const take = (field: 'status' | 'finishedAt' | 'rating' | 'review', mine: unknown, theirs: unknown) => {
+        if (policy === 'theirs' || (Array.isArray(it.resolve) && it.resolve.includes(field))) return true;
+        if (policy === 'ask') conflicts.push({ field, mine, theirs });
+        return false;
+      };
       // Lesestand / Wunschliste
+      const cur = db.prepare('SELECT status, finished_at FROM user_books WHERE user_id = ? AND book_id = ?').get(u.id, book.id) as { status: string; finished_at: string | null } | undefined;
+      const finishedAt = isDate(it.finishedAt) ? it.finishedAt : undefined;
       if (status === 'want') {
-        if (o.wishlist !== false && !db.prepare('SELECT 1 FROM copies WHERE book_id = ? AND owner_id = ? AND removed_at IS NULL').get(book.id, u.id)) {
+        if (o.wishlist !== false && !db.prepare('SELECT 1 FROM copies WHERE book_id = ? AND owner_id = ? AND removed_at IS NULL').get(book.id, u.id) && (!cur || cur.status === 'unread')) {
           if (db.prepare('INSERT OR IGNORE INTO wishlist (user_id, book_id) VALUES (?, ?)').run(u.id, book.id).changes) done.push('wishlist');
         }
-      } else if (status !== 'unread' && (db.prepare('SELECT status FROM user_books WHERE user_id = ? AND book_id = ?').get(u.id, book.id) as { status: string } | undefined)?.status !== status) {
-        // nur ändern, wenn sich der Status unterscheidet (erneuter Import bleibt ohne Wirkung)
-        setReading(u.id, book.id, {
-          status, startedAt: isDate(it.startedAt) ? it.startedAt : undefined,
-          finishedAt: status === 'read' || status === 'dnf' ? (isDate(it.finishedAt) ? it.finishedAt : undefined) : undefined
-        });
-        done.push('status');
+      } else if (status !== 'unread') {
+        const mineStatus = cur?.status ?? 'unread';
+        if (mineStatus !== status && (mineStatus === 'unread' || take('status', mineStatus, status))) {
+          setReading(u.id, book.id, {
+            status, startedAt: isDate(it.startedAt) ? it.startedAt : undefined,
+            finishedAt: status === 'read' || status === 'dnf' ? finishedAt : undefined
+          });
+          done.push('status');
+        } else if (mineStatus === status && (status === 'read' || status === 'dnf') && finishedAt && cur?.finished_at !== finishedAt
+          && (!cur?.finished_at || take('finishedAt', cur.finished_at, finishedAt))) {
+          setReading(u.id, book.id, { finishedAt });
+          done.push('status');
+        }
       }
-      // Bewertung (vorhandene eigene Reviews werden nicht überschrieben)
+      // Bewertung
       const rating = typeof it.rating === 'number' && it.rating >= 0.5 && it.rating <= 5 ? Math.round(it.rating * 2) / 2 : null;
       const text = str(it.review, 10000);
-      if (o.reviews !== false && (rating || text) && !db.prepare('SELECT 1 FROM reviews WHERE book_id = ? AND user_id = ?').get(book.id, u.id)) {
-        db.prepare('INSERT INTO reviews (book_id, user_id, rating, text, visibility, spoiler) VALUES (?, ?, ?, ?, ?, ?)')
-          .run(book.id, u.id, rating, text, visibility, it.spoiler ? 1 : 0);
-        done.push('review');
+      if (o.reviews !== false && (rating || text)) {
+        const rev = db.prepare('SELECT id, rating, text FROM reviews WHERE book_id = ? AND user_id = ?').get(book.id, u.id) as { id: number; rating: number | null; text: string | null } | undefined;
+        if (!rev) {
+          db.prepare('INSERT INTO reviews (book_id, user_id, rating, text, visibility, spoiler) VALUES (?, ?, ?, ?, ?, ?)')
+            .run(book.id, u.id, rating, text, visibility, it.spoiler ? 1 : 0);
+          federate(book.id, u.id, null);
+          done.push('review');
+        } else {
+          let newRating = rev.rating, newText = rev.text;
+          if (rating && rating !== rev.rating && (rev.rating === null || take('rating', rev.rating, rating))) newRating = rating;
+          if (text && text !== rev.text && (!rev.text || take('review', rev.text, text))) newText = text;
+          if (newRating !== rev.rating || newText !== rev.text) {
+            db.prepare("UPDATE reviews SET rating = ?, text = ?, updated_at = datetime('now') WHERE id = ?").run(newRating, newText, rev.id);
+            federate(book.id, u.id, null);
+            done.push('review');
+          }
+        }
       }
+      // Regale/Tags/Listen der anderen App → Leselisten (gleicher Name wird wiederverwendet)
+      if (o.lists !== false && Array.isArray(it.lists)) {
+        for (const raw of it.lists.slice(0, 20)) {
+          const name = typeof raw === 'string' ? raw.trim().slice(0, 80) : '';
+          if (!name) continue;
+          let list = db.prepare('SELECT id FROM lists WHERE user_id = ? AND lower(name) = lower(?)').get(u.id, name) as { id: number } | undefined;
+          if (!list) list = { id: Number(db.prepare("INSERT INTO lists (user_id, name, visibility) VALUES (?, ?, 'private')").run(u.id, name).lastInsertRowid) };
+          const pos = (db.prepare('SELECT COALESCE(MAX(position), 0) + 1 AS p FROM list_items WHERE list_id = ?').get(list.id) as { p: number }).p;
+          if (db.prepare('INSERT OR IGNORE INTO list_items (list_id, book_id, position) VALUES (?, ?, ?)').run(list.id, book.id, pos).changes) done.push('list');
+        }
+      }
+      if (conflicts.length) { results.push({ title: book.title, bookId: book.id, result: 'conflict', done, conflicts }); continue; }
       results.push({ title: book.title, bookId: book.id, result: done.length ? 'ok' : 'exists', done });
     } catch {
       results.push({ title: it.title ?? '?', result: 'failed' });
