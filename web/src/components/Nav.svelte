@@ -68,6 +68,7 @@
   .tabbar {
     position: fixed; z-index: 40;
     left: 16px; right: 16px; bottom: calc(10px + env(safe-area-inset-bottom));
+    max-width: 520px; margin: 0 auto;
     height: 62px;
     display: flex; justify-content: space-around; align-items: center;
     padding: 0 6px;
@@ -87,9 +88,13 @@
   .tabbar a:hover { text-decoration: none; }
   .tabbar a.active { background: color-mix(in srgb, var(--text) 9%, transparent); color: var(--accent); }
 
-  @media (min-width: 760px) {
+  /* Desktop-Navigation erst ab 1000px – iPad hochkant bekommt die Tabbar (passt besser zu Touch) */
+  @media (min-width: 1000px) {
     .brand { display: flex; }
     .desktop { display: flex; }
     .tabbar { display: none; }
+  }
+  @media (min-width: 1000px) and (max-width: 1180px) {
+    .desktop a { padding: 0.5em 0.6em; }
   }
 </style>

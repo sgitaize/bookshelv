@@ -21,7 +21,8 @@
 - 🔗 **Nur auf Einladung**: jeder Nutzer kann Einladungslinks erzeugen – keine E-Mail-Adresse nötig
 - 🛡️ **Admin-Bereich**: Nutzer sperren/löschen, Passwort zurücksetzen, Einladungen verwalten, Katalog aufräumen
 - 📱 **PWA**: auf dem Handy wie eine App installierbar
-- ⭐ Reviews & Kommentare, 🤝 Verleih, 🌐 Föderation – siehe [Roadmap](#roadmap)
+- ⭐ **Bewertungen** mit halben Sternen, Spoiler-Schutz, Kommentare, „Neues aus dem Freundeskreis“
+- 🤝 Verleih, 🌐 Föderation, 📴 Offline-Modus – siehe [Roadmap](#roadmap)
 
 ## Datenschutz (DSGVO)
 
@@ -144,12 +145,13 @@ docs/     Konzepte (Föderation) und Screenshots
 ## Roadmap
 
 - [x] **Iteration 1** – Konten, Einladungen, Admin, ISBN-Scan, Katalogsuche, Bibliothek, Exemplare (Format/Bindung/Farbschnitt), Lesestand & Fortschritt, Favoriten, Profil
-- [ ] **Iteration 2** – Reviews (½–5 Sterne + Text) und Kommentare
+- [x] **Iteration 2** – Reviews (½–5 Sterne + Text, Spoiler, Sichtbarkeit) und Kommentare, „Neues aus dem Freundeskreis“
 - [ ] **Iteration 3** – Verleih: an Nutzer oder freie Namen, Rückgabe, „Ich habe gerade geliehen“
 - [ ] **Iteration 4** – Feed („Anna fand *Dune* 4/5“), In-App-Benachrichtigungen, Erinnerungen bei langem Verleih
 - [ ] **Iteration 5** – **Föderation** zwischen bookshelv-Instanzen für Reviews und Verleih → [Konzept](docs/FEDERATION.md)
-- [ ] **Iteration 6** – Statistiken (Bücher/Seiten pro Monat, Genres, Formate, Autoren, Sterneverteilung) und Jahresrückblick zum Teilen
-- [ ] **Iteration 7** – Import/Export (CSV, Goodreads, StoryGraph), Wunschliste, eigene Cover hochladen
+- [ ] **Iteration 6** – Import/Export (CSV, Goodreads, StoryGraph), Wunschliste, eigene Cover hochladen
+- [ ] **Iteration 7** – Statistiken (Bücher/Seiten pro Monat, Genres, Formate, Autoren, Sterneverteilung) und Jahresrückblick zum Teilen
+- [ ] **Iteration 8** – Offline-Modus für die installierte App: Datenstand lokal auf dem Gerät, Lesestand/Bewertungen offline möglich und später synchronisiert, klarer Hinweis „Offline“ mit dem, was gerade nicht geht (z. B. Bücher aus dem Katalog hinzufügen)
 
 ## Datenquellen
 

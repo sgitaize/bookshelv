@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { api, percent, type Home, type ReadingItem } from '../lib/api.ts';
+  import { api, percent, ago, fmtRating, type Home, type ReadingItem, type RecentReview } from '../lib/api.ts';
+  import Stars from '../components/Stars.svelte';
   import { session, toastError } from '../lib/state.svelte.ts';
   import Cover from '../components/Cover.svelte';
   import Icon from '../components/Icon.svelte';
@@ -8,7 +9,11 @@
   let home = $state<Home | null>(null);
   let editing = $state<ReadingItem | null>(null);
 
-  const load = () => api.get<Home>('/home').then(r => (home = r)).catch(toastError);
+  let recent = $state<RecentReview[]>([]);
+  const load = () => Promise.all([
+    api.get<Home>('/home').then(r => (home = r)),
+    api.get<RecentReview[]>('/reviews/recent').then(r => (recent = r))
+  ]).catch(toastError);
   $effect(() => { load(); });
 
   const greeting = (() => {
@@ -89,6 +94,25 @@
     </section>
   {/if}
 
+  {#if recent.length}
+    <section>
+      <div class="section-head"><h2>Neues aus dem Freundeskreis</h2></div>
+      <div class="feed">
+        {#each recent.slice(0, 6) as r (r.id)}
+          <a class="card item" href="/book/{r.book.id}">
+            <Cover url={r.book.coverUrl} title={r.book.title} authors={r.book.authors} size="sm" />
+            <div class="body">
+              <p class="line"><strong>{r.user.displayName}</strong> {r.rating ? 'fand' : 'schrieb über'} <em>{r.book.title}</em></p>
+              {#if r.rating}<p class="rate"><Stars value={r.rating} size={14} /> <b>{fmtRating(r.rating)}/5</b></p>{/if}
+              {#if r.text}<p class="snippet muted">{r.text}</p>{:else if r.spoiler}<p class="snippet muted">⚠ enthält Spoiler</p>{/if}
+              <p class="muted small meta">{ago(r.updatedAt)}{#if r.commentCount} · 💬 {r.commentCount}{/if}</p>
+            </div>
+          </a>
+        {/each}
+      </div>
+    </section>
+  {/if}
+
   {#if home.recentlyAdded.length}
     <section>
       <div class="section-head">
@@ -130,4 +154,13 @@
   .pct { position: relative; font-size: 0.72rem; font-weight: 600; color: var(--text); padding-left: 6px; line-height: 22px; display: block; text-align: left; }
   .pen { padding: 0.25rem; color: var(--muted); }
   section { margin-bottom: 1.6rem; }
+  .feed { display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  .item { display: flex; gap: 0.9rem; padding: 0.8rem; color: var(--text); align-items: flex-start; }
+  .item:hover { text-decoration: none; border-color: var(--surface-3); }
+  .body { min-width: 0; display: grid; gap: 0.2rem; }
+  .body p { margin: 0; }
+  .line em { font-style: normal; font-weight: 600; }
+  .rate { display: flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; }
+  .snippet { font-size: 0.88rem; display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .meta { margin-top: 0.1rem !important; }
 </style>

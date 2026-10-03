@@ -32,6 +32,7 @@
   --radius: 12px;
   --font: 'Poppins', system-ui, -apple-system, sans-serif;
   --nav-h: 76px;
+  --content-w: 1280px;
   color-scheme: light;
 }
 
@@ -83,6 +84,8 @@
 *, *::before, *::after { box-sizing: border-box; }
 
 html { -webkit-text-size-adjust: 100%; }
+/* Sicherheitsnetz gegen seitliches Scrollen (clip erzeugt keinen Scroll-Container, sticky bleibt intakt) */
+html, body { overflow-x: clip; }
 
 body {
   margin: 0;
@@ -146,7 +149,10 @@ button.icon { padding: 0.55em; border-radius: 50%; }
 input, textarea, select {
   font: inherit;
   width: 100%;
-  padding: 0.7em 0.9em;
+  padding: 0.65em 0.9em;
+  min-width: 0;
+  /* ≥ 16px, sonst zoomt iOS beim Antippen hinein */
+  font-size: max(16px, 1em);
   border-radius: 10px;
   border: 1px solid var(--line);
   background: var(--surface);
@@ -178,6 +184,7 @@ label.field > span { font-weight: 500; }
 /* Umschalter mit Pillen (Format, Bindung, Lesestatus) */
 .segmented {
   display: inline-flex;
+  max-width: 100%;
   padding: 3px;
   border-radius: 999px;
   background: var(--surface-2);
@@ -220,6 +227,7 @@ label.field > span { font-weight: 500; }
 .book-row::-webkit-scrollbar { display: none; }
 .book-row > * { flex: 0 0 92px; scroll-snap-align: start; }
 @media (min-width: 760px) { .book-row > * { flex-basis: 120px; } }
+@media (min-width: 1280px) { .book-row > * { flex-basis: 140px; } }
 
 hr.sep { border: none; border-top: 1px solid var(--line); margin: 1.8rem -1.2rem; }
 

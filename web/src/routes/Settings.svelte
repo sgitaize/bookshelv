@@ -159,7 +159,7 @@
 </section>
 
 <style>
-  section { max-width: 640px; }
+  section { max-width: 680px; margin: 0 auto; }
   .check { font-weight: 500; cursor: pointer; }
   .grow { flex: 1; min-width: 0; }
   .invites { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }

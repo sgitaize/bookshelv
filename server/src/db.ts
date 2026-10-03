@@ -110,6 +110,13 @@ const migrations: string[] = [
   );
   CREATE INDEX loans_copy ON loans(copy_id);
   CREATE INDEX loans_borrower ON loans(borrower_id);
+  `,
+  // 2: Spoiler-Markierung für Reviews, Indizes für Feed/Kommentare
+  `
+  ALTER TABLE reviews ADD COLUMN spoiler INTEGER NOT NULL DEFAULT 0;
+  CREATE INDEX reviews_book ON reviews(book_id);
+  CREATE INDEX reviews_updated ON reviews(updated_at);
+  CREATE INDEX comments_review ON comments(review_id);
   `
 ];
 

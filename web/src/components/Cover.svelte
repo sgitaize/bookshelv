@@ -37,7 +37,7 @@
     background: linear-gradient(90deg, rgb(0 0 0 / 0.18) 0, rgb(255 255 255 / 0.15) 2.5%, rgb(0 0 0 / 0.05) 5%, transparent 9%);
     pointer-events: none;
   }
-  .sm { width: 56px; }
+  .sm { width: 56px; flex-shrink: 0; }
   .md { width: 100%; }
   .lg { width: min(220px, 55vw); }
   img { width: 100%; height: 100%; object-fit: cover; display: block; }

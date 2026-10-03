@@ -30,6 +30,8 @@
       <div><b>{p.counts.read}</b><span>gelesen</span></div>
       <span class="div"></span>
       <div><b>{p.counts.readThisYear}</b><span>dieses Jahr</span></div>
+      <span class="div"></span>
+      <div><b>{p.averageRating ? p.averageRating.toLocaleString('de-DE', { maximumFractionDigits: 1 }) : '–'}</b><span>Ø Sterne</span></div>
     </div>
 
     {#if p.shelfVisible}

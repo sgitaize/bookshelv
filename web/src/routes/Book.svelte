@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api, labels, emptyCopy, percent, type Book, type Copy, type CopyValues, type Reading, type ReadStatus } from '../lib/api.ts';
   import ProgressSheet from '../components/ProgressSheet.svelte';
+  import Reviews from '../components/Reviews.svelte';
   import { toast, toastError } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
   import Cover from '../components/Cover.svelte';
@@ -12,6 +13,7 @@
 
   let data = $state<{ book: Book; copies: Copy[]; canEdit: boolean; reading: Reading } | null>(null);
   let progressOpen = $state(false);
+  let askReview = $state(false);
   let editing = $state<{ copyId: number | null; values: CopyValues } | null>(null);
   let editBook = $state<{ title: string; subtitle: string; authors: string; publisher: string; year: string; pages: string } | null>(null);
   let busy = $state(false);
@@ -34,7 +36,10 @@
 
   async function setReading(patch: Partial<Reading>) {
     try {
+      const before = data!.reading.status;
       data!.reading = await api.put<Reading>(`/books/${id}/reading`, patch);
+      // gerade fertig gelesen → direkt zum Bewerten einladen
+      if (patch.status === 'read' && before !== 'read') askReview = true;
     } catch (e) { toastError(e); }
   }
 
@@ -143,6 +148,8 @@
     {/if}
   </section>
 
+  <Reviews bookId={id} title={b.title} bind:askReview />
+
   <section class="stack copies">
     <div class="spread">
       <h2>Meine Exemplare</h2>
@@ -218,7 +225,7 @@
 <style>
   .back { margin: -0.6rem 0 0.4rem -0.8rem; border: none; background: none; color: var(--muted); padding: 0.4em 0.6em; }
   .detail { display: grid; gap: 1.6rem; justify-items: center; text-align: center; margin-bottom: 2rem; }
-  .cover-wrap { position: relative; }
+  .cover-wrap { position: relative; max-width: 100%; }
   .glow {
     position: absolute; inset: 10% -20%;
     background-size: cover; background-position: center;
@@ -245,6 +252,7 @@
   @media (min-width: 720px) {
     .detail { grid-template-columns: auto 1fr; text-align: left; justify-items: start; align-items: start; gap: 2.5rem; }
   }
+  .copies { margin-top: 2rem; }
   .copies h2 { margin: 0.6rem 0 0; }
   .copy { display: flex; align-items: center; gap: 0.9rem; padding: 0.9rem 1rem; color: var(--text); }
   a.copy:hover { text-decoration: none; border-color: var(--surface-3); }

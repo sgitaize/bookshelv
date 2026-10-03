@@ -143,8 +143,10 @@ readingRoutes.get('/users/:id/profile', c => {
     counts: {
       books: n('SELECT COUNT(*) AS n FROM copies WHERE owner_id = ?', p.id),
       read: n("SELECT COUNT(*) AS n FROM user_books WHERE user_id = ? AND status = 'read'", p.id),
-      readThisYear: n("SELECT COUNT(*) AS n FROM user_books WHERE user_id = ? AND status = 'read' AND finished_at LIKE ?", p.id, `${year}%`)
+      readThisYear: n("SELECT COUNT(*) AS n FROM user_books WHERE user_id = ? AND status = 'read' AND finished_at LIKE ?", p.id, `${year}%`),
+      reviews: n("SELECT COUNT(*) AS n FROM reviews WHERE user_id = ? AND (user_id = ? OR visibility != 'private')", p.id, u.id)
     },
+    averageRating: (db.prepare("SELECT ROUND(AVG(rating), 2) AS a FROM reviews WHERE user_id = ? AND rating IS NOT NULL AND (user_id = ? OR visibility != 'private')").get(p.id, u.id) as { a: number | null }).a,
     favorites: p.visible ? readingList(p.id, 'ub.favorite = 1', 'ub.updated_at DESC', 10).map(r => r.book) : [],
     reading: p.visible ? readingList(p.id, "ub.status = 'reading'", 'ub.updated_at DESC', 10).map(r => r.book) : []
   });

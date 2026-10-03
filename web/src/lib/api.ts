@@ -56,9 +56,38 @@ export type Home = {
   counts: { books: number; read: number; readThisYear: number };
 };
 
+export type Visibility = 'private' | 'instance' | 'federated';
+export type ReviewComment = { id: number; text: string; createdAt: string; user: { id: number; displayName: string }; canDelete: boolean };
+export type Review = {
+  id: number; bookId: number; rating: number | null; text: string | null; visibility: Visibility; spoiler: boolean;
+  createdAt: string; updatedAt: string; mine: boolean; user: { id: number; displayName: string; username: string };
+  comments: ReviewComment[];
+};
+export type BookReviews = { average: number | null; count: number; reviews: Review[] };
+export type RecentReview = Review & { book: BookBrief; commentCount: number };
+
+export const visibilityLabel: Record<Visibility, string> = {
+  private: 'Nur ich', instance: 'Freundeskreis', federated: 'Freundeskreis + gekoppelte Instanzen'
+};
+
+/** 3.5 → "3,5" */
+export const fmtRating = (r: number) => r.toLocaleString('de-DE', { maximumFractionDigits: 2 });
+
+/** SQLite-Zeitstempel (UTC ohne Zone) → relative deutsche Angabe */
+export function ago(ts: string): string {
+  const d = new Date(ts.includes('T') ? ts : ts.replace(' ', 'T') + 'Z');
+  const s = (Date.now() - d.getTime()) / 1000;
+  if (s < 60) return 'gerade eben';
+  if (s < 3600) return `vor ${Math.floor(s / 60)} Min.`;
+  if (s < 86400) return `vor ${Math.floor(s / 3600)} Std.`;
+  if (s < 7 * 86400) { const n = Math.floor(s / 86400); return n === 1 ? 'gestern' : `vor ${n} Tagen`; }
+  return d.toLocaleDateString('de-DE');
+}
+
 export type Profile = {
   id: number; username: string; displayName: string; createdAt: string; shelfVisible: boolean;
-  counts: { books: number; read: number; readThisYear: number };
+  counts: { books: number; read: number; readThisYear: number; reviews: number };
+  averageRating: number | null;
   favorites: BookBrief[]; reading: BookBrief[];
 };
 
