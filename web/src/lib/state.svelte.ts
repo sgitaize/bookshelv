@@ -1,5 +1,6 @@
 import { setPrefs } from './theme.ts';
 import { api, ApiError, type Me } from './api.ts';
+import { net, isNetworkError, rememberMe, cachedMe, forgetMe, loadPending, warmOfflineCache } from './offline.svelte.ts';
 
 /** Angemeldeter Nutzer; undefined = wird noch geladen, null = nicht angemeldet */
 export const session = $state<{ me: Me | null | undefined; needsSetup: boolean }>({ me: undefined, needsSetup: false });
@@ -9,8 +10,15 @@ export async function loadSession() {
     session.me = await api.get<Me>('/me');
     // am Konto gespeicherte Darstellung gilt auf jedem Gerät
     if (session.me.prefs?.theme || session.me.prefs?.font) setPrefs(session.me.prefs);
+    rememberMe(session.me);
+    loadPending(session.me.id);
+    setTimeout(warmOfflineCache, 3000);
   } catch (e) {
+    // ohne Netz mit dem zuletzt bekannten Konto weitermachen (Scannen geht offline)
+    const me = isNetworkError(e) ? cachedMe<Me>() : null;
+    if (me) { session.me = me; net.online = false; loadPending(me.id); return; }
     if (!(e instanceof ApiError && e.status === 401)) throw e;
+    forgetMe();
     session.me = null;
     session.needsSetup = (await api.get<{ needsSetup: boolean }>('/status')).needsSetup;
   }

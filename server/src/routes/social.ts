@@ -147,7 +147,7 @@ socialRoutes.get('/feed', c => {
   const rows = db.prepare(`
     SELECT e.* FROM (
       SELECT 'added' AS type, c.created_at AS ts, c.owner_id AS user_id, c.book_id, NULL AS rating, NULL AS text, NULL AS spoiler, NULL AS refId, c.format AS extra, 1 AS pub
-        FROM copies c
+        FROM copies c WHERE c.quiet = 0
       UNION ALL
       SELECT 'started', ub.started_at || ' ' || time(ub.updated_at), ub.user_id, ub.book_id, NULL, NULL, NULL, NULL, NULL, 1
         FROM user_books ub WHERE ub.started_at IS NOT NULL AND ub.status != 'unread'
@@ -156,10 +156,10 @@ socialRoutes.get('/feed', c => {
         FROM user_books ub WHERE ub.finished_at IS NOT NULL AND ub.status IN ('read', 'dnf')
       UNION ALL
       SELECT 'reviewed', r.updated_at, r.user_id, r.book_id, r.rating, r.text, r.spoiler, r.id, NULL, r.visibility != 'private'
-        FROM reviews r
+        FROM reviews r WHERE r.quiet = 0
       UNION ALL
       SELECT 'listed', li.added_at, l.user_id, li.book_id, NULL, NULL, NULL, l.id, l.name, l.visibility = 'instance'
-        FROM list_items li JOIN lists l ON l.id = li.list_id
+        FROM list_items li JOIN lists l ON l.id = li.list_id WHERE li.quiet = 0
     ) e
     JOIN users u ON u.id = e.user_id AND u.disabled = 0
     WHERE ${where.join(' AND ')}

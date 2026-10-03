@@ -1,8 +1,8 @@
 <script lang="ts">
   import { api } from '../lib/api.ts';
-  import { toastError } from '../lib/state.svelte.ts';
+  import { toast, toastError } from '../lib/state.svelte.ts';
   import { t, fmtDate, type Key } from '../lib/i18n.svelte.ts';
-  import { parseCsv, convert, convertMapped, guessMapping, FIELDS, type ImportItem, type ImportSource, type Mapping, type Field } from '../lib/importers.ts';
+  import { parseCsv, convert, convertMapped, guessMapping, listNames, FIELDS, type ImportItem, type ImportSource, type Mapping, type Field } from '../lib/importers.ts';
   import Icon from '../components/Icon.svelte';
 
   type ConflictField = 'status' | 'finishedAt' | 'rating' | 'review';
@@ -15,7 +15,25 @@
   let mapping = $state<Mapping | null>(null);
   let appName = $state('');
   let parsed = $state<ImportItem[]>([]);
-  const items = $derived(source === 'generic' && mapping ? convertMapped(rows, mapping) : parsed);
+  let filename = $state('');
+  let importId = $state<number | null>(null);
+  let undone = $state(false);
+  // Booky kennt keinen Besitz: man wählt, welche Listen im eigenen Regal stehen
+  const STATUS_SHELVES = ['read', 'reading', 'dnf'] as const;
+  let shelfStatus = $state<string[]>(['reading', 'dnf']);
+  let shelfLists = $state<string[]>([]);
+  const isEbookList = (n: string) => /e-?books?/i.test(n);
+  const listsOf = (it: ImportItem) => (it.lists ?? []).map(l => (typeof l === 'string' ? l : l.name));
+  const items = $derived.by(() => {
+    if (source === 'generic' && mapping) return convertMapped(rows, mapping);
+    if (source !== 'booky') return parsed;
+    return parsed.map(it => {
+      const shelved = listsOf(it).filter(n => shelfLists.includes(n));
+      const owned = shelfStatus.includes(it.status) || shelved.length > 0;
+      return { ...it, owned, format: owned && shelved.length && shelved.every(isEbookList) ? 'ebook' as const : 'print' as const };
+    });
+  });
+  const allLists = $derived(source === 'booky' ? listNames(parsed) : []);
 
   let copies = $state<'owned' | 'all' | 'none'>('owned');
   let reviews = $state(true);
@@ -39,6 +57,10 @@
     rated: items.filter(i => i.rating || i.review).length,
     owned: items.filter(i => i.owned).length,
     listed: items.filter(i => i.lists?.length).length,
+    wish: items.filter(i => i.wishlist || i.status === 'want').length,
+    fav: items.filter(i => i.favorite).length,
+    dnf: items.filter(i => i.status === 'dnf').length,
+    noDate: items.filter(i => i.status === 'read' && !i.finishedAt).length,
     noIsbn: items.filter(i => !i.isbn).length
   });
 
@@ -52,19 +74,25 @@
     mapping = r.source === 'generic' && rows[0] ? guessMapping(rows[0]) : null;
     // „booky_export_2026.csv“ → „booky“
     appName = r.source === 'generic' ? (file.name.replace(/\.[^.]+$/, '').split(/[-_ .]/)[0] ?? '') : '';
-    results = []; done = 0; finished = false; open = []; resolved = false;
-    copies = r.source === 'generic' || !r.items.some(i => i.owned) ? 'all' : 'owned';
+    results = []; done = 0; finished = false; open = []; resolved = false; importId = null; undone = false;
+    filename = file.name;
+    copies = r.source === 'booky' ? 'owned' : r.source === 'generic' || !r.items.some(i => i.owned) ? 'all' : 'owned';
+    // Vorschlag: Listen, die nach „ungelesenem Stapel“ klingen, stehen im Regal; Wunsch-/Geschenklisten nicht
+    shelfLists = r.source === 'booky' ? listNames(r.items).filter(n => /stapel|ungelesen|sub\b|will ich lesen/i.test(n) && !/wunsch|geburtstag|weihnacht|geschenk/i.test(n)) : [];
   }
 
   async function send(batch: ImportItem[], policy: 'ask' | 'mine' | 'theirs') {
     const options = { copies, reviews, wishlist, visibility, lists, conflict: policy };
-    return (await api.post<{ results: Result[] }>('/import', { items: batch, options })).results;
+    return (await api.post<{ results: Result[] }>('/import', { items: batch, options, importId })).results;
   }
 
   async function start() {
     running = true;
     results = []; done = 0; open = [];
     const all = items;
+    // ein Import = ein Journal-Eintrag, damit er später rückgängig gemacht werden kann
+    try { importId = (await api.post<{ id: number }>('/imports', { source: app, filename, total: all.length })).id; }
+    catch (e) { toastError(e); running = false; return; }
     // in kleinen Paketen, damit Katalogabfragen nicht in Zeitüberschreitungen laufen
     for (let i = 0; i < all.length; i += 8) {
       const batch = all.slice(i, i + 8);
@@ -94,6 +122,12 @@
     } catch (e) { toastError(e); } finally { running = false; }
   }
 
+  async function undoImport() {
+    if (!importId || !confirm(t('imp.undoQ'))) return;
+    running = true;
+    try { await api.post(`/imports/${importId}/undo`); undone = true; toast(t('imp.undone')); } catch (e) { toastError(e); } finally { running = false; }
+  }
+
   const setAll = (p: 'mine' | 'theirs') => open.forEach(o => (o.pick = p));
   const show = (f: ConflictField, v: unknown) =>
     v === null || v === undefined || v === '' ? '–'
@@ -113,6 +147,7 @@
   <h1>{t('imp.title')}</h1>
   <p class="muted">{t('imp.intro')}</p>
 
+  <a class="small hist" href="/imports">{t('imp.history')} →</a>
   <div class="card stack">
     <label class="btn primary pick">
       <Icon name="download" size={16} /> {t('imp.pick')}
@@ -122,6 +157,7 @@
       <summary>{t('imp.howTo')}</summary>
       <p>{t('imp.howGoodreads')}</p>
       <p>{t('imp.howStorygraph')}</p>
+      <p>{t('imp.howBooky')}</p>
       <p>{t('imp.howOther')}</p>
       <p>{t('imp.howGeneric')}</p>
     </details>
@@ -153,11 +189,29 @@
         <li>{t('imp.cReading', { n: counts.reading })}</li>
         <li>{t('imp.cWant', { n: counts.want })}</li>
         <li>{t('imp.cRated', { n: counts.rated })}</li>
-        {#if source !== 'generic' || mapping?.owned !== -1}<li>{t('imp.cOwned', { n: counts.owned })}</li>{/if}
+        {#if source !== 'booky' && (source !== 'generic' || mapping?.owned !== -1)}<li>{t('imp.cOwned', { n: counts.owned })}</li>{/if}
+        {#if counts.dnf}<li>{t('imp.cDnf', { n: counts.dnf })}</li>{/if}
+        {#if source === 'booky' && counts.wish}<li>{t('imp.cWish', { n: counts.wish })}</li>{/if}
+        {#if counts.fav}<li>{t('imp.cFav', { n: counts.fav })}</li>{/if}
         {#if counts.listed}<li>{t('imp.cListed', { n: counts.listed })}</li>{/if}
+        {#if counts.noDate}<li class="muted">{t('imp.cNoDate', { n: counts.noDate })}</li>{/if}
         {#if counts.noIsbn}<li class="muted">{t('imp.cNoIsbn', { n: counts.noIsbn })}</li>{/if}
       </ul>
 
+      {#if source === 'booky'}
+        <div class="opt">
+          <span class="lbl">{t('imp.shelfWhich')}</span>
+          <div class="shelfpick">
+            {#each STATUS_SHELVES as st}
+              <label class="row check"><input type="checkbox" bind:group={shelfStatus} value={st} /> {t(`read.${st}` as Key)}</label>
+            {/each}
+            {#each allLists as n}
+              <label class="row check"><input type="checkbox" bind:group={shelfLists} value={n} /> „{n}“{#if isEbookList(n)} <span class="muted small">· {t('format.ebook')}</span>{/if}</label>
+            {/each}
+          </div>
+          <span class="muted small">{t('imp.shelfInfo', { n: counts.owned })}</span>
+        </div>
+      {:else}
       <div class="opt">
         <span class="lbl">{t('imp.copies')}</span>
         <div class="segmented">
@@ -166,6 +220,7 @@
           <button class:active={copies === 'none'} onclick={() => (copies = 'none')}>{t('imp.copiesNone')}</button>
         </div>
       </div>
+      {/if}
 
       <div class="opt">
         <span class="lbl">{t('imp.conflict')}</span>
@@ -229,18 +284,25 @@
       <h2>{t('imp.done')}</h2>
       <p>{t('imp.summary', { ok: summary.ok, exists: summary.exists, failed: summary.failed.length })}</p>
       {#if resolved}<p class="muted small">{t('imp.resolved')}</p>{/if}
+      {#if undone}<p class="muted small">{t('imp.undone')}</p>{/if}
       {#if summary.failed.length}
         <details><summary>{t('imp.failedList')}</summary>
           <ul>{#each summary.failed as f}<li>{f.title}</li>{/each}</ul>
         </details>
       {/if}
       <div class="row"><a class="btn primary" href="/library">{t('shelf.mine')}</a><a class="btn" href="/lists">{t('list.title')}</a><a class="btn" href="/wishlist">{t('wish.title')}</a></div>
+      <div class="row">
+        {#if importId && !undone}<button class="ghost danger" onclick={undoImport} disabled={running}>{t('imp.undo')}</button>{/if}
+        <a class="btn ghost" href="/imports">{t('imp.history')}</a>
+      </div>
     </div>
   {/if}
 </section>
 
 <style>
   section { max-width: 720px; margin: 0 auto; }
+  .hist { justify-self: start; }
+  .shelfpick { display: grid; gap: 0.3rem; }
   .pick { justify-self: start; cursor: pointer; }
   details p { margin: 0.4rem 0; }
   .facts { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.15rem; }

@@ -7,6 +7,7 @@
   import { session, toastError } from '../lib/state.svelte.ts';
   import Cover from '../components/Cover.svelte';
   import Icon from '../components/Icon.svelte';
+  import { pending } from '../lib/offline.svelte.ts';
   import ProgressSheet from '../components/ProgressSheet.svelte';
 
   let home = $state<Home | null>(null);
@@ -32,6 +33,7 @@
 {:else}
   <section class="hello">
     <h1>{t(greeting as 'home.hello')}, {session.me?.displayName}</h1>
+    {#if pending.items.length}<a class="card pendinghint" href="/add"><Icon name="scan" size={18} /> {t('offline.homeHint', { n: pending.items.length })}</a>{/if}
     <div class="stats">
       <a href="/library"><b>{home.counts.books}</b><span>{t('home.onShelf')}</span></a>
       <span class="div"></span>
@@ -177,4 +179,5 @@
   .borrowed:hover { text-decoration: none; }
   .from { font-size: 0.75rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .from.late { color: var(--danger); font-weight: 600; }
+  .pendinghint { display: flex; gap: 0.5rem; align-items: center; padding: 0.7rem 1rem; margin: 0 0 1rem; color: var(--text); border-color: var(--accent); }
 </style>

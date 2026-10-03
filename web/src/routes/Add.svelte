@@ -8,6 +8,8 @@
   import CopyForm from '../components/CopyForm.svelte';
   import Sheet from '../components/Sheet.svelte';
   import Icon from '../components/Icon.svelte';
+  import PendingScans from '../components/PendingScans.svelte';
+  import { net, isNetworkError, queueScan, pending, type ScanTarget } from '../lib/offline.svelte.ts';
 
   type Tab = 'scan' | 'search' | 'manual';
   let tab = $state<Tab>((router.query.get('tab') as Tab) ?? 'scan');
@@ -20,6 +22,76 @@
   let lookupIsbn = $state<string | null>(null);
   let notFound = $state<string | null>(null);
   let added = $state<Book[]>([]);
+  // Scan-Ziel: Regal (mit Dialog) oder direkt auf die Wunschliste (schnell durchscannen, z. B. am Bauchladen)
+  // mass = ganzes Regal durchscannen: jeder Scan kommt ohne Dialog mit den gewählten Einstellungen ins Regal
+  type Mode = 'shelf' | 'mass' | 'wishlist';
+  let target = $state<Mode>((['shelf', 'mass', 'wishlist'] as const).find(m => m === router.query.get('to')) ?? 'shelf');
+  let lastQueued = $state<string | null>(null);
+  // im Massen-Scan hinzugefügt (mit Exemplar-ID zum sofortigen Entfernen)
+  let massAdded = $state<{ book: Book; copyId: number }[]>([]);
+
+  /** ohne Netz: ISBN merken, später fertigstellen */
+  function queue(isbn: string) {
+    const fresh = queueScan(isbn, target === 'wishlist' ? 'wishlist' : 'shelf', target === 'wishlist' ? undefined : { format: copy.format, binding: copy.binding });
+    lastQueued = isbn;
+    toast(fresh ? t('offline.saved', { isbn }) : t('offline.already', { isbn }));
+  }
+
+  async function onScan(isbn: string) {
+    if (!net.online) return queue(isbn);
+    if (target === 'wishlist') return quickWish(isbn);
+    if (target === 'mass') return quickShelf(isbn);
+    return lookup(isbn);
+  }
+
+  async function quickShelf(isbn: string) {
+    if (busy) return;
+    busy = true;
+    lookupIsbn = isbn;
+    try {
+      const r = await api.post<{ book: Book }>('/catalog/isbn', { isbn });
+      const detail = await api.get<{ copies: Copy[] }>(`/books/${r.book.id}`);
+      if (detail.copies.some(c => c.mine && c.format === copy.format)) { toast(t('scan.alreadyOwned', { title: r.book.title })); return; }
+      const c = await api.post<{ id: number }>('/copies', { bookId: r.book.id, format: copy.format, binding: copy.format === 'print' ? copy.binding : null, sprayedEdges: false, notes: '', storeId: null });
+      massAdded = [{ book: r.book, copyId: c.id }, ...massAdded];
+      toast(t('add.added', { title: r.book.title }));
+    } catch (e) {
+      if (isNetworkError(e)) { net.online = false; queue(isbn); }
+      else if (e instanceof ApiError && e.status === 404) notFound = isbn;
+      else toastError(e);
+    } finally {
+      busy = false;
+      lookupIsbn = null;
+    }
+  }
+
+  /** Fehlscan im Massen-Scan zurücknehmen (Exemplar endgültig löschen) */
+  async function unmass(copyId: number) {
+    try {
+      await api.del(`/copies/${copyId}`, { mode: 'purge' });
+      massAdded = massAdded.filter(m => m.copyId !== copyId);
+    } catch (e) { toastError(e); }
+  }
+
+  /** Wunschliste-Modus: nachschlagen und sofort eintragen, ohne Dialog */
+  async function quickWish(isbn: string) {
+    if (busy) return;
+    busy = true;
+    lookupIsbn = isbn;
+    try {
+      const r = await api.post<{ book: Book }>('/catalog/isbn', { isbn });
+      await api.put(`/books/${r.book.id}/wishlist`, {});
+      added = [r.book, ...added];
+      toast(t('wish.addedTitle', { title: r.book.title }));
+    } catch (e) {
+      if (isNetworkError(e)) { net.online = false; queue(isbn); }
+      else if (e instanceof ApiError && e.status === 404) notFound = isbn;
+      else toastError(e);
+    } finally {
+      busy = false;
+      lookupIsbn = null;
+    }
+  }
 
   async function select(book: Book) {
     const detail = await api.get<{ copies: Copy[] }>(`/books/${book.id}`);
@@ -36,7 +108,8 @@
       const r = await api.post<{ book: Book }>('/catalog/isbn', { isbn });
       await select(r.book);
     } catch (e) {
-      if (e instanceof ApiError && e.status === 404) notFound = isbn;
+      if (isNetworkError(e)) { net.online = false; queue(isbn); }
+      else if (e instanceof ApiError && e.status === 404) notFound = isbn;
       else toastError(e);
     } finally {
       busy = false;
@@ -111,6 +184,8 @@
     notFound = null;
     tab = 'manual';
   }
+  // Link aus den Offline-Scans: ISBN nicht gefunden → manuell erfassen
+  if (router.query.get('tab') === 'manual' && router.query.get('isbn')) startManual(router.query.get('isbn')!);
 
   async function submitManual(e: SubmitEvent) {
     e.preventDefault();
@@ -145,12 +220,52 @@
     <button class:active={tab === 'manual'} onclick={() => startManual()}><Icon name="keyboard" size={16} /> {t('add.manual')}</button>
   </div>
 
+  {#if !net.online}<p class="card offline">{t('offline.scanInfo')}</p>{/if}
+  {#if net.online && pending.items.length}<PendingScans />{/if}
+
   {#if tab === 'scan'}
-    <Scanner onscan={lookup} paused={busy || !!selected || !!notFound} />
+    <div class="target">
+      <span class="muted small">{t('scan.target')}</span>
+      <div class="segmented">
+        <button class:active={target === 'shelf'} onclick={() => (target = 'shelf')}><Icon name="library" size={16} /> {t('scan.toShelf')}</button>
+        <button class:active={target === 'mass'} onclick={() => (target = 'mass')}><Icon name="shelf" size={16} /> {t('scan.mass')}</button>
+        <button class:active={target === 'wishlist'} onclick={() => (target = 'wishlist')}><Icon name="bookmark" size={16} /> {t('scan.toWishlist')}</button>
+      </div>
+      {#if target === 'mass'}
+        <p class="muted small massinfo">{t('scan.massInfo')}</p>
+        <div class="row massopts">
+          <div class="segmented">
+            <button class:active={copy.format === 'print'} onclick={() => (copy.format = 'print')}>{t('format.print')}</button>
+            <button class:active={copy.format === 'ebook'} onclick={() => { copy.format = 'ebook'; copy.binding = null; }}>{t('format.ebook')}</button>
+          </div>
+          {#if copy.format === 'print'}
+            <div class="segmented">
+              <button class:active={!copy.binding} onclick={() => (copy.binding = null)}>{t('scan.bindingAny')}</button>
+              <button class:active={copy.binding === 'paperback'} onclick={() => (copy.binding = 'paperback')}>{t('binding.paperback')}</button>
+              <button class:active={copy.binding === 'hardcover'} onclick={() => (copy.binding = 'hardcover')}>{t('binding.hardcover')}</button>
+            </div>
+          {/if}
+        </div>
+      {/if}
+    </div>
+    <Scanner onscan={onScan} paused={busy || !!selected || !!notFound} />
     <p class="muted small center">
       {#if lookupIsbn}<span class="row inline"><span class="spinner sm"></span> {t('add.looking', { isbn: lookupIsbn })}</span>
+      {:else if !net.online && lastQueued}{t('offline.lastSaved', { isbn: lastQueued, n: pending.items.length })}
       {:else}{t('add.hold')}{/if}
     </p>
+    {#if target === 'mass' && massAdded.length}
+      <div class="card stack masslist">
+        <h3>{t('scan.massCount', { n: massAdded.length })}</h3>
+        {#each massAdded as m (m.copyId)}
+          <div class="row massrow">
+            <a href="/book/{m.book.id}" class="mcov"><Cover url={m.book.coverUrl} title={m.book.title} authors={m.book.authors} size="sm" /></a>
+            <span class="grow"><strong>{m.book.title}</strong><span class="muted small">{m.book.authors.join(', ')}</span></span>
+            <button class="icon ghost" onclick={() => unmass(m.copyId)} aria-label={t('scan.undoOne')}><Icon name="x" size={18} /></button>
+          </div>
+        {/each}
+      </div>
+    {/if}
   {:else if tab === 'search'}
     <form class="searchbox" onsubmit={searchSubmit}>
       <Icon name="search" size={18} />
@@ -237,6 +352,16 @@
 
 <style>
   .tabs { align-self: start; }
+  .target { display: grid; gap: 0.3rem; justify-items: start; max-width: 100%; }
+  .target .segmented { flex-wrap: wrap; max-width: 100%; }
+  .massinfo { margin: 0.2rem 0 0; }
+  .massopts { flex-wrap: wrap; }
+  .masslist { padding: 0.8rem 1rem; }
+  .massrow { flex-wrap: nowrap; gap: 0.7rem; }
+  .mcov { width: 40px; flex: none; }
+  .massrow .grow { flex: 1; min-width: 0; display: grid; }
+  .massrow strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .offline { padding: 0.8rem 1rem; border-color: color-mix(in srgb, var(--star) 60%, transparent); margin: 0; }
   .tabs button { display: inline-flex; gap: 0.4em; }
   .center { text-align: center; }
   .inline { display: inline-flex; }

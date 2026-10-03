@@ -4,6 +4,9 @@
  */
 const EN: Record<string, string> = {
   'Interner Fehler': 'Internal error',
+  'Dieser Import wurde schon rückgängig gemacht': 'This import has already been undone',
+  'Das Ende liegt vor dem Beginn': 'The end date is before the start date',
+  'Datum liegt in der Zukunft': 'The date is in the future',
   'Name fehlt': 'Name is missing',
   'Höchstens 200 Listen': 'At most 200 lists',
   'Liste ist voll (max. 500 Bücher)': 'List is full (max. 500 books)',
@@ -56,7 +59,7 @@ const EN: Record<string, string> = {
 };
 
 const NOUNS: Record<string, string> = {
-  Buch: 'Book', Einladung: 'Invitation', Exemplar: 'Copy', Kommentar: 'Comment', Konto: 'Account', Review: 'Review', Eintrag: 'Entry', Verleih: 'Loan', Liste: 'List'
+  Buch: 'Book', Einladung: 'Invitation', Exemplar: 'Copy', Kommentar: 'Comment', Konto: 'Account', Review: 'Review', Eintrag: 'Entry', Verleih: 'Loan', Liste: 'List', Import: 'Import'
 };
 
 export function translate(msg: string, lang: string | undefined): string {

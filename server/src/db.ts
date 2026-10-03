@@ -249,6 +249,32 @@ const migrations: string[] = [
   // 8: Darstellung pro Konto (Farbthema, Schrift) als JSON
   `
   ALTER TABLE users ADD COLUMN prefs TEXT NOT NULL DEFAULT '{}';
+  `,
+  // 9: Importe mit Journal, damit jeder Import rückgängig gemacht werden kann
+  `
+  CREATE TABLE imports (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    source TEXT NOT NULL,
+    filename TEXT,
+    total INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    undone_at TEXT
+  );
+  CREATE INDEX imports_user ON imports(user_id);
+  -- je geänderter Zeile der Zustand vor dem Import (before NULL = Zeile gab es vorher nicht)
+  CREATE TABLE import_changes (
+    id INTEGER PRIMARY KEY,
+    import_id INTEGER NOT NULL REFERENCES imports(id) ON DELETE CASCADE,
+    tbl TEXT NOT NULL,
+    key TEXT NOT NULL,
+    before TEXT,
+    UNIQUE (import_id, tbl, key)
+  );
+  -- quiet = aus einem Import ohne bekanntes Datum: nicht im Feed (sonst stünde dort „heute hinzugefügt/bewertet“)
+  ALTER TABLE copies ADD COLUMN quiet INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE reviews ADD COLUMN quiet INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE list_items ADD COLUMN quiet INTEGER NOT NULL DEFAULT 0;
   `
 ];
 

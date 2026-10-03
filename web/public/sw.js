@@ -1,5 +1,5 @@
 // bookshelv Service Worker: App-Hülle cachen, API und Cover immer frisch vom Server (Cover zusätzlich aus Cache).
-const CACHE = 'bookshelv-v1';
+const CACHE = 'bookshelv-v2';
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(['/', '/manifest.webmanifest', '/icon.svg'])));

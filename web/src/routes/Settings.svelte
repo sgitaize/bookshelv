@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { forgetMe } from '../lib/offline.svelte.ts';
   import { api, inviteUrl, type Invite } from '../lib/api.ts';
   import { session, loadSession, toast, toastError } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
@@ -95,6 +96,7 @@
 
   async function logout() {
     await api.post('/logout');
+    forgetMe();
     session.me = null;
     router.go('/', true);
   }
@@ -104,6 +106,7 @@
     if (!confirm(t('settings.deleteQ'))) return;
     try {
       await api.del('/me', { password: deletePw });
+      forgetMe();
       session.me = null;
       router.go('/', true);
     } catch (err) { toastError(err); }
@@ -211,6 +214,7 @@
     <h2>{t('settings.data')}</h2>
     <p class="muted small">{t('settings.dataInfo')}</p>
     <a class="btn" href="/import"><Icon name="download" size={16} /> {t('imp.link')}</a>
+    <a class="btn ghost" href="/imports"><Icon name="book" size={16} /> {t('imp.history')}</a>
     <div class="exports">
       <span class="muted small">{t('exp.title')}</span>
       <a class="btn" href="/api/me/export.csv?format=goodreads" download><Icon name="upload" size={16} /> {t('exp.goodreads')}</a>

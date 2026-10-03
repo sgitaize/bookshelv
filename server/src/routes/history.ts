@@ -15,12 +15,12 @@ type EventType = (typeof EVENT_TYPES)[number];
 
 // date = YYYY-MM-DD; person = Gegenüber beim Verleih; value = Sterne bei Bewertungen
 const EVENTS_SQL = `
-  SELECT 'added' AS type, substr(c.created_at, 1, 10) AS date, c.book_id, NULL AS person, NULL AS value, c.format AS extra FROM copies c WHERE c.owner_id = :u
+  SELECT 'added' AS type, substr(c.created_at, 1, 10) AS date, c.book_id, NULL AS person, NULL AS value, c.format AS extra FROM copies c WHERE c.owner_id = :u AND c.quiet = 0
   UNION ALL SELECT 'removed', substr(c.removed_at, 1, 10), c.book_id, NULL, NULL, c.removed_reason FROM copies c WHERE c.owner_id = :u AND c.removed_at IS NOT NULL
   UNION ALL SELECT 'started', ub.started_at, ub.book_id, NULL, NULL, NULL FROM user_books ub WHERE ub.user_id = :u AND ub.started_at IS NOT NULL
   UNION ALL SELECT CASE ub.status WHEN 'dnf' THEN 'dnf' ELSE 'finished' END, ub.finished_at, ub.book_id, NULL, NULL, NULL
     FROM user_books ub WHERE ub.user_id = :u AND ub.finished_at IS NOT NULL AND ub.status IN ('read', 'dnf')
-  UNION ALL SELECT 'reviewed', substr(r.created_at, 1, 10), r.book_id, NULL, r.rating, NULL FROM reviews r WHERE r.user_id = :u
+  UNION ALL SELECT 'reviewed', substr(r.created_at, 1, 10), r.book_id, NULL, r.rating, NULL FROM reviews r WHERE r.user_id = :u AND r.quiet = 0
   UNION ALL SELECT 'lent', l.lent_at, c.book_id, COALESCE(bo.display_name, ra.display_name, l.borrower_name), NULL, l.due_at
     FROM loans l JOIN copies c ON c.id = l.copy_id LEFT JOIN users bo ON bo.id = l.borrower_id
     LEFT JOIN remote_actors ra ON ra.id = l.borrower_remote_id WHERE l.lender_id = :u

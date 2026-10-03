@@ -19,15 +19,23 @@
   import Wishlist from './routes/Wishlist.svelte';
   import Import from './routes/Import.svelte';
   import Lists from './routes/Lists.svelte';
+  import Imports from './routes/Imports.svelte';
   import ListView from './routes/ListView.svelte';
   import Stats from './routes/Stats.svelte';
   import Wrapup from './routes/Wrapup.svelte';
   import { t } from './lib/i18n.svelte.ts';
+  import { net } from './lib/offline.svelte.ts';
 
   loadSession().catch(() => (session.me = null));
 
   // Glocke aktuell halten: bei jedem Seitenwechsel (gedrosselt) und jede Minute
-  $effect(() => { router.path; if (session.me) pollNotifications(); });
+  $effect(() => { router.path; if (session.me && net.online) pollNotifications(); });
+  // wieder online → Konto und Daten frisch laden
+  let wasOffline = false;
+  $effect(() => {
+    if (!net.online) wasOffline = true;
+    else if (wasOffline) { wasOffline = false; loadSession().catch(() => {}); }
+  });
   $effect(() => {
     const id = setInterval(() => pollNotifications(true), 60_000);
     return () => clearInterval(id);
@@ -53,6 +61,7 @@
   {/if}
 {:else}
   <Nav />
+  {#if !net.online}<div class="offbar" role="status">{t('offline.bar')} <a href="/add">{t('offline.barScan')}</a></div>{/if}
   <main>
     {#key router.path + router.query.toString()}
       <div in:fly={{ y: 8, duration: 180 }}>
@@ -72,6 +81,7 @@
         {:else if personWish}<Wishlist userId={Number(personWish.id)} />
         {:else if router.path === '/import'}<Import />
         {:else if router.path === '/lists'}<Lists />
+        {:else if router.path === '/imports'}<Imports />
         {:else if listView}<ListView id={Number(listView.id)} />
         {:else if router.path === '/stats'}<Stats />
         {:else if router.path === '/wrapup'}<Wrapup />
@@ -95,6 +105,8 @@
 
 <style>
   .boot { min-height: 100dvh; display: grid; place-items: center; }
+  .offbar { position: sticky; top: 0; z-index: 30; padding: 0.45rem 1rem; text-align: center; font-size: 0.85rem; background: var(--star); color: #1a1408; }
+  .offbar a { color: inherit; text-decoration: underline; font-weight: 600; }
   main {
     max-width: var(--content-w);
     margin: 0 auto;
