@@ -16,7 +16,7 @@ fi
 
 echo "→ Hochladen nach ~/$DEPLOY_APP_DIR"
 # public/ komplett ersetzen (alte Asset-Hashes weg), server.js + package.json überschreiben, data/ behalten
-tar -C dist -czf - server.js package.json public | "${SSH[@]}" "
+COPYFILE_DISABLE=1 tar --no-xattrs -C dist -czf - server.js package.json public | "${SSH[@]}" "
   set -e
   mkdir -p ~/$DEPLOY_APP_DIR/data ~/$DEPLOY_APP_DIR/tmp
   cd ~/$DEPLOY_APP_DIR

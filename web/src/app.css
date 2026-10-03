@@ -8,7 +8,7 @@
 @import '@fontsource/poppins/latin-700.css';
 @import '@fontsource/poppins/latin-ext-700.css';
 
-/* Hell, klar, Petrol als Akzent (angelehnt an StoryGraph); dunkel folgt der Systemeinstellung */
+/* Petrol als Akzent, klare Flächen (angelehnt an StoryGraph). Basiswerte = helles Thema */
 :root {
   --bg: #ffffff;
   --bg-soft: #f6f7f7;
@@ -35,8 +35,30 @@
   color-scheme: light;
 }
 
+/* Dunkel ist Standard (Simon); "light" erzwingt hell, "system" folgt der Geräteeinstellung */
+:root:not([data-theme='light']):not([data-theme='system']) {
+    --bg: #121516;
+    --bg-soft: #171b1c;
+    --surface: #1b1f20;
+    --surface-2: #242a2b;
+    --surface-3: #303738;
+    --line: #2c3334;
+    --text: #e9eded;
+    --muted: #95a0a1;
+    --accent: #5fb0b3;
+    --accent-2: #7cc6c8;
+    --accent-soft: #1f3536;
+    --accent-ink: #0e1a1b;
+    --danger: #ec6f61;
+    --ok: #7cc493;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.3);
+    --cover-shadow: 0 2px 4px rgb(0 0 0 / 0.4), 0 8px 18px rgb(0 0 0 / 0.35);
+    --glass: rgb(30 35 36 / 0.88);
+    color-scheme: dark;
+  }
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root[data-theme='system'] {
     --bg: #121516;
     --bg-soft: #171b1c;
     --surface: #1b1f20;

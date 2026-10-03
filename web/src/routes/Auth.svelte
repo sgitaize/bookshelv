@@ -41,7 +41,7 @@
 <main class="auth">
   <div class="hero">
     <div class="books" aria-hidden="true">
-      {#each [[38, '#e8a54b'], [52, '#c8553d'], [44, '#5b8c85'], [60, '#f3ece0'], [36, '#8a6bb0'], [48, '#e8a54b'], [56, '#c8553d']] as [h, c], i}
+      {#each [[38, '#e8a54b'], [52, '#c8553d'], [44, '#33777c'], [60, '#e9e4d8'], [36, '#5fb0b3'], [48, '#e8a54b'], [56, '#c8553d']] as [h, c], i}
         <span style="height: {h}px; background: {c}; --i: {i}"></span>
       {/each}
     </div>
@@ -91,6 +91,11 @@
       {/if}
     {/if}
   </form>
+
+  <footer class="muted small">
+    <a href="https://github.com/sgitaize/bookshelv" target="_blank" rel="noopener">bookshelv</a> – selbst gehostet, ohne Tracking
+    · <a href="https://sgitaize.aize-it.de" target="_blank" rel="noopener">sgitaize</a>
+  </footer>
 </main>
 
 <style>
@@ -115,6 +120,7 @@
   .books span:nth-child(4) { rotate: 8deg; transform-origin: bottom left; }
   @keyframes rise { from { transform: translateY(30px); opacity: 0; } }
   form { width: min(400px, 100%); }
+  footer { text-align: center; }
   .err { color: var(--danger); margin: 0; font-size: 0.9rem; }
   .center { text-align: center; margin: 0; }
   code { font-size: 0.85em; background: var(--surface-2); padding: 0.1em 0.35em; border-radius: 5px; }

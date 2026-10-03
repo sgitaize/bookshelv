@@ -3,6 +3,7 @@
   import { session, loadSession, toast, toastError } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
   import Icon from '../components/Icon.svelte';
+  import { getTheme, setTheme, type Theme } from '../lib/theme.ts';
 
   let displayName = $state(session.me!.displayName);
   let shelfVisible = $state(session.me!.shelfVisible);
@@ -10,6 +11,7 @@
   let note = $state('');
   let pw = $state({ current: '', next: '', next2: '' });
   let deletePw = $state('');
+  let theme = $state<Theme>(getTheme());
 
   const loadInvites = () => api.get<Invite[]>('/invites').then(r => (invites = r)).catch(toastError);
   $effect(() => { loadInvites(); });
@@ -89,6 +91,15 @@
     <button class="primary">Speichern</button>
   </form>
 
+  <div class="card stack">
+    <h2>Darstellung</h2>
+    <div class="segmented">
+      {#each [['dark', 'Dunkel'], ['light', 'Hell'], ['system', 'Wie Gerät']] as [t, label]}
+        <button class:active={theme === t} onclick={() => { theme = t as Theme; setTheme(theme); }}>{label}</button>
+      {/each}
+    </div>
+  </div>
+
   <div class="card stack" id="invites">
     <h2>Freunde einladen</h2>
     <p class="muted small">Ein Link gilt 14 Tage und für genau eine Person.</p>
@@ -140,6 +151,11 @@
       </form>
     </details>
   </div>
+
+  <p class="muted small about">
+    bookshelv ist freie Software (MIT) · <a href="https://github.com/sgitaize/bookshelv" target="_blank" rel="noopener">Quellcode auf GitHub</a>
+    · gebaut von <a href="https://sgitaize.aize-it.de" target="_blank" rel="noopener">sgitaize</a>
+  </p>
 </section>
 
 <style>
@@ -151,4 +167,6 @@
   .invites .grow { display: grid; }
   .danger-text { color: var(--danger); cursor: pointer; font-weight: 550; }
   .del { margin-top: 0.8rem; }
+  .segmented { align-self: start; }
+  .about { text-align: center; margin-top: 1rem; }
 </style>

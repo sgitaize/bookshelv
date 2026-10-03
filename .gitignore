@@ -5,3 +5,6 @@ data/
 .env.*
 !.env*.example
 .DS_Store
+# interne Notizen aus dem Claude-Workspace (nie ins Repo)
+INTERN.md
+LOG.md
