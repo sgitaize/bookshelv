@@ -164,6 +164,7 @@ export type Stats = {
   formats: { name: 'print' | 'ebook' | 'none'; n: number }[]; languages: { name: string; n: number }[];
   highlights: { first: BookBrief | null; last: BookBrief | null; longest: BookBrief | null; shortest: BookBrief | null; fiveStars: BookBrief[] };
 };
+
 export type ListVisibility = 'private' | 'instance';
 export type ReadingListSummary = { id: number; name: string; description: string | null; visibility: ListVisibility; updatedAt: string; count: number; preview: BookBrief[] };
 export type ReadingList = {
