@@ -220,6 +220,31 @@ const migrations: string[] = [
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (user_id, book_id)
   );
+  `,
+  // 7: Top 5 im Profil, Leselisten (wie Playlists), Merkmal für den Aktivitätsfeed
+  `
+  ALTER TABLE user_books ADD COLUMN top_rank INTEGER CHECK (top_rank BETWEEN 1 AND 5);
+  CREATE UNIQUE INDEX user_books_top ON user_books(user_id, top_rank) WHERE top_rank IS NOT NULL;
+  CREATE TABLE lists (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    description TEXT,
+    visibility TEXT NOT NULL DEFAULT 'instance' CHECK (visibility IN ('private', 'instance')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX lists_user ON lists(user_id);
+  CREATE TABLE list_items (
+    list_id INTEGER NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
+    book_id INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL,
+    note TEXT,
+    added_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (list_id, book_id)
+  );
+  CREATE INDEX list_items_book ON list_items(book_id);
+  CREATE INDEX copies_created ON copies(created_at);
   `
 ];
 

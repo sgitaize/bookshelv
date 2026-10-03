@@ -13,9 +13,15 @@
   import CopyForm from '../components/CopyForm.svelte';
   import Sheet from '../components/Sheet.svelte';
   import Icon from '../components/Icon.svelte';
+  import ListSheet from '../components/ListSheet.svelte';
+  import FeedList from '../components/FeedList.svelte';
+  import type { FeedItem } from '../lib/api.ts';
 
   let { id }: { id: number } = $props();
 
+  let listOpen = $state(false);
+  let bookFeed = $state<FeedItem[]>([]);
+  $effect(() => { api.get<{ items: FeedItem[] }>(`/feed?book=${id}&limit=20`).then(r => (bookFeed = r.items)).catch(() => {}); });
   let data = $state<{ book: Book; copies: Copy[]; canEdit: boolean; wishlisted: boolean; reading: Reading; archived: ArchivedCopy[] } | null>(null);
   let removing = $state<{ id: number; archived: boolean } | null>(null);
   let progressOpen = $state(false);
@@ -169,6 +175,7 @@
         {#if !mine.length || data.wishlisted}
           <button class="small" class:on={data.wishlisted} onclick={toggleWish}><Icon name="bookmark" size={16} /> {data.wishlisted ? t('wish.on') : t('wish.add')}</button>
         {/if}
+        <button class="small" onclick={() => (listOpen = true)}><Icon name="list" size={16} /> {t('list.addTo')}</button>
         {#if data.canEdit || (!b.coverUrl && mine.length)}
           <label class="btn small ghost"><Icon name="image" size={16} /> {t('cover.upload')}<input type="file" accept="image/*" onchange={pickCover} hidden /></label>
         {/if}
@@ -275,6 +282,13 @@
     </section>
   {/if}
 
+  {#if bookFeed.length}
+    <section class="hist">
+      <h2>{t('feed.bookHistory')}</h2>
+      <FeedList items={bookFeed} compact />
+    </section>
+  {/if}
+
   {#if history.length}
     <section class="hist">
       <h2>{t('hist.book')}</h2>
@@ -284,7 +298,8 @@
 {/if}
 
 {#if data}
-  <ProgressSheet item={progressOpen ? { book: data.book, progress: data.reading.progress, status: data.reading.status } : null}
+  <ListSheet bookId={id} open={listOpen} onclose={() => (listOpen = false)} />
+<ProgressSheet item={progressOpen ? { book: data.book, progress: data.reading.progress, status: data.reading.status } : null}
     onclose={() => (progressOpen = false)} onsaved={load} />
 {/if}
 

@@ -31,6 +31,11 @@
     bookmark: 'm19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2Z',
     image: 'M3 5h18v14H3zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM21 15l-5-5L5 19',
     chart: 'M3 3v18h18M7 16v-5M12 16V8M17 16v-8',
+    list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+    up: 'm18 15-6-6-6 6',
+    down: 'm6 9 6 6 6-6',
+    activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
+    upload: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4m14-7-5-5-5 5m5-5v12',
     keyboard: 'M2 6h20v12H2zM6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10'
   };
   let { name, size = 20 }: { name: string; size?: number } = $props();

@@ -6,16 +6,21 @@
 export type ImportItem = {
   isbn?: string; title?: string; authors?: string[]; status: 'read' | 'reading' | 'unread' | 'dnf' | 'want';
   rating?: number | null; review?: string | null; spoiler?: boolean; finishedAt?: string | null; addedAt?: string | null;
-  owned?: boolean; format?: 'print' | 'ebook'; binding?: 'paperback' | 'hardcover' | null;
+  owned?: boolean; format?: 'print' | 'ebook'; binding?: 'paperback' | 'hardcover' | null; startedAt?: string | null;
+  lists?: string[]; resolve?: string[];
 };
 
-export type ImportSource = 'goodreads' | 'storygraph' | 'generic';
+export type ImportSource = 'goodreads' | 'storygraph' | 'bookshelv' | 'generic';
 
 /** RFC-4180-CSV: Anführungszeichen, verdoppelte "" und Zeilenumbrüche in Feldern */
 export function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [], field = '', quoted = false;
   const s = text.replace(/^﻿/, '');
+  // Trennzeichen aus der Kopfzeile: deutsche Apps/Excel nehmen oft ";", manche Tabulator
+  const head = s.slice(0, s.search(/\r|\n|$/));
+  const count = (ch: string) => head.split(ch).length;
+  const sep = count(';') > count(',') && count(';') >= count('\t') ? ';' : count('\t') > count(',') ? '\t' : ',';
   for (let i = 0; i < s.length; i++) {
     const ch = s[i];
     if (quoted) {
@@ -23,7 +28,7 @@ export function parseCsv(text: string): string[][] {
       else if (ch === '"') quoted = false;
       else field += ch;
     } else if (ch === '"') quoted = true;
-    else if (ch === ',') { row.push(field); field = ''; }
+    else if (ch === sep) { row.push(field); field = ''; }
     else if (ch === '\n' || ch === '\r') {
       if (ch === '\r' && s[i + 1] === '\n') i++;
       row.push(field); field = '';
@@ -38,9 +43,16 @@ export function parseCsv(text: string): string[][] {
 
 const isbnOf = (v: string | undefined) => (v ?? '').replace(/[^0-9Xx]/g, '') || undefined;
 /** "2024/03/17" oder "2024-03-17" → "2024-03-17" */
-const dateOf = (v: string | undefined) => {
-  const m = (v ?? '').match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
-  return m ? `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}` : null;
+export const dateOf = (v: string | undefined) => {
+  const t = (v ?? '').trim();
+  let m = t.match(/(\d{4})[/.-](\d{1,2})[/.-](\d{1,2})/);
+  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+  // 17.03.2024 (deutsch) bzw. 03/17/2024 (US)
+  m = t.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return Number(m[1]) > 12 ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+  return null;
 };
 const authorsOf = (...vals: (string | undefined)[]) =>
   vals.flatMap(v => (v ?? '').split(',')).map(a => a.trim()).filter(Boolean);
@@ -51,6 +63,7 @@ export function detect(header: string[]): ImportSource {
   const h = header.map(x => x.trim().toLowerCase());
   if (h.includes('exclusive shelf')) return 'goodreads';
   if (h.includes('read status') && h.includes('star rating')) return 'storygraph';
+  if (['title', 'isbn13', 'status', 'rating', 'owned', 'wishlist', 'lists'].every(x => h.includes(x))) return 'bookshelv';
   return 'generic';
 }
 
@@ -60,6 +73,8 @@ export function convert(rows: string[][]): { source: ImportSource; items: Import
   const source = detect(header);
   const idx = Object.fromEntries(header.map((h, i) => [h.trim().toLowerCase(), i]));
   const get = (r: string[], name: string) => (idx[name] !== undefined ? r[idx[name]]?.trim() : undefined);
+  const mapping = guessMapping(header);
+  const scale = ratingScale(data, mapping.rating);
 
   const items = data.map((r): ImportItem | null => {
     if (source === 'goodreads') {
@@ -71,7 +86,9 @@ export function convert(rows: string[][]): { source: ImportSource; items: Import
         // Reihenangabe "(Dune, #1)" am Ende entfernen
         title: (get(r, 'title') ?? '').replace(/\s*\([^()]*#\d+(\.\d+)?\)\s*$/, ''),
         authors: authorsOf(get(r, 'author'), get(r, 'additional authors')),
-        status: shelf === 'read' ? 'read' : shelf === 'currently-reading' ? 'reading' : shelf === 'to-read' ? 'want' : 'unread',
+        status: shelf === 'read' ? 'read' : shelf === 'currently-reading' ? 'reading' : shelf === 'to-read' ? 'want' : shelf === 'did-not-finish' ? 'dnf' : 'unread',
+        // weitere (nicht exklusive) Regale werden zu Leselisten
+        lists: (get(r, 'bookshelves') ?? '').split(',').map(x => x.trim()).filter(x => x && !['read', 'currently-reading', 'to-read', 'did-not-finish', 'favorites'].includes(x)),
         rating: Number(get(r, 'my rating')) || null,
         review: stripHtml(get(r, 'my review')),
         spoiler: get(r, 'spoiler') === 'true',
@@ -99,11 +116,98 @@ export function convert(rows: string[][]): { source: ImportSource; items: Import
         binding: format === 'hardcover' ? 'hardcover' : format === 'paperback' ? 'paperback' : null
       };
     }
-    // einfache CSV: Spalten title/titel, author/autor, isbn
-    const title = get(r, 'title') ?? get(r, 'titel');
-    const isbn = isbnOf(get(r, 'isbn') ?? get(r, 'isbn13'));
-    if (!title && !isbn) return null;
-    return { isbn, title, authors: authorsOf(get(r, 'author') ?? get(r, 'autor') ?? get(r, 'authors')), status: 'unread', owned: true, format: 'print' };
+    return fromMapping(r, mapping, scale);
   });
   return { source, items: items.filter((x): x is ImportItem => !!x && !!(x.title || x.isbn)) };
+}
+
+// ---------- Beliebige CSV (Booky, BookBuddy, Book Tracker, Excel-Listen …) per Spaltenzuordnung ----------
+
+export const FIELDS = ['title', 'authors', 'isbn', 'status', 'rating', 'review', 'finished', 'started', 'added', 'owned', 'format', 'lists'] as const;
+export type Field = (typeof FIELDS)[number];
+export type Mapping = Record<Field, number>;
+
+/** Übliche Spaltennamen (klein, ohne Sonderzeichen) – deutsch und englisch */
+const ALIASES: Record<Field, string[]> = {
+  title: ['title', 'titel', 'booktitle', 'buchtitel', 'name'],
+  authors: ['authors', 'author', 'autor', 'autoren', 'autorin', 'verfasser', 'writer', 'authorname'],
+  isbn: ['isbn13', 'isbn', 'isbn10', 'isbnuid', 'ean', 'barcode'],
+  status: ['status', 'readstatus', 'readingstatus', 'lesestatus', 'lesestand', 'shelf', 'exclusiveshelf', 'regal', 'state', 'gelesen'],
+  rating: ['rating', 'myrating', 'starrating', 'stars', 'bewertung', 'meinebewertung', 'sterne', 'score', 'rate'],
+  review: ['review', 'myreview', 'rezension', 'kritik', 'notes', 'notizen', 'comment', 'kommentar', 'meinung'],
+  finished: ['finished', 'dateread', 'datefinished', 'finishdate', 'enddate', 'lastdateread', 'gelesenam', 'beendet', 'beendetam', 'ende', 'readdate', 'fertig'],
+  started: ['started', 'datestarted', 'startdate', 'begonnen', 'begonnenam', 'start', 'angefangen'],
+  added: ['added', 'dateadded', 'hinzugefuegt', 'hinzugefugt', 'hinzugefuegtam', 'createdat', 'erstellt', 'angelegt'],
+  owned: ['owned', 'ownedcopies', 'owned?', 'besitz', 'imbesitz', 'besessen', 'library', 'bibliothek'],
+  format: ['format', 'binding', 'einband', 'type', 'typ', 'medium'],
+  lists: ['lists', 'listen', 'bookshelves', 'tags', 'collections', 'sammlung', 'sammlungen', 'leselisten', 'shelves']
+};
+const norm = (h: string) => h.toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss').replace(/[^a-z0-9?]/g, '').replace(/\?$/, '');
+
+export function guessMapping(header: string[]): Mapping {
+  const h = header.map(norm);
+  const used = new Set<number>();
+  const m = {} as Mapping;
+  for (const f of FIELDS) {
+    // exakter Treffer in Alias-Reihenfolge, sonst "enthält"
+    let i = -1;
+    for (const a of ALIASES[f]) { i = h.findIndex((x, j) => !used.has(j) && x === norm(a)); if (i >= 0) break; }
+    if (i < 0 && f !== 'status' && f !== 'format') for (const a of ALIASES[f]) { i = h.findIndex((x, j) => !used.has(j) && a.length > 4 && x.includes(norm(a))); if (i >= 0) break; }
+    m[f] = i;
+    if (i >= 0) used.add(i);
+  }
+  return m;
+}
+
+/** Höchster vorkommender Wert der Bewertungsspalte → Skala (5, 10 oder 100) */
+export function ratingScale(data: string[][], col: number) {
+  if (col < 0) return 5;
+  const max = Math.max(0, ...data.map(r => Number((r[col] ?? '').replace(',', '.').replace(/[^\d.]/g, '')) || 0));
+  // ★★★★☆ zählt über die Sterne, nicht als Zahl
+  return max > 10 ? 100 : max > 5 ? 10 : 5;
+}
+
+const statusOf = (v: string): ImportItem['status'] => {
+  const s = v.toLowerCase().trim();
+  if (!s) return 'unread';
+  if (/did.?not.?finish|dnf|abgebrochen|aufgegeben|abandon/.test(s)) return 'dnf';
+  if (/currently|reading|lese ich|am lesen|lesend|in progress|in arbeit|begonnen|aktuell|^lese/.test(s)) return 'reading';
+  if (/to.?read|want|wunsch|tbr|will lesen|möchte|moechte|später|merkliste|wishlist|ungelesen geplant|planned/.test(s)) return 'want';
+  if (/^(read|gelesen|finished|done|fertig|beendet|completed|ja|yes|true|1|x)$|^gelesen|^read$/.test(s)) return 'read';
+  return 'unread';
+};
+const yes = (v: string) => /^(yes|ja|true|1|x|y|owned|besessen|vorhanden|✓|✔)$/i.test(v.trim()) || Number(v) > 0;
+
+export function fromMapping(r: string[], m: Mapping, scale = 5): ImportItem | null {
+  const g = (f: Field) => (m[f] >= 0 ? (r[m[f]] ?? '').trim() : '');
+  const title = g('title') || undefined;
+  const isbn = isbnOf(g('isbn'));
+  if (!title && !isbn) return null;
+  const rawRating = g('rating');
+  const stars = (rawRating.match(/★/g) ?? []).length + ((rawRating.match(/½/g) ?? []).length ? 0.5 : 0);
+  const num = Number(rawRating.replace(',', '.').replace(/[^\d.]/g, '')) || 0;
+  const rating = stars || (num ? Math.round((num / scale) * 5 * 2) / 2 : 0);
+  const fmt = g('format').toLowerCase();
+  const ebook = /e-?book|kindle|digital|epub|tolino|kobo/.test(fmt);
+  const status = statusOf(g('status')) === 'unread' && g('finished') ? 'read' : statusOf(g('status'));
+  return {
+    isbn, title, authors: authorsOf(g('authors').replace(/;| & | und | and /g, ',')),
+    status,
+    rating: rating >= 0.5 ? Math.min(5, rating) : null,
+    review: stripHtml(g('review')),
+    finishedAt: dateOf(g('finished')),
+    startedAt: dateOf(g('started')),
+    addedAt: dateOf(g('added')),
+    owned: m.owned >= 0 ? yes(g('owned')) : true,
+    format: ebook ? 'ebook' : 'print',
+    binding: ebook ? null : /hard|gebunden|hc/.test(fmt) ? 'hardcover' : /paper|taschen|tb|softcover|broschiert/.test(fmt) ? 'paperback' : null,
+    lists: g('lists').split(g('lists').includes(';') ? ';' : /[,|]/).map(x => x.trim()).filter(Boolean)
+  };
+}
+
+/** Beliebige CSV mit vom Nutzer angepasster Zuordnung umwandeln */
+export function convertMapped(rows: string[][], m: Mapping): ImportItem[] {
+  const [, ...data] = rows;
+  const scale = ratingScale(data, m.rating);
+  return data.map(r => fromMapping(r, m, scale)).filter((x): x is ImportItem => !!x);
 }

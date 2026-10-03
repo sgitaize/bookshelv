@@ -102,7 +102,7 @@ export type Profile = {
   id: number; username: string; displayName: string; createdAt: string; shelfVisible: boolean; avatarUrl: string | null;
   counts: { books: number; read: number; readThisYear: number; reviews: number };
   averageRating: number | null;
-  favorites: BookBrief[]; reading: BookBrief[]; wishlistCount: number;
+  top: BookBrief[]; favorites: BookBrief[]; reading: BookBrief[]; wishlistCount: number;
 };
 
 export type CopyLoan = { id: number | null; borrowerId: number | null; borrowerName: string | null; lentAt: string; dueAt: string | null; note: string | null };
@@ -126,7 +126,8 @@ export type NotificationItem = {
   actor: { id: number | null; displayName: string; avatarUrl: string | null } | null; book: BookBrief | null;
 };
 export type FeedItem = {
-  type: 'started' | 'finished' | 'reviewed'; ts: string; rating: number | null; reviewId: number | null; text: string | null; spoiler: boolean;
+  type: 'added' | 'started' | 'finished' | 'dnf' | 'reviewed' | 'listed'; ts: string; rating: number | null; reviewId: number | null; text: string | null; spoiler: boolean;
+  list: { id: number; name: string } | null; format: Format | null;
   user: { id: number; displayName: string; avatarUrl: string | null }; book: BookBrief;
 };
 
@@ -162,4 +163,12 @@ export type Stats = {
   ratings: { rating: number; n: number }[]; genres: { name: string; n: number }[]; authors: { name: string; n: number }[];
   formats: { name: 'print' | 'ebook' | 'none'; n: number }[]; languages: { name: string; n: number }[];
   highlights: { first: BookBrief | null; last: BookBrief | null; longest: BookBrief | null; shortest: BookBrief | null; fiveStars: BookBrief[] };
+};
+
+export type ListVisibility = 'private' | 'instance';
+export type ReadingListSummary = { id: number; name: string; description: string | null; visibility: ListVisibility; updatedAt: string; count: number; preview: BookBrief[] };
+export type ReadingList = {
+  id: number; name: string; description: string | null; visibility: ListVisibility; createdAt: string; updatedAt: string; mine: boolean;
+  owner: { id: number; displayName: string; username: string };
+  items: { note: string | null; addedAt: string; myStatus: ReadStatus; book: BookBrief }[];
 };
