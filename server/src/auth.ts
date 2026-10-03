@@ -18,6 +18,7 @@ export type User = {
   is_admin: number;
   shelf_visible: number;
   avatar: string | null;
+  prefs: string;
   created_at: string;
 };
 
@@ -45,7 +46,7 @@ const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex'
 
 export function validateCredentials(username: unknown, password: unknown): { username: string; password: string } {
   if (typeof username !== 'string' || !/^[a-zA-Z0-9._-]{3,32}$/.test(username))
-    throw new HTTPException(400, { message: 'Benutzername: 3–32 Zeichen, nur Buchstaben, Ziffern, . _ -' });
+    throw new HTTPException(400, { message: 'Anmeldename: 3–32 Zeichen, nur Buchstaben, Ziffern, . _ -' });
   if (typeof password !== 'string' || password.length < 8 || password.length > 200)
     throw new HTTPException(400, { message: 'Passwort: mindestens 8 Zeichen' });
   return { username, password };
@@ -72,7 +73,7 @@ export const loadUser: MiddlewareHandler = async (c, next) => {
   let user: User | null = null;
   if (token) {
     user = (db.prepare(`
-      SELECT u.id, u.username, u.display_name, u.is_admin, u.shelf_visible, u.avatar, u.created_at
+      SELECT u.id, u.username, u.display_name, u.is_admin, u.shelf_visible, u.avatar, u.prefs, u.created_at
       FROM sessions s JOIN users u ON u.id = s.user_id
       WHERE s.id = ? AND s.expires_at > ? AND u.disabled = 0
     `).get(sha256(token), new Date().toISOString()) as User | undefined) ?? null;

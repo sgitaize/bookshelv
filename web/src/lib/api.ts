@@ -30,7 +30,7 @@ export const api = {
 
 // ---------- Typen ----------
 
-export type Me = { id: number; username: string; displayName: string; isAdmin: boolean; shelfVisible: boolean; createdAt: string; avatarUrl: string | null };
+export type Me = { id: number; username: string; displayName: string; isAdmin: boolean; shelfVisible: boolean; createdAt: string; avatarUrl: string | null; prefs: import('./theme.ts').Prefs };
 
 export type Book = {
   id: number; isbn13: string | null; title: string; subtitle: string | null; authors: string[];

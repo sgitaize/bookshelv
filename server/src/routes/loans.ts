@@ -106,12 +106,12 @@ loanRoutes.post('/copies/:id/loans', async c => {
     const inst = (db.prepare(`SELECT * FROM instances WHERE status = 'linked'`).all() as Instance[]).find(i => new URL(i.url).host === h.host);
     if (!inst) throw new HTTPException(400, { message: 'Diese Instanz ist nicht gekoppelt' });
     const res = await sendNow(inst.url, '/api/fed/lookup', { username: h.username });
-    if (!res.ok) throw new HTTPException(404, { message: 'Nutzer nicht gefunden' });
+    if (!res.ok) throw new HTTPException(404, { message: 'Konto nicht gefunden' });
     remote = { actorId: upsertActor(inst.id, res.data as { id: number; username: string; displayName: string }), inst };
   }
   if (!borrowerId && !borrowerName && !remote) throw new HTTPException(400, { message: 'An wen? Person auswählen oder Namen eingeben' });
   if (borrowerId === u.id) throw new HTTPException(400, { message: 'An dich selbst kannst du nicht verleihen' });
-  if (borrowerId && !db.prepare('SELECT 1 FROM users WHERE id = ? AND disabled = 0').get(borrowerId)) throw notFound('Nutzer');
+  if (borrowerId && !db.prepare('SELECT 1 FROM users WHERE id = ? AND disabled = 0').get(borrowerId)) throw notFound('Konto');
   const lentAt = date(b.lentAt, today())!;
   const dueAt = date(b.dueAt, null);
   if (dueAt && dueAt < lentAt) throw new HTTPException(400, { message: 'Rückgabe kann nicht vor dem Verleihdatum liegen' });

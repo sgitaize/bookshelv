@@ -3,8 +3,8 @@
   import { session, loadSession, toast, toastError } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
   import Icon from '../components/Icon.svelte';
-  import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
-  import { getTheme, setTheme, type Theme } from '../lib/theme.ts';
+  import { t, tn, i18n, fmtDate, type Key } from '../lib/i18n.svelte.ts';
+  import { getTheme, getFont, setPrefs, THEMES, SWATCH, type Theme, type Font, type Prefs } from '../lib/theme.ts';
   import Avatar from '../components/Avatar.svelte';
 
   let displayName = $state(session.me!.displayName);
@@ -14,6 +14,14 @@
   let pw = $state({ current: '', next: '', next2: '' });
   let deletePw = $state('');
   let theme = $state<Theme>(getTheme());
+  let font = $state<Font>(getFont());
+  /** sofort anwenden, am Konto speichern (dann gilt es auch auf anderen Geräten) */
+  async function choose(p: Prefs) {
+    if (p.theme) theme = p.theme;
+    if (p.font) font = p.font;
+    setPrefs(p);
+    try { await api.patch('/me', { prefs: p }); if (session.me) session.me.prefs = { ...session.me.prefs, ...p }; } catch (e) { toastError(e); }
+  }
   let uploading = $state(false);
 
   /** Bild im Browser quadratisch zuschneiden und auf 256 px verkleinern – hochgeladen werden nur ein paar KB */
@@ -138,10 +146,21 @@
 
   <div class="card stack">
     <h2>{t('settings.appearance')}</h2>
-    <div class="segmented">
-      {#each [['dark', t('settings.dark')], ['light', t('settings.light')], ['system', t('settings.system')]] as [th, label]}
-        <button class:active={theme === th} onclick={() => { theme = th as Theme; setTheme(theme); }}>{label}</button>
+    <div class="themes" role="radiogroup" aria-label={t('settings.theme')}>
+      {#each THEMES as th (th)}
+        {@const sw = th === 'system' ? null : SWATCH[th]}
+        <button class="theme" class:active={theme === th} role="radio" aria-checked={theme === th} onclick={() => choose({ theme: th })}>
+          <span class="sw" style={sw ? `--a: ${sw[0]}; --b: ${sw[1]}; --c: ${sw[2]}` : `--a: ${SWATCH.light[0]}; --b: ${SWATCH.night[0]}; --c: ${SWATCH.night[2]}`} class:split={!sw}>
+            <span class="bar"></span><span class="dotc"></span>
+          </span>
+          <span>{t(`theme.${th}` as Key)}</span>
+        </button>
       {/each}
+    </div>
+    <h2>{t('settings.font')}</h2>
+    <div class="segmented">
+      <button class:active={font === 'typewriter'} onclick={() => choose({ font: 'typewriter' })} style="font-family: 'Courier Prime', monospace">{t('font.typewriter')}</button>
+      <button class:active={font === 'modern'} onclick={() => choose({ font: 'modern' })} style="font-family: Poppins, sans-serif">{t('font.modern')}</button>
     </div>
     <h2>{t('settings.language')}</h2>
     <div class="segmented">
@@ -234,4 +253,13 @@
   .about { text-align: center; margin-top: 1rem; }
   .exports { display: grid; gap: 0.5rem; justify-items: start; }
   .exports .btn { max-width: 100%; white-space: normal; text-align: left; }
+  .themes { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+  .theme { display: grid; grid-template-columns: 1fr; justify-content: stretch; gap: 0.35rem; justify-items: stretch; padding: 0.45rem; border-radius: 12px; font-size: 0.85rem; white-space: normal; }
+  .theme.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  /* Mini-Vorschau: Hintergrund, Fläche als Balken, Akzent als Punkt */
+  .sw { position: relative; height: 44px; border-radius: 8px; background: var(--a); border: 1px solid rgb(127 127 127 / 0.25); overflow: hidden; }
+  .sw.split { background: linear-gradient(135deg, var(--a) 50%, var(--b) 50%); }
+  .sw .bar { position: absolute; left: 8px; right: 22px; top: 10px; height: 9px; border-radius: 4px; background: var(--b); }
+  .sw.split .bar { display: none; }
+  .sw .dotc { position: absolute; right: 8px; bottom: 8px; width: 14px; height: 14px; border-radius: 50%; background: var(--c); }
 </style>

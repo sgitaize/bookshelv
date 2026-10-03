@@ -1,3 +1,4 @@
+import { setPrefs } from './theme.ts';
 import { api, ApiError, type Me } from './api.ts';
 
 /** Angemeldeter Nutzer; undefined = wird noch geladen, null = nicht angemeldet */
@@ -6,6 +7,8 @@ export const session = $state<{ me: Me | null | undefined; needsSetup: boolean }
 export async function loadSession() {
   try {
     session.me = await api.get<Me>('/me');
+    // am Konto gespeicherte Darstellung gilt auf jedem Gerät
+    if (session.me.prefs?.theme || session.me.prefs?.font) setPrefs(session.me.prefs);
   } catch (e) {
     if (!(e instanceof ApiError && e.status === 401)) throw e;
     session.me = null;

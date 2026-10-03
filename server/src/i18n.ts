@@ -10,9 +10,9 @@ const EN: Record<string, string> = {
   'Höchstens 5 verschiedene Bücher': 'At most 5 different books',
   'Unbekannter Endpunkt': 'Unknown endpoint',
   'Aktuelles Passwort falsch': 'Current password is wrong',
-  'Benutzername ist schon vergeben': 'This username is already taken',
-  'Benutzername oder Passwort falsch': 'Wrong username or password',
-  'Benutzername: 3–32 Zeichen, nur Buchstaben, Ziffern, . _ -': 'Username: 3–32 characters, only letters, digits, . _ -',
+  'Anmeldename ist schon vergeben': 'This username is already taken',
+  'Anmeldename oder Passwort falsch': 'Wrong username or password',
+  'Anmeldename: 3–32 Zeichen, nur Buchstaben, Ziffern, . _ -': 'Username: 3–32 characters, only letters, digits, . _ -',
   'Bereits eingerichtet': 'Already set up',
   'Bewertung: 0,5 bis 5 Sterne in halben Schritten': 'Rating: 0.5 to 5 stars in half steps',
   'Datum im Format JJJJ-MM-TT': 'Date must be YYYY-MM-DD',
@@ -25,7 +25,7 @@ const EN: Record<string, string> = {
   'Kommentar ist leer': 'Comment is empty',
   'Nicht angemeldet': 'Not signed in',
   'Nicht erlaubt': 'Not allowed',
-  'Nur Ersteller oder Admin dürfen Buchdaten ändern': 'Only the creator or an admin may edit book details',
+  'Buchdaten ändern dürfen nur, wer das Buch angelegt hat, und Admins': 'Only the creator or an admin may edit book details',
   'Nur für Admins': 'Admins only',
   'ol oder isbn fehlt': 'ol or isbn missing',
   'Passwort falsch': 'Wrong password',
@@ -51,12 +51,12 @@ const EN: Record<string, string> = {
   'Das ist diese Instanz': 'That is this instance',
   'Dort läuft keine erreichbare bookshelv-Instanz': 'No reachable bookshelv instance at that address',
   'Die andere Instanz hat die Anfrage abgelehnt': 'The other instance rejected the request',
-  'Nur Ersteller oder Admin dürfen das Cover ersetzen': 'Only the creator or an admin may replace the cover',
+  'Das Cover ersetzen dürfen nur, wer das Buch angelegt hat, und Admins': 'Only the creator or an admin may replace the cover',
   'Zu viele Fehlversuche – bitte in ein paar Minuten erneut versuchen': 'Too many failed attempts – please try again in a few minutes'
 };
 
 const NOUNS: Record<string, string> = {
-  Buch: 'Book', Einladung: 'Invitation', Exemplar: 'Copy', Kommentar: 'Comment', Nutzer: 'User', Review: 'Review', Eintrag: 'Entry', Verleih: 'Loan', Liste: 'List'
+  Buch: 'Book', Einladung: 'Invitation', Exemplar: 'Copy', Kommentar: 'Comment', Konto: 'Account', Review: 'Review', Eintrag: 'Entry', Verleih: 'Loan', Liste: 'List'
 };
 
 export function translate(msg: string, lang: string | undefined): string {
