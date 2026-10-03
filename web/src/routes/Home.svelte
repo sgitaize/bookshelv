@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api, percent, ago, fmtRating, type Home, type ReadingItem, type RecentReview } from '../lib/api.ts';
   import Stars from '../components/Stars.svelte';
+  import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
   import { session, toastError } from '../lib/state.svelte.ts';
   import Cover from '../components/Cover.svelte';
   import Icon from '../components/Icon.svelte';
@@ -18,7 +19,7 @@
 
   const greeting = (() => {
     const h = new Date().getHours();
-    return h < 11 ? 'Guten Morgen' : h < 18 ? 'Hallo' : 'Guten Abend';
+    return h < 11 ? 'home.morning' : h < 18 ? 'home.hello' : 'home.evening';
   })();
 </script>
 
@@ -26,38 +27,38 @@
   <div class="spinner"></div>
 {:else}
   <section class="hello">
-    <h1>{greeting}, {session.me?.displayName}</h1>
+    <h1>{t(greeting as 'home.hello')}, {session.me?.displayName}</h1>
     <div class="stats">
-      <a href="/library"><b>{home.counts.books}</b><span>im Regal</span></a>
+      <a href="/library"><b>{home.counts.books}</b><span>{t('home.onShelf')}</span></a>
       <span class="div"></span>
-      <a href="/library?filter=read"><b>{home.counts.readThisYear}</b><span>gelesen {new Date().getFullYear()}</span></a>
+      <a href="/library?filter=read"><b>{home.counts.readThisYear}</b><span>{t('home.readYear', { year: new Date().getFullYear() })}</span></a>
       <span class="div"></span>
-      <a href="/library?filter=unread"><b>{home.toReadCount}</b><span>ungelesen</span></a>
+      <a href="/library?filter=unread"><b>{home.toReadCount}</b><span>{t('home.unread')}</span></a>
     </div>
   </section>
 
   {#if home.counts.books === 0 && !home.reading.length}
     <div class="empty card">
-      <h2>Willkommen bei bookshelv!</h2>
-      <p>Scanne den Barcode auf der Rückseite eines Buchs oder such es nach Titel – so füllst du dein Regal.</p>
-      <a href="/add" class="btn primary"><Icon name="scan" size={18} /> Erstes Buch hinzufügen</a>
+      <h2>{t('home.welcome')}</h2>
+      <p>{t('home.welcomeText')}</p>
+      <a href="/add" class="btn primary"><Icon name="scan" size={18} /> {t('shelf.addFirst')}</a>
     </div>
   {/if}
 
   {#if home.reading.length}
     <section class="current">
-      <h2 class="center-title">Lese ich gerade ({home.reading.length})</h2>
+      <h2 class="center-title">{t('home.reading', { n: home.reading.length })}</h2>
       <div class="book-row centered">
         {#each home.reading as r (r.book.id)}
           {@const pct = percent(r.progress, r.book.pages)}
           <div class="reading">
             <a href="/book/{r.book.id}"><Cover url={r.book.coverUrl} title={r.book.title} authors={r.book.authors} /></a>
             <div class="prog">
-              <button class="bar" onclick={() => (editing = r)} aria-label="Fortschritt eintragen">
+              <button class="bar" onclick={() => (editing = r)} aria-label={t('progress.enter')}>
                 <span class="fill" style="width: {Math.max(pct, 4)}%"></span>
                 <span class="pct">{pct}%</span>
               </button>
-              <button class="icon ghost pen" onclick={() => (editing = r)} aria-label="Fortschritt bearbeiten"><Icon name="edit" size={16} /></button>
+              <button class="icon ghost pen" onclick={() => (editing = r)} aria-label={t('progress.edit')}><Icon name="edit" size={16} /></button>
             </div>
           </div>
         {/each}
@@ -69,8 +70,8 @@
   {#if home.toRead.length}
     <section>
       <div class="section-head">
-        <h2>Stapel ungelesener Bücher ({home.toReadCount})</h2>
-        <a href="/library?filter=unread" aria-label="Alle ungelesenen"><Icon name="arrow" /></a>
+        <h2>{t('home.toRead', { n: home.toReadCount })}</h2>
+        <a href="/library?filter=unread" aria-label={t('home.allUnread')}><Icon name="arrow" /></a>
       </div>
       <div class="book-row">
         {#each home.toRead as it (it.id)}
@@ -83,8 +84,8 @@
   {#if home.recentlyRead.length}
     <section>
       <div class="section-head">
-        <h2>Zuletzt gelesen</h2>
-        <a href="/library?filter=read" aria-label="Alle gelesenen"><Icon name="arrow" /></a>
+        <h2>{t('home.recentlyRead')}</h2>
+        <a href="/library?filter=read" aria-label={t('home.allRead')}><Icon name="arrow" /></a>
       </div>
       <div class="book-row">
         {#each home.recentlyRead as r (r.book.id)}
@@ -96,15 +97,15 @@
 
   {#if recent.length}
     <section>
-      <div class="section-head"><h2>Neues aus dem Freundeskreis</h2></div>
+      <div class="section-head"><h2>{t('home.friendsNews')}</h2></div>
       <div class="feed">
         {#each recent.slice(0, 6) as r (r.id)}
           <a class="card item" href="/book/{r.book.id}">
             <Cover url={r.book.coverUrl} title={r.book.title} authors={r.book.authors} size="sm" />
             <div class="body">
-              <p class="line"><strong>{r.user.displayName}</strong> {r.rating ? 'fand' : 'schrieb über'} <em>{r.book.title}</em></p>
+              <p class="line"><strong>{r.user.displayName}</strong> {r.rating ? t('home.rated') : t('home.wroteAbout')} <em>{r.book.title}</em></p>
               {#if r.rating}<p class="rate"><Stars value={r.rating} size={14} /> <b>{fmtRating(r.rating)}/5</b></p>{/if}
-              {#if r.text}<p class="snippet muted">{r.text}</p>{:else if r.spoiler}<p class="snippet muted">⚠ enthält Spoiler</p>{/if}
+              {#if r.text}<p class="snippet muted">{r.text}</p>{:else if r.spoiler}<p class="snippet muted">{t('review.hasSpoiler')}</p>{/if}
               <p class="muted small meta">{ago(r.updatedAt)}{#if r.commentCount} · 💬 {r.commentCount}{/if}</p>
             </div>
           </a>
@@ -116,8 +117,8 @@
   {#if home.recentlyAdded.length}
     <section>
       <div class="section-head">
-        <h2>Neu im Regal</h2>
-        <a href="/library" aria-label="Ganze Bibliothek"><Icon name="arrow" /></a>
+        <h2>{t('home.newOnShelf')}</h2>
+        <a href="/library" aria-label={t('home.wholeLibrary')}><Icon name="arrow" /></a>
       </div>
       <div class="book-row">
         {#each home.recentlyAdded as it (it.id)}

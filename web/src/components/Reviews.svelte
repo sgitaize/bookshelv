@@ -4,6 +4,7 @@
   import Stars from './Stars.svelte';
   import Icon from './Icon.svelte';
   import ReviewSheet from './ReviewSheet.svelte';
+  import { t, tn } from '../lib/i18n.svelte.ts';
 
   // Bewertungsbereich auf der Buchseite; askReview öffnet das Formular (z. B. nach "Gelesen")
   let { bookId, title, askReview = $bindable(false) }: { bookId: number; title: string; askReview?: boolean } = $props();
@@ -35,14 +36,14 @@
   }
 
   async function removeComment(id: number) {
-    if (!confirm('Kommentar löschen?')) return;
+    if (!confirm(t('comment.deleteQ'))) return;
     try { data = await api.del<BookReviews>(`/comments/${id}`); } catch (err) { toastError(err); }
   }
 </script>
 
 <section class="stack reviews">
   <div class="spread">
-    <h2>Bewertungen</h2>
+    <h2>{t('review.title')}</h2>
     {#if data?.average}
       <span class="avg"><Stars value={Math.round(data.average * 2) / 2} size={16} /> <b>{fmtRating(data.average)}</b> <span class="muted small">({data.count})</span></span>
     {/if}
@@ -54,14 +55,14 @@
     {:else}
       <button class="card cta" onclick={() => (askReview = true)}>
         <Stars value={null} size={22} />
-        <span>Wie fandest du das Buch? <strong>Bewerten</strong></span>
+        <span>{t('review.cta')} <strong>{t('review.rate')}</strong></span>
       </button>
     {/if}
 
     {#each others as r (r.id)}
       {@render reviewCard(r)}
     {/each}
-    {#if !others.length}<p class="muted small">Noch keine Bewertungen aus dem Freundeskreis.</p>{/if}
+    {#if !others.length}<p class="muted small">{t('review.none')}</p>{/if}
   {/if}
 </section>
 
@@ -70,22 +71,22 @@
     <header>
       <a class="avatar" href={r.mine ? '/me' : `/people/${r.user.id}`}>{r.user.displayName.slice(0, 1).toUpperCase()}</a>
       <div class="who">
-        <a href={r.mine ? '/me' : `/people/${r.user.id}`}><strong>{r.mine ? 'Du' : r.user.displayName}</strong></a>
-        <span class="muted small">{ago(r.updatedAt)}{#if r.visibility === 'private'} · nur für dich{/if}</span>
+        <a href={r.mine ? '/me' : `/people/${r.user.id}`}><strong>{r.mine ? t('review.you') : r.user.displayName}</strong></a>
+        <span class="muted small">{ago(r.updatedAt)}{#if r.visibility === 'private'} · {t('review.onlyYou')}{/if}</span>
       </div>
       {#if r.rating}<span class="rating"><Stars value={r.rating} size={15} /> {fmtRating(r.rating)}</span>{/if}
-      {#if r.mine}<button class="icon ghost" onclick={() => (askReview = true)} aria-label="Bewertung bearbeiten"><Icon name="edit" size={16} /></button>{/if}
+      {#if r.mine}<button class="icon ghost" onclick={() => (askReview = true)} aria-label={t('review.edit')}><Icon name="edit" size={16} /></button>{/if}
     </header>
     {#if r.text}
       {#if r.spoiler && !r.mine && !revealed.has(r.id)}
-        <button class="spoiler" onclick={() => (revealed = toggle(revealed, r.id))}>⚠ Spoiler – zum Anzeigen tippen</button>
+        <button class="spoiler" onclick={() => (revealed = toggle(revealed, r.id))}>{t('review.reveal')}</button>
       {:else}
         <p class="text">{r.text}</p>
       {/if}
     {/if}
     <footer>
       <button class="ghost small" onclick={() => (openComments = toggle(openComments, r.id))}>
-        💬 {r.comments.length ? `${r.comments.length} ${r.comments.length === 1 ? 'Kommentar' : 'Kommentare'}` : 'Kommentieren'}
+        💬 {r.comments.length ? tn('n.comments', r.comments.length) : t('comment.add')}
       </button>
     </footer>
     {#if openComments.has(r.id)}
@@ -93,13 +94,13 @@
         {#each r.comments as c (c.id)}
           <div class="comment">
             <strong>{c.user.displayName}</strong> <span class="muted small">{ago(c.createdAt)}</span>
-            {#if c.canDelete}<button class="icon ghost del" onclick={() => removeComment(c.id)} aria-label="Kommentar löschen"><Icon name="x" size={14} /></button>{/if}
+            {#if c.canDelete}<button class="icon ghost del" onclick={() => removeComment(c.id)} aria-label={t('comment.delete')}><Icon name="x" size={14} /></button>{/if}
             <p>{c.text}</p>
           </div>
         {/each}
         <form class="row" onsubmit={e => comment(r, e)}>
-          <input bind:value={drafts[r.id]} placeholder="Kommentar schreiben …" maxlength="2000" class="grow" />
-          <button class="primary" aria-label="Senden"><Icon name="arrow" size={16} /></button>
+          <input bind:value={drafts[r.id]} placeholder={t('comment.write')} maxlength="2000" class="grow" />
+          <button class="primary" aria-label={t('common.send')}><Icon name="arrow" size={16} /></button>
         </form>
       </div>
     {/if}

@@ -12,6 +12,7 @@
   import People from './routes/People.svelte';
   import Settings from './routes/Settings.svelte';
   import Admin from './routes/Admin.svelte';
+  import { t } from './lib/i18n.svelte.ts';
 
   loadSession().catch(() => (session.me = null));
 
@@ -47,9 +48,9 @@
         {:else if router.path === '/settings'}<Settings />
         {:else if router.path === '/admin' && session.me.isAdmin}<Admin />
         {:else if invite}
-          <div class="empty"><h2>Du bist schon angemeldet</h2><p>Gib den Einladungslink an die Person weiter, für die er gedacht ist.</p><a class="btn" href="/">Zum Regal</a></div>
+          <div class="empty"><h2>{t('app.alreadyIn')}</h2><p>{t('app.passInvite')}</p><a class="btn" href="/">{t('app.toShelf')}</a></div>
         {:else}
-          <div class="empty"><h2>Seite nicht gefunden</h2><a class="btn" href="/">Zum Regal</a></div>
+          <div class="empty"><h2>{t('app.notFound')}</h2><a class="btn" href="/">{t('app.toShelf')}</a></div>
         {/if}
       </div>
     {/key}

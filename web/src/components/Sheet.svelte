@@ -2,6 +2,7 @@
   import type { Snippet } from 'svelte';
   import { fly, fade } from 'svelte/transition';
   import Icon from './Icon.svelte';
+  import { t } from '../lib/i18n.svelte.ts';
 
   // Bottom-Sheet auf dem Handy, zentrierter Dialog auf dem Desktop
   let { open, onclose, children, title }: { open: boolean; onclose: () => void; children: Snippet; title?: string } = $props();
@@ -18,7 +19,7 @@
   <div class="sheet" role="dialog" aria-modal="true" aria-label={title} transition:fly={{ y: 400, duration: 260, opacity: 1 }}>
     <div class="head">
       {#if title}<h2>{title}</h2>{/if}
-      <button class="icon ghost" onclick={onclose} aria-label="Schließen"><Icon name="x" /></button>
+      <button class="icon ghost" onclick={onclose} aria-label={t('common.close')}><Icon name="x" /></button>
     </div>
     <div class="body">{@render children()}</div>
   </div>

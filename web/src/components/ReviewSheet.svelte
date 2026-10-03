@@ -3,6 +3,7 @@
   import { toast, toastError } from '../lib/state.svelte.ts';
   import Sheet from './Sheet.svelte';
   import Stars from './Stars.svelte';
+  import { t, i18n } from '../lib/i18n.svelte.ts';
 
   let { open, bookId, title, existing, onclose, onsaved }: {
     open: boolean; bookId: number; title: string; existing: Review | null;
@@ -25,17 +26,17 @@
 
   async function save(e: SubmitEvent) {
     e.preventDefault();
-    if (rating === null && !text.trim()) return toastError('Gib Sterne oder einen Text ein');
+    if (rating === null && !text.trim()) return toastError(t('review.needInput'));
     busy = true;
     try {
       onsaved(await api.put<BookReviews>(`/books/${bookId}/review`, { rating, text, visibility, spoiler }));
-      toast('Bewertung gespeichert');
+      toast(t('review.saved'));
       onclose();
     } catch (err) { toastError(err); } finally { busy = false; }
   }
 
   async function remove() {
-    if (!confirm('Bewertung samt Kommentaren löschen?')) return;
+    if (!confirm(t('review.deleteQ'))) return;
     try {
       onsaved(await api.del<BookReviews>(`/books/${bookId}/review`));
       onclose();
@@ -43,29 +44,29 @@
   }
 </script>
 
-<Sheet {open} {onclose} title="Bewerten">
+<Sheet {open} {onclose} title={t('review.rate')}>
   <form class="stack" onsubmit={save}>
     <p class="muted small book">{title}</p>
     <div class="rate">
       <Stars value={rating} size={38} onchange={v => (rating = v)} />
-      <span class="num">{rating ? `${rating.toLocaleString('de-DE')} / 5` : 'Tippe auf die Sterne'}</span>
+      <span class="num">{rating ? `${rating.toLocaleString(i18n.locale)} / 5` : t('review.tapStars')}</span>
     </div>
     <label class="field">
-      <span>Deine Meinung (optional)</span>
-      <textarea bind:value={text} rows="6" maxlength="10000" placeholder="Was hat dir gefallen, was nicht?"></textarea>
+      <span>{t('review.opinion')}</span>
+      <textarea bind:value={text} rows="6" maxlength="10000" placeholder={t('review.opinionPh')}></textarea>
     </label>
-    <label class="row check"><input type="checkbox" bind:checked={spoiler} /> Enthält Spoiler (Text wird verdeckt)</label>
+    <label class="row check"><input type="checkbox" bind:checked={spoiler} /> {t('review.spoiler')}</label>
     <label class="field">
-      <span>Wer darf das sehen?</span>
+      <span>{t('review.whoSees')}</span>
       <select bind:value={visibility}>
         <option value="instance">{visibilityLabel.instance}</option>
         <option value="private">{visibilityLabel.private}</option>
-        <option value="federated">{visibilityLabel.federated} (sobald verfügbar)</option>
+        <option value="federated">{visibilityLabel.federated} {t('review.soon')}</option>
       </select>
     </label>
     <div class="row">
-      <button class="primary grow" disabled={busy}>Speichern</button>
-      {#if existing}<button type="button" class="ghost danger" onclick={remove}>Löschen</button>{/if}
+      <button class="primary grow" disabled={busy}>{t('common.save')}</button>
+      {#if existing}<button type="button" class="ghost danger" onclick={remove}>{t('common.delete')}</button>{/if}
     </div>
   </form>
 </Sheet>

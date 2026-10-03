@@ -12,6 +12,7 @@ import { readingRoutes } from './routes/reading.ts';
 import { reviewRoutes } from './routes/reviews.ts';
 import { adminRoutes } from './routes/admin.ts';
 import { router } from './util.ts';
+import { translate } from './i18n.ts';
 
 export const app = router();
 
@@ -38,12 +39,13 @@ app.route('/api', bookRoutes);
 app.route('/api', readingRoutes);
 app.route('/api', reviewRoutes);
 app.route('/api/admin', adminRoutes);
-app.all('/api/*', c => c.json({ error: 'Unbekannter Endpunkt' }, 404));
+app.all('/api/*', c => c.json({ error: translate('Unbekannter Endpunkt', c.req.header('x-lang')) }, 404));
 
 app.onError((err, c) => {
-  if (err instanceof HTTPException) return c.json({ error: err.message }, err.status);
+  const lang = c.req.header('x-lang');
+  if (err instanceof HTTPException) return c.json({ error: translate(err.message, lang) }, err.status);
   console.error(err);
-  return c.json({ error: 'Interner Fehler' }, 500);
+  return c.json({ error: translate('Interner Fehler', lang) }, 500);
 });
 
 // ---------- Cover & Frontend ----------

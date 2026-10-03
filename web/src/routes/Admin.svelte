@@ -2,6 +2,7 @@
   import { api, inviteUrl, type Invite } from '../lib/api.ts';
   import { session, toast, toastError } from '../lib/state.svelte.ts';
   import Icon from '../components/Icon.svelte';
+  import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
 
   type Stats = { users: number; books: number; copies: number; reviews: number; openLoans: number; orphanBooks: number; dbBytes: number; coverBytes: number; version: string; node: string };
   type AdminUser = { id: number; username: string; displayName: string; isAdmin: boolean; disabled: boolean; createdAt: string; invitedBy: string | null; copies: number; lastLogin: string | null };
@@ -25,7 +26,7 @@
   }
 
   async function reset(u: AdminUser) {
-    if (!confirm(`Neues Passwort für ${u.displayName} erzeugen? Alle Sitzungen werden beendet.`)) return;
+    if (!confirm(t('admin.resetQ', { n: u.displayName }))) return;
     try {
       const r = await api.post<{ password: string }>(`/admin/users/${u.id}/reset-password`);
       resetFor = { name: u.displayName, password: r.password };
@@ -33,8 +34,8 @@
   }
 
   async function remove(u: AdminUser) {
-    if (!confirm(`${u.displayName} mit allen Daten endgültig löschen?`)) return;
-    try { await api.del(`/admin/users/${u.id}`); toast('Gelöscht'); await load(); } catch (e) { toastError(e); }
+    if (!confirm(t('admin.deleteQ', { n: u.displayName }))) return;
+    try { await api.del(`/admin/users/${u.id}`); toast(t('common.deleted')); await load(); } catch (e) { toastError(e); }
   }
 
   async function revoke(i: Invite) {
@@ -45,61 +46,61 @@
     try {
       const r = await api.post<{ token: string }>('/invites', {});
       await navigator.clipboard.writeText(inviteUrl(r.token)).catch(() => {});
-      toast('Einladungslink erstellt und kopiert');
+      toast(t('admin.inviteCopied'));
       await load();
     } catch (e) { toastError(e); }
   }
 
   async function cleanup() {
-    if (!confirm('Bücher ohne Exemplar/Review, abgelaufene Einladungen und den Vorschau-Cache löschen?')) return;
+    if (!confirm(t('admin.cleanupQ'))) return;
     try {
       const r = await api.post<{ books: number; invites: number }>('/admin/cleanup');
-      toast(`${r.books} Bücher und ${r.invites} Einladungen entfernt`);
+      toast(t('admin.cleaned', { b: r.books, i: r.invites }));
       await load();
     } catch (e) { toastError(e); }
   }
 
   const mb = (b: number) => `${(b / 1024 / 1024).toFixed(1)} MB`;
-  const date = (d: string | null) => d ? new Date(d.replace(' ', 'T') + (d.endsWith('Z') ? '' : 'Z')).toLocaleDateString('de-DE') : '–';
+  const date = (d: string | null) => d ? fmtDate(d) : '–';
 </script>
 
 <section class="stack">
   <div class="spread">
     <h1>Admin</h1>
-    <button class="primary" onclick={invite}><Icon name="link" size={16} /> Einladung erstellen</button>
+    <button class="primary" onclick={invite}><Icon name="link" size={16} /> {t('admin.createInvite')}</button>
   </div>
 
   {#if stats}
     <div class="stats">
-      <div class="card"><b>{stats.users}</b><span>Nutzer</span></div>
-      <div class="card"><b>{stats.copies}</b><span>Exemplare</span></div>
-      <div class="card"><b>{stats.books}</b><span>Katalog-Einträge</span></div>
-      <div class="card"><b>{stats.openLoans}</b><span>offene Verleihe</span></div>
-      <div class="card"><b>{mb(stats.dbBytes + stats.coverBytes)}</b><span>Speicher (DB {mb(stats.dbBytes)})</span></div>
+      <div class="card"><b>{stats.users}</b><span>{t('admin.users')}</span></div>
+      <div class="card"><b>{stats.copies}</b><span>{t('admin.copies')}</span></div>
+      <div class="card"><b>{stats.books}</b><span>{t('admin.catalog')}</span></div>
+      <div class="card"><b>{stats.openLoans}</b><span>{t('admin.openLoans')}</span></div>
+      <div class="card"><b>{mb(stats.dbBytes + stats.coverBytes)}</b><span>{t('admin.storage', { db: mb(stats.dbBytes) })}</span></div>
     </div>
     <div class="card spread">
-      <span class="muted small">{stats.orphanBooks} Katalog-Einträge ohne Exemplar · bookshelv {stats.version} · Node {stats.node}</span>
-      <button onclick={cleanup}><Icon name="trash" size={16} /> Aufräumen</button>
+      <span class="muted small">{t('admin.orphans', { n: stats.orphanBooks })} · bookshelv {stats.version} · Node {stats.node}</span>
+      <button onclick={cleanup}><Icon name="trash" size={16} /> {t('admin.cleanup')}</button>
     </div>
   {/if}
 
   <div class="card">
-    <h2>Nutzer</h2>
+    <h2>{t('admin.users')}</h2>
     <div class="table">
       {#each users as u (u.id)}
         <div class="urow" class:dis={u.disabled}>
           <div class="who">
             <strong>{u.displayName}</strong> <span class="muted small">@{u.username}</span>
             {#if u.isAdmin}<span class="chip accent">Admin</span>{/if}
-            {#if u.disabled}<span class="chip">gesperrt</span>{/if}
-            <div class="muted small">{u.copies} Bücher · seit {date(u.createdAt)}{#if u.invitedBy} · eingeladen von {u.invitedBy}{/if} · zuletzt {date(u.lastLogin)}</div>
+            {#if u.disabled}<span class="chip">{t('admin.blocked')}</span>{/if}
+            <div class="muted small">{tn('n.books', u.copies)} · {t('admin.since', { d: date(u.createdAt) })}{#if u.invitedBy} · {t('admin.invitedBy', { n: u.invitedBy })}{/if} · {t('admin.lastSeen', { d: date(u.lastLogin) })}</div>
           </div>
           {#if u.id !== session.me?.id}
             <div class="row acts">
-              <button class="small" onclick={() => patch(u, { isAdmin: !u.isAdmin })}>{u.isAdmin ? 'Admin entziehen' : 'Zum Admin'}</button>
-              <button class="small" onclick={() => patch(u, { disabled: !u.disabled })}>{u.disabled ? 'Entsperren' : 'Sperren'}</button>
-              <button class="small" onclick={() => reset(u)}>Passwort zurücksetzen</button>
-              <button class="small danger" onclick={() => remove(u)}>Löschen</button>
+              <button class="small" onclick={() => patch(u, { isAdmin: !u.isAdmin })}>{u.isAdmin ? t('admin.revokeAdmin') : t('admin.makeAdmin')}</button>
+              <button class="small" onclick={() => patch(u, { disabled: !u.disabled })}>{u.disabled ? t('admin.unblock') : t('admin.block')}</button>
+              <button class="small" onclick={() => reset(u)}>{t('admin.resetPw')}</button>
+              <button class="small danger" onclick={() => remove(u)}>{t('common.delete')}</button>
             </div>
           {/if}
         </div>
@@ -108,21 +109,21 @@
   </div>
 
   <div class="card">
-    <h2>Einladungen</h2>
+    <h2>{t('admin.invites')}</h2>
     <div class="table">
       {#each invites as i (i.id)}
         <div class="urow">
           <div class="who">
             <strong>{i.createdBy}</strong> {#if i.note}<span class="muted">– {i.note}</span>{/if}
             <div class="muted small">
-              erstellt {date(i.createdAt)} ·
-              {#if i.usedBy}angenommen von {i.usedBy}{:else if new Date(i.expiresAt) < new Date()}abgelaufen{:else}offen bis {date(i.expiresAt)}{/if}
+              {t('admin.created', { d: date(i.createdAt) })} ·
+              {#if i.usedBy}{t('invite.acceptedBy', { n: i.usedBy })}{:else if new Date(i.expiresAt) < new Date()}{t('invite.expired')}{:else}{t('invite.openUntil', { d: date(i.expiresAt) })}{/if}
             </div>
           </div>
-          {#if !i.usedBy}<button class="small danger" onclick={() => revoke(i)}>Löschen</button>{/if}
+          {#if !i.usedBy}<button class="small danger" onclick={() => revoke(i)}>{t('common.delete')}</button>{/if}
         </div>
       {:else}
-        <p class="muted">Keine Einladungen.</p>
+        <p class="muted">{t('admin.noInvites')}</p>
       {/each}
     </div>
   </div>
@@ -130,11 +131,11 @@
 
 {#if resetFor}
   <div class="pwbox card">
-    <p>Neues Passwort für <strong>{resetFor.name}</strong> – gib es persönlich weiter, es wird nicht noch einmal angezeigt:</p>
+    <p>{t('admin.newPw', { n: resetFor.name })}</p>
     <code>{resetFor.password}</code>
     <div class="row">
-      <button onclick={() => navigator.clipboard.writeText(resetFor!.password).then(() => toast('Kopiert'))}>Kopieren</button>
-      <button class="primary" onclick={() => (resetFor = null)}>Fertig</button>
+      <button onclick={() => navigator.clipboard.writeText(resetFor!.password).then(() => toast(t('common.copied')))}>{t('common.copy')}</button>
+      <button class="primary" onclick={() => (resetFor = null)}>{t('common.done')}</button>
     </div>
   </div>
 {/if}

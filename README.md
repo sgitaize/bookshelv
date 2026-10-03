@@ -1,54 +1,39 @@
 # bookshelv
 
-**Deine Bibliothek im Freundeskreis.** Bücher und E-Books per ISBN-Scan erfassen, bewerten, kommentieren – und festhalten, wem du welches Buch geliehen hast. Selbst gehostet, schlank, datensparsam.
+A small, self-hosted library app for a circle of friends. You scan the barcode on the back of a book, it lands on your shelf with cover and metadata, and from there you can track what you're reading, rate it, and see which of your friends own the same book or thought it was terrible.
+
+I built it for my wife. She reads a lot and tried most of the reading apps out there, but none of them fit: too much social-network noise, tracking everywhere, and nothing that handles the simple question "who did I lend that book to?". So this is the version we actually wanted, running on our own web space.
 
 <p>
-  <img alt="Startseite" src="docs/screenshots/home-mobile.png" width="200">
-  <img alt="Bibliothek" src="docs/screenshots/library-mobile.png" width="200">
-  <img alt="Buchdetail" src="docs/screenshots/book-mobile.png" width="200">
-  <img alt="Profil" src="docs/screenshots/profile-mobile.png" width="200">
+  <img alt="Home" src="docs/screenshots/home-mobile.png" width="200">
+  <img alt="Library" src="docs/screenshots/library-mobile.png" width="200">
+  <img alt="Book" src="docs/screenshots/book-mobile.png" width="200">
+  <img alt="Profile" src="docs/screenshots/profile-mobile.png" width="200">
 </p>
 
-## Funktionen
+## What it does
 
-- 📷 **ISBN scannen** mit der Handykamera (native BarcodeDetector-API, Fallback zxing-wasm – läuft auch auf iPhone)
-- 🔎 **Suchen** nach Titel/Autor in der **Deutschen Nationalbibliothek** und bei **Open Library**, inkl. Cover
-- 📚 **Eigene Bibliothek**: gedruckt (Taschenbuch/Hardcover, Farbschnitt ✦) oder E-Book, private Notizen
-- 📖 **Lesestand**: ungelesen / am Lesen / gelesen / abgebrochen, Fortschritt in Seiten oder Prozent, Start- und Enddatum
-- 🏠 **Startseite** mit „Lese ich gerade“, „Stapel ungelesener Bücher“, „Zuletzt gelesen“
-- ♥ **Profil** mit Favoriten-Regal und Lesezahlen
-- 👥 **Freundeskreis**: Regale der anderen ansehen, wer welches Buch hat
-- 🔗 **Nur auf Einladung**: jeder Nutzer kann Einladungslinks erzeugen – keine E-Mail-Adresse nötig
-- 🛡️ **Admin-Bereich**: Nutzer sperren/löschen, Passwort zurücksetzen, Einladungen verwalten, Katalog aufräumen
-- 📱 **PWA**: auf dem Handy wie eine App installierbar
-- ⭐ **Bewertungen** mit halben Sternen, Spoiler-Schutz, Kommentare, „Neues aus dem Freundeskreis“
-- 🤝 Verleih, 🌐 Föderation, 📴 Offline-Modus – siehe [Roadmap](#roadmap)
+Adding books is meant to be quick. On a phone you point the camera at the ISBN barcode, and bookshelv looks it up in the German National Library (DNB) and Open Library. You can also search by title or author, or type everything in by hand if a book isn't in either catalogue. For each copy you note whether it's printed or an e-book, paperback or hardcover, and whether it has sprayed edges.
 
-## Datenschutz (DSGVO)
+For each book you keep a reading status (unread, reading, read, did not finish), your progress in pages or percent, and the dates you started and finished. Favourites end up on a little shelf on your profile. Reviews use half stars, can be marked as containing spoilers, and friends can comment on them. The home page shows what you're currently reading, your to-read pile, and what your friends have rated recently.
 
-- Der Browser spricht **nur mit deinem Server**. Katalogsuchen und Cover laufen über den Server (Proxy) und werden lokal gecacht – DNB/Open Library sehen nie die IP-Adressen deiner Nutzer.
-- Keine Google Fonts, kein CDN, kein Tracking, keine Analytics. Schriften und Scanner-WASM werden selbst ausgeliefert.
-- Nur ein technisch notwendiges Session-Cookie → kein Cookie-Banner nötig.
-- Konten ohne E-Mail-Adresse: nur Benutzername + Passwort (scrypt-gehasht).
-- Jeder Nutzer kann **alle eigenen Daten als JSON exportieren** (Art. 15/20) und sein **Konto löschen** (Art. 17).
-- Regal-Sichtbarkeit pro Nutzer abschaltbar.
+It's invite-only. Every user can create invitation links, and there are no e-mail addresses involved, just a username and a password. The admin can block or delete users, reset passwords and clean up the catalogue.
 
-## Technik
+The interface is available in German and English and works as an installable app (PWA) on Android and iOS.
 
-| | |
-|---|---|
-| Backend | Node.js ≥ 22.13, [Hono](https://hono.dev), eingebautes `node:sqlite` – gebündelt zu **einer Datei** ohne `node_modules` |
-| Datenbank | SQLite (eine Datei in `data/`) |
-| Frontend | Svelte 5 + Vite, PWA |
-| Betrieb | Docker, oder Shared Hosting mit Node.js (Plesk/Passenger), oder einfach `node server.js` |
+## Privacy
 
-Ressourcenbedarf: ~50 MB RAM, ein paar MB Speicher plus Cover (~30 KB pro Buch).
+The browser only ever talks to your own server. Catalogue searches and cover images are fetched server-side and cached locally, so the DNB and Open Library never see your users' IP addresses. There are no external fonts, CDNs, analytics or tracking. The only cookie is the session cookie, so no cookie banner is needed. Users can export all of their data as JSON and delete their account themselves, and each user decides whether others can see their shelf.
 
----
+## How it's built
 
-## Selbst hosten
+The backend is Node.js with [Hono](https://hono.dev) and the SQLite driver that ships with Node (`node:sqlite`, Node 22.13 or newer). esbuild bundles it into a single `server.js` with no `node_modules`, which is what makes it easy to run on ordinary shared hosting. The frontend is Svelte 5 with Vite. Barcode scanning uses the browser's BarcodeDetector where available and falls back to zxing-wasm (served from your own server).
 
-### Variante A: Docker (Homeserver, Raspberry Pi, VPS)
+It needs very little: around 50 MB of RAM, plus roughly 30 KB of disk per book for the cover.
+
+## Self-hosting
+
+### Docker (home server, Raspberry Pi, VPS)
 
 ```bash
 git clone https://github.com/sgitaize/bookshelv.git
@@ -56,109 +41,98 @@ cd bookshelv
 docker compose up -d --build
 ```
 
-Die App läuft dann auf Port `8080`, alle Daten liegen in `./data` (Datenbank + Cover → das ist alles, was du sichern musst).
+The app listens on port 8080 and keeps everything in `./data` (the database and the covers). That folder is all you need to back up.
 
-**Ersteinrichtung:** Beim ersten Start wird ein Einmal-Token erzeugt, damit niemand Fremdes sich zum Admin machen kann:
+On first start, bookshelv writes a one-time setup token so that nobody else can claim the admin account:
 
 ```bash
 cat data/setup-token.txt
 ```
 
-Öffne die App, gib das Token ein und lege dein Admin-Konto an. Danach lädst du Freunde über **Profil → Freunde einladen** ein.
+Open the app, enter the token and create your admin account. After that you invite people from **Settings → Invite friends**.
 
-**HTTPS ist Pflicht** für die Kamera (Browser erlauben `getUserMedia` nur über HTTPS) und für den Login (Secure-Cookie). Hinter einem Reverse Proxy, z. B. mit Caddy:
+You'll want HTTPS in front of it. Browsers only allow camera access over HTTPS, and the session cookie is marked `Secure`. With Caddy, for example:
 
 ```caddy
-buecher.example.org {
+books.example.org {
     reverse_proxy localhost:8080
 }
 ```
 
-Nur zum Ausprobieren im LAN ohne HTTPS: `BOOKSHELV_INSECURE_COOKIES: "1"` in der `docker-compose.yml` setzen (Scannen geht dann nicht, Suchen schon).
+If you just want to try it on your LAN without HTTPS, set `BOOKSHELV_INSECURE_COOKIES: "1"` in `docker-compose.yml`. Logging in will work, scanning won't.
 
-Für den Raspberry Pi (arm64) baut `docker compose up --build` das Image direkt auf dem Gerät.
+### Shared hosting with Node.js (Plesk, e.g. netcup)
 
-### Variante B: Shared Hosting mit Node.js (z. B. netcup Webhosting, Plesk)
+Because the backend is a single file without dependencies, you don't need to run `npm install` on the server.
 
-Das Backend ist eine einzelne JS-Datei ohne Abhängigkeiten – ideal für Webhosting, auf dem man kein `npm install` ausführen kann.
+1. Build locally: `npm install && npm run build`. The result is in `dist/`.
+2. Upload the contents of `dist/` to a folder on your web space, e.g. `books.example.org/app/`.
+3. In Plesk, open the domain's Node.js settings and set:
+   - Node.js version: 22 or newer
+   - Application root: `/books.example.org/app`
+   - Document root: `/books.example.org/app/public`
+   - Application startup file: `server.js`
+   - Then enable Node.js. There's no need to click "NPM install".
+4. Enable a Let's Encrypt certificate for the domain.
+5. Read the setup token from `app/data/setup-token.txt` (via SSH or FTP) and open the site.
 
-1. Lokal bauen: `npm install && npm run build` → Ergebnis in `dist/`
-2. Inhalt von `dist/` in einen Ordner auf dem Webspace laden, z. B. `bookshelv.example.org/app/`
-3. In Plesk unter **Websites & Domains → (Domain) → Node.js**:
-   - Node.js-Version: **22 oder neuer**
-   - Anwendungsstamm: `/bookshelv.example.org/app`
-   - Dokumentstamm: `/bookshelv.example.org/app/public`
-   - Anwendungsstartdatei: `server.js`
-   - Anwendungsmodus: `production` → **Node.js aktivieren**
-4. SSL/TLS-Zertifikat (Let's Encrypt) für die Domain aktivieren
-5. Setup-Token aus `app/data/setup-token.txt` lesen (SSH/FTP) und die Seite öffnen
-
-Updates gehen mit dem Deploy-Skript per SSH:
+For updates there's a small deploy script that uploads over SSH and restarts the app. It never touches `data/`:
 
 ```bash
-cp .env.deploy.example .env.deploy   # Host, Benutzer, Zielordner eintragen – wird nicht eingecheckt
-npm run deploy                       # baut, lädt hoch, startet neu (data/ bleibt erhalten)
+cp .env.deploy.example .env.deploy   # host, user, target folder, SSH key – not committed
+npm run deploy
 ```
 
-### Variante C: direkt mit Node
+### Plain Node
 
 ```bash
 npm install && npm run build
-cd dist && node server.js            # Port 3000, Daten in dist/data
+cd dist && node server.js            # port 3000, data in dist/data
 ```
 
-### Konfiguration (Umgebungsvariablen)
+### Configuration
 
-| Variable | Standard | Bedeutung |
+| Variable | Default | Meaning |
 |---|---|---|
-| `PORT` | `3000` | HTTP-Port (unter Passenger ignoriert) |
-| `BOOKSHELV_DATA_DIR` | `./data` | Datenbank, Cover, Setup-Token |
-| `BOOKSHELV_PUBLIC_DIR` | `./public` | gebautes Frontend |
-| `BOOKSHELV_INSECURE_COOKIES` | `0` | `1` = Login auch über http:// (nur zum Testen) |
+| `PORT` | `3000` | HTTP port (ignored under Passenger) |
+| `BOOKSHELV_DATA_DIR` | `./data` | Database, covers, setup token |
+| `BOOKSHELV_PUBLIC_DIR` | `./public` | Built frontend |
+| `BOOKSHELV_INSECURE_COOKIES` | `0` | `1` allows login over plain http (testing only) |
 
-### Backup
+### Backups
 
-Alles Wichtige liegt in `data/`: `bookshelv.db` (SQLite) und `covers/`. Für ein konsistentes Backup im laufenden Betrieb:
+Everything lives in `data/`: `bookshelv.db` and `covers/`. To get a consistent copy of the database while the app is running:
 
 ```bash
 sqlite3 data/bookshelv.db ".backup data/backup.db"
 ```
 
----
-
-## Entwicklung
+## Development
 
 ```bash
 npm install
-npm run dev        # Backend auf :3000 (mit Watch), Frontend auf :5173 (Vite, Proxy auf das Backend)
+BOOKSHELV_INSECURE_COOKIES=1 npm run dev   # API on :3000, Vite on :5173
 ```
 
-Im Dev-Modus ohne HTTPS: `BOOKSHELV_INSECURE_COOKIES=1 npm run dev`. Projektstruktur:
-
-```
-server/   Backend (TypeScript, Hono, node:sqlite) → esbuild bündelt nach dist/server.js
-web/      Frontend (Svelte 5, Vite)               → dist/public
-deploy/   Deploy-Skript für Plesk/SSH
-docs/     Konzepte (Föderation) und Screenshots
-```
+`server/` holds the backend, `web/` the frontend, `deploy/` the deploy script and `docs/` the design notes. Translations are in `web/src/lib/locales/`. If you add a language, copy `en.ts` and register it in `web/src/lib/i18n.svelte.ts`.
 
 ## Roadmap
 
-- [x] **Iteration 1** – Konten, Einladungen, Admin, ISBN-Scan, Katalogsuche, Bibliothek, Exemplare (Format/Bindung/Farbschnitt), Lesestand & Fortschritt, Favoriten, Profil
-- [x] **Iteration 2** – Reviews (½–5 Sterne + Text, Spoiler, Sichtbarkeit) und Kommentare, „Neues aus dem Freundeskreis“
-- [ ] **Iteration 3** – Verleih: an Nutzer oder freie Namen, Rückgabe, „Ich habe gerade geliehen“
-- [ ] **Iteration 4** – Feed („Anna fand *Dune* 4/5“), In-App-Benachrichtigungen, Erinnerungen bei langem Verleih
-- [ ] **Iteration 5** – **Föderation** zwischen bookshelv-Instanzen für Reviews und Verleih → [Konzept](docs/FEDERATION.md)
-- [ ] **Iteration 6** – Import/Export (CSV, Goodreads, StoryGraph), Wunschliste, eigene Cover hochladen
-- [ ] **Iteration 7** – Statistiken (Bücher/Seiten pro Monat, Genres, Formate, Autoren, Sterneverteilung) und Jahresrückblick zum Teilen
-- [ ] **Iteration 8** – Offline-Modus für die installierte App: Datenstand lokal auf dem Gerät, Lesestand/Bewertungen offline möglich und später synchronisiert, klarer Hinweis „Offline“ mit dem, was gerade nicht geht (z. B. Bücher aus dem Katalog hinzufügen)
+Done so far: accounts and invitations, the admin area, ISBN scanning and catalogue search, the library with copies, reading progress, favourites, profiles, reviews and comments, and German/English.
 
-## Datenquellen
+Next up, roughly in this order:
 
-- [Deutsche Nationalbibliothek](https://www.dnb.de/sru) – Metadaten unter CC0
-- [Open Library](https://openlibrary.org/developers/api) – Metadaten und Cover (Internet Archive)
-- Cover-Fallback über den DNB/MVB-Coverdienst
+1. Lending: lend a copy to a user or to anyone by name, mark it as returned, and let borrowers see what they currently have from whom.
+2. A proper activity feed and in-app notifications (there's no e-mail, so notifications stay in the app).
+3. Federation, so that separate bookshelv instances can be linked for reviews and lending. The plan is in [docs/FEDERATION.md](docs/FEDERATION.md).
+4. Import from Goodreads and StoryGraph, a wishlist, and uploading your own covers.
+5. Reading statistics and a yearly wrap-up you can share.
+6. Offline mode for the installed app: your data stays available on the device, reading progress and ratings can be changed offline and sync later, and the app shows clearly what isn't possible without a connection (such as adding books from the catalogue).
 
-## Lizenz
+## Data sources
+
+Book metadata comes from the [Deutsche Nationalbibliothek](https://www.dnb.de/sru) (CC0) and [Open Library](https://openlibrary.org/developers/api). Covers come from Open Library, with the DNB/MVB cover service as a fallback.
+
+## License
 
 [MIT](LICENSE)

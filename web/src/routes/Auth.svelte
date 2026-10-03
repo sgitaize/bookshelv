@@ -2,6 +2,7 @@
   import { api } from '../lib/api.ts';
   import { loadSession, session } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
+  import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
 
   // login | setup (erster Admin) | register (per Einladungslink)
   let { mode, inviteToken = '' }: { mode: 'login' | 'setup' | 'register'; inviteToken?: string } = $props();
@@ -22,7 +23,7 @@
   async function submit(e: SubmitEvent) {
     e.preventDefault();
     error = null;
-    if (mode !== 'login' && password !== password2) return (error = 'Passwörter stimmen nicht überein');
+    if (mode !== 'login' && password !== password2) return (error = t('auth.pwMismatch'));
     busy = true;
     try {
       if (mode === 'login') await api.post('/login', { username, password });
@@ -46,55 +47,56 @@
       {/each}
     </div>
     <h1>bookshelv</h1>
-    <p class="muted">Deine Bücher. Die Bücher deiner Freunde. Wer gerade was liest – und wer was ausgeliehen hat.</p>
+    <p class="muted">{t('auth.tagline')}</p>
   </div>
 
   <form class="card stack" onsubmit={submit}>
     {#if mode === 'setup'}
-      <h2>Ersteinrichtung</h2>
-      <p class="muted small">Lege das Admin-Konto an. Das Setup-Token steht auf dem Server in <code>data/setup-token.txt</code>.</p>
+      <h2>{t('auth.setup')}</h2>
+      <p class="muted small">{t('auth.setupInfo')} <code>data/setup-token.txt</code>.</p>
       <label class="field"><span>Setup-Token</span><input bind:value={setupToken} required autocomplete="off" /></label>
     {:else if mode === 'register'}
       {#if invite === null}
         <div class="spinner"></div>
       {:else if !invite.valid}
-        <h2>Einladung ungültig</h2>
-        <p class="muted">Der Link ist abgelaufen oder wurde schon benutzt. Frag nach einem neuen.</p>
-        <a href="/" class="btn">Zur Anmeldung</a>
+        <h2>{t('auth.inviteInvalid')}</h2>
+        <p class="muted">{t('auth.inviteInvalidText')}</p>
+        <a href="/" class="btn">{t('auth.toLogin')}</a>
       {:else}
-        <h2>Willkommen!</h2>
-        <p class="muted small"><strong>{invite.invitedBy}</strong> hat dich eingeladen. Wähle einen Benutzernamen – eine E-Mail-Adresse brauchst du nicht.</p>
+        <h2>{t('auth.welcome')}</h2>
+        <p class="muted small">{t('auth.invitedBy', { n: invite.invitedBy ?? '' })}</p>
       {/if}
     {:else}
-      <h2>Anmelden</h2>
+      <h2>{t('auth.signIn')}</h2>
     {/if}
 
     {#if mode !== 'register' || invite?.valid}
-      <label class="field"><span>Benutzername</span>
+      <label class="field"><span>{t('auth.username')}</span>
         <input bind:value={username} required autocomplete="username" autocapitalize="off" spellcheck="false" minlength="3" maxlength="32" pattern="[a-zA-Z0-9._\-]+" />
       </label>
       {#if mode !== 'login'}
-        <label class="field"><span>Anzeigename</span><input bind:value={displayName} maxlength="60" placeholder="so sehen dich die anderen" /></label>
+        <label class="field"><span>{t('auth.displayName')}</span><input bind:value={displayName} maxlength="60" placeholder={t('auth.displayNamePh')} /></label>
       {/if}
-      <label class="field"><span>Passwort</span>
+      <label class="field"><span>{t('auth.password')}</span>
         <input type="password" bind:value={password} required minlength={mode === 'login' ? 1 : 8} autocomplete={mode === 'login' ? 'current-password' : 'new-password'} />
       </label>
       {#if mode !== 'login'}
-        <label class="field"><span>Passwort wiederholen</span><input type="password" bind:value={password2} required minlength="8" autocomplete="new-password" /></label>
+        <label class="field"><span>{t('auth.password2')}</span><input type="password" bind:value={password2} required minlength="8" autocomplete="new-password" /></label>
       {/if}
       {#if error}<p class="err">{error}</p>{/if}
       <button class="primary" disabled={busy}>
-        {mode === 'login' ? 'Anmelden' : mode === 'setup' ? 'Admin anlegen' : 'Konto erstellen'}
+        {mode === 'login' ? t('auth.signIn') : mode === 'setup' ? t('auth.createAdmin') : t('auth.createAccount')}
       </button>
       {#if mode === 'login' && !session.needsSetup}
-        <p class="muted small center">Noch kein Konto? Lass dir einen Einladungslink schicken.</p>
+        <p class="muted small center">{t('auth.noAccount')}</p>
       {/if}
     {/if}
   </form>
 
   <footer class="muted small">
-    <a href="https://github.com/sgitaize/bookshelv" target="_blank" rel="noopener">bookshelv</a> – selbst gehostet, ohne Tracking
+    <a href="https://github.com/sgitaize/bookshelv" target="_blank" rel="noopener">bookshelv</a> – {t('auth.footer')}
     · <a href="https://sgitaize.aize-it.de" target="_blank" rel="noopener">sgitaize</a>
+    · <button class="lang" onclick={() => i18n.set(i18n.lang === 'de' ? 'en' : 'de')}>{i18n.lang === 'de' ? 'English' : 'Deutsch'}</button>
   </footer>
 </main>
 
@@ -121,6 +123,8 @@
   @keyframes rise { from { transform: translateY(30px); opacity: 0; } }
   form { width: min(400px, 100%); }
   footer { text-align: center; }
+  .lang { padding: 0; border: none; background: none; color: var(--accent); font-size: inherit; font-weight: 500; }
+  .lang:hover { background: none; text-decoration: underline; }
   .err { color: var(--danger); margin: 0; font-size: 0.9rem; }
   .center { text-align: center; margin: 0; }
   code { font-size: 0.85em; background: var(--surface-2); padding: 0.1em 0.35em; border-radius: 5px; }

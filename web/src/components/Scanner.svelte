@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Icon from './Icon.svelte';
+  import { t } from '../lib/i18n.svelte.ts';
 
   let { onscan, paused = false }: { onscan: (isbn: string) => void; paused?: boolean } = $props();
 
@@ -51,7 +52,7 @@
   onMount(() => {
     (async () => {
       if (!navigator.mediaDevices?.getUserMedia) {
-        error = 'Kamera nicht verfügbar – die Seite muss über HTTPS geöffnet sein.';
+        error = t('scan.noCamera');
         starting = false;
         return;
       }
@@ -71,8 +72,8 @@
       } catch (e) {
         starting = false;
         error = (e as Error).name === 'NotAllowedError'
-          ? 'Kamerazugriff verweigert. Erlaube die Kamera in den Browser-Einstellungen.'
-          : 'Kamera konnte nicht gestartet werden.';
+          ? t('scan.denied')
+          : t('scan.failed');
       }
     })();
     return () => {
@@ -114,12 +115,12 @@
   <video bind:this={video} playsinline muted></video>
   <div class="frame"><span class="laser"></span></div>
   {#if starting}
-    <div class="overlay"><div class="spinner"></div><span>Kamera wird gestartet …</span></div>
+    <div class="overlay"><div class="spinner"></div><span>{t('scan.starting')}</span></div>
   {:else if error}
     <div class="overlay"><Icon name="camera" size={32} /><span>{error}</span></div>
   {/if}
   {#if torchAvailable}
-    <button class="torch icon" class:on={torch} onclick={toggleTorch} aria-label="Taschenlampe">
+    <button class="torch icon" class:on={torch} onclick={toggleTorch} aria-label={t('scan.torch')}>
       <Icon name="sparkle" />
     </button>
   {/if}

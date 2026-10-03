@@ -1,3 +1,5 @@
+import { t, i18n } from './i18n.svelte.ts';
+
 export class ApiError extends Error {
   constructor(public status: number, message: string, public data?: unknown) {
     super(message);
@@ -7,12 +9,12 @@ export class ApiError extends Error {
 async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api${url}`, {
     method,
-    headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+    headers: { 'x-lang': i18n.lang, ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
     body: body !== undefined ? JSON.stringify(body) : undefined,
     credentials: 'same-origin'
   });
   const data = res.headers.get('content-type')?.includes('json') ? await res.json() : null;
-  if (!res.ok) throw new ApiError(res.status, data?.error ?? `Fehler ${res.status}`, data);
+  if (!res.ok) throw new ApiError(res.status, data?.error ?? t('common.error', { n: res.status }), data);
   return data as T;
 }
 
@@ -66,22 +68,25 @@ export type Review = {
 export type BookReviews = { average: number | null; count: number; reviews: Review[] };
 export type RecentReview = Review & { book: BookBrief; commentCount: number };
 
-export const visibilityLabel: Record<Visibility, string> = {
-  private: 'Nur ich', instance: 'Freundeskreis', federated: 'Freundeskreis + gekoppelte Instanzen'
-};
+// Getter, damit die Texte beim Sprachwechsel neu ausgewertet werden
+export const visibilityLabel = {
+  get private() { return t('vis.private'); },
+  get instance() { return t('vis.instance'); },
+  get federated() { return t('vis.federated'); }
+} satisfies Record<Visibility, string>;
 
 /** 3.5 → "3,5" */
-export const fmtRating = (r: number) => r.toLocaleString('de-DE', { maximumFractionDigits: 2 });
+export const fmtRating = (r: number) => r.toLocaleString(i18n.locale, { maximumFractionDigits: 2 });
 
 /** SQLite-Zeitstempel (UTC ohne Zone) → relative deutsche Angabe */
 export function ago(ts: string): string {
   const d = new Date(ts.includes('T') ? ts : ts.replace(' ', 'T') + 'Z');
   const s = (Date.now() - d.getTime()) / 1000;
-  if (s < 60) return 'gerade eben';
-  if (s < 3600) return `vor ${Math.floor(s / 60)} Min.`;
-  if (s < 86400) return `vor ${Math.floor(s / 3600)} Std.`;
-  if (s < 7 * 86400) { const n = Math.floor(s / 86400); return n === 1 ? 'gestern' : `vor ${n} Tagen`; }
-  return d.toLocaleDateString('de-DE');
+  if (s < 60) return t('ago.now');
+  if (s < 3600) return t('ago.min', { n: Math.floor(s / 60) });
+  if (s < 86400) return t('ago.h', { n: Math.floor(s / 3600) });
+  if (s < 7 * 86400) { const n = Math.floor(s / 86400); return n === 1 ? t('ago.yesterday') : t('ago.days', { n }); }
+  return d.toLocaleDateString(i18n.locale);
 }
 
 export type Profile = {
@@ -103,10 +108,11 @@ export type SearchHit = {
 
 export type Invite = { id: number; token: string; note: string | null; createdAt: string; expiresAt: string; usedAt: string | null; usedBy: string | null; createdBy?: string };
 
+// Getter: Texte folgen der aktuellen Sprache
 export const labels = {
-  format: { print: 'Gedruckt', ebook: 'E-Book' } as Record<Format, string>,
-  binding: { paperback: 'Taschenbuch', hardcover: 'Hardcover' } as Record<Binding, string>,
-  read: { unread: 'Ungelesen', reading: 'Am Lesen', read: 'Gelesen', dnf: 'Abgebrochen' } as Record<ReadStatus, string>
+  get format(): Record<Format, string> { return { print: t('format.print'), ebook: t('format.ebook') }; },
+  get binding(): Record<Binding, string> { return { paperback: t('binding.paperback'), hardcover: t('binding.hardcover') }; },
+  get read(): Record<ReadStatus, string> { return { unread: t('read.unread'), reading: t('read.reading'), read: t('read.read'), dnf: t('read.dnf') }; }
 };
 
 /** Fortschritt in Prozent; ohne bekannte Seitenzahl wird der Fortschritt selbst als Prozentwert gespeichert */

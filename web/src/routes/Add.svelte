@@ -2,6 +2,7 @@
   import { api, ApiError, emptyCopy, type Book, type Copy, type CopyValues, type SearchHit } from '../lib/api.ts';
   import { toast, toastError } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
+  import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
   import Scanner from '../components/Scanner.svelte';
   import Cover from '../components/Cover.svelte';
   import CopyForm from '../components/CopyForm.svelte';
@@ -49,7 +50,7 @@
     try {
       await api.post('/copies', { bookId: selected.book.id, ...copy });
       added = [selected.book, ...added];
-      toast(`„${selected.book.title}" ist im Regal`);
+      toast(t('add.added', { title: selected.book.title }));
       selected = null;
     } catch (e) {
       toastError(e);
@@ -126,30 +127,30 @@
 
 <section class="stack">
   <div class="spread">
-    <h1>Buch hinzufügen</h1>
+    <h1>{t('add.title')}</h1>
   </div>
 
   <div class="segmented tabs">
-    <button class:active={tab === 'scan'} onclick={() => (tab = 'scan')}><Icon name="scan" size={16} /> Scannen</button>
-    <button class:active={tab === 'search'} onclick={() => (tab = 'search')}><Icon name="search" size={16} /> Suchen</button>
-    <button class:active={tab === 'manual'} onclick={() => startManual()}><Icon name="keyboard" size={16} /> Manuell</button>
+    <button class:active={tab === 'scan'} onclick={() => (tab = 'scan')}><Icon name="scan" size={16} /> {t('add.scan')}</button>
+    <button class:active={tab === 'search'} onclick={() => (tab = 'search')}><Icon name="search" size={16} /> {t('add.search')}</button>
+    <button class:active={tab === 'manual'} onclick={() => startManual()}><Icon name="keyboard" size={16} /> {t('add.manual')}</button>
   </div>
 
   {#if tab === 'scan'}
     <Scanner onscan={lookup} paused={busy || !!selected || !!notFound} />
     <p class="muted small center">
-      {#if lookupIsbn}<span class="row inline"><span class="spinner sm"></span> Suche {lookupIsbn} …</span>
-      {:else}Halte den Barcode (ISBN, beginnt mit 978/979) in den Rahmen.{/if}
+      {#if lookupIsbn}<span class="row inline"><span class="spinner sm"></span> {t('add.looking', { isbn: lookupIsbn })}</span>
+      {:else}{t('add.hold')}{/if}
     </p>
   {:else if tab === 'search'}
     <form class="searchbox" onsubmit={searchSubmit}>
       <Icon name="search" size={18} />
       <!-- svelte-ignore a11y_autofocus -->
-      <input bind:value={q} type="search" placeholder="Titel, Autor oder ISBN" autofocus />
+      <input bind:value={q} type="search" placeholder={t('add.searchPh')} autofocus />
       {#if searching}<span class="spinner sm"></span>{/if}
     </form>
     {#if hits?.length === 0}
-      <div class="empty"><p>Keine Treffer.</p><button onclick={() => startManual()}>Manuell erfassen</button></div>
+      <div class="empty"><p>{t('add.noHits')}</p><button onclick={() => startManual()}>{t('add.enterManually')}</button></div>
     {:else if hits}
       <ul class="hits">
         {#each hits as h (h.isbn13)}
@@ -168,26 +169,26 @@
         {/each}
       </ul>
     {:else}
-      <p class="muted small center">Gesucht wird in der Deutschen Nationalbibliothek und bei Open Library – über unseren Server, nicht direkt aus deinem Browser.</p>
+      <p class="muted small center">{t('add.sources')}</p>
     {/if}
   {:else}
     <form class="card stack" onsubmit={submitManual}>
-      <label class="field"><span>Titel *</span><input bind:value={manual.title} required maxlength="300" /></label>
-      <label class="field"><span>Untertitel</span><input bind:value={manual.subtitle} maxlength="300" /></label>
-      <label class="field"><span>Autor(en), durch Komma getrennt</span><input bind:value={manual.authors} /></label>
+      <label class="field"><span>{t('book.title')} *</span><input bind:value={manual.title} required maxlength="300" /></label>
+      <label class="field"><span>{t('book.subtitle')}</span><input bind:value={manual.subtitle} maxlength="300" /></label>
+      <label class="field"><span>{t('add.authorsComma')}</span><input bind:value={manual.authors} /></label>
       <div class="cols">
         <label class="field"><span>ISBN</span><input bind:value={manual.isbn} inputmode="numeric" /></label>
-        <label class="field"><span>Verlag</span><input bind:value={manual.publisher} /></label>
-        <label class="field"><span>Jahr</span><input bind:value={manual.year} inputmode="numeric" maxlength="4" /></label>
-        <label class="field"><span>Seiten</span><input bind:value={manual.pages} inputmode="numeric" /></label>
+        <label class="field"><span>{t('book.publisher')}</span><input bind:value={manual.publisher} /></label>
+        <label class="field"><span>{t('book.year')}</span><input bind:value={manual.year} inputmode="numeric" maxlength="4" /></label>
+        <label class="field"><span>{t('book.pages')}</span><input bind:value={manual.pages} inputmode="numeric" /></label>
       </div>
-      <button class="primary" disabled={busy}>Weiter</button>
+      <button class="primary" disabled={busy}>{t('common.next')}</button>
     </form>
   {/if}
 
   {#if added.length}
     <div>
-      <h3>Gerade hinzugefügt</h3>
+      <h3>{t('add.justAdded')}</h3>
       <div class="added">
         {#each added as b, i (i)}
           <a href="/book/{b.id}"><Cover url={b.coverUrl} title={b.title} authors={b.authors} size="sm" /></a>
@@ -197,15 +198,15 @@
   {/if}
 </section>
 
-<Sheet open={!!notFound} onclose={() => (notFound = null)} title="Nicht gefunden">
-  <p class="muted">Zur ISBN <strong>{notFound}</strong> gibt es weder bei der DNB noch bei Open Library einen Eintrag.</p>
+<Sheet open={!!notFound} onclose={() => (notFound = null)} title={t('add.notFound')}>
+  <p class="muted">{t('add.notFoundText', { isbn: notFound ?? '' })}</p>
   <div class="row">
-    <button class="primary" onclick={() => startManual(notFound ?? '')}>Manuell erfassen</button>
-    <button onclick={() => (notFound = null)}>Weiter scannen</button>
+    <button class="primary" onclick={() => startManual(notFound ?? '')}>{t('add.enterManually')}</button>
+    <button onclick={() => (notFound = null)}>{t('add.keepScanning')}</button>
   </div>
 </Sheet>
 
-<Sheet open={!!selected} onclose={() => (selected = null)} title="Ins Regal stellen">
+<Sheet open={!!selected} onclose={() => (selected = null)} title={t('add.putOnShelf')}>
   {#if selected}
     <div class="picked">
       <Cover url={selected.book.coverUrl} title={selected.book.title} authors={selected.book.authors} />
@@ -213,14 +214,14 @@
         <h3>{selected.book.title}</h3>
         {#if selected.book.subtitle}<p class="sub">{selected.book.subtitle}</p>{/if}
         <p class="muted small">{selected.book.authors.join(', ')}</p>
-        <p class="muted small">{[selected.book.publisher, selected.book.year, selected.book.pages && `${selected.book.pages} S.`].filter(Boolean).join(' · ')}</p>
-        {#if selected.owned}<p class="chip accent">Hast du schon {selected.owned}×</p>{/if}
+        <p class="muted small">{[selected.book.publisher, selected.book.year, selected.book.pages && t('book.pagesShort', { n: selected.book.pages })].filter(Boolean).join(' · ')}</p>
+        {#if selected.owned}<p class="chip accent">{t('add.owned', { n: selected.owned })}</p>{/if}
       </div>
     </div>
     <CopyForm bind:value={copy} />
     <div class="row actions">
-      <button class="primary" onclick={addToShelf} disabled={busy}><Icon name="check" size={18} /> Ins Regal</button>
-      <button class="ghost" onclick={() => (selected = null)}>Abbrechen</button>
+      <button class="primary" onclick={addToShelf} disabled={busy}><Icon name="check" size={18} /> {t('add.toShelf')}</button>
+      <button class="ghost" onclick={() => (selected = null)}>{t('common.cancel')}</button>
     </div>
   {/if}
 </Sheet>

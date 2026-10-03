@@ -1,5 +1,6 @@
 <script lang="ts">
   // Sterne anzeigen oder (mit onchange) auswählen; linke Sternhälfte = halber Stern
+  import { t } from '../lib/i18n.svelte.ts';
   let { value = null, size = 18, onchange }: { value?: number | null; size?: number; onchange?: (v: number | null) => void } = $props();
 
   let hover = $state<number | null>(null);
@@ -29,21 +30,21 @@
 {/snippet}
 
 {#if onchange}
-  <div class="stars input" role="slider" tabindex="0" aria-label="Bewertung" aria-valuemin="0" aria-valuemax="5"
-    aria-valuenow={value ?? 0} aria-valuetext={value ? `${value} von 5 Sternen` : 'keine Bewertung'}
+  <div class="stars input" role="slider" tabindex="0" aria-label={t('review.rating')} aria-valuemin="0" aria-valuemax="5"
+    aria-valuenow={value ?? 0} aria-valuetext={value ? t('stars.of', { n: value }) : t('stars.none')}
     onkeydown={key} onmouseleave={() => (hover = null)} style="--s: {size}px">
     {#each [1, 2, 3, 4, 5] as i}
       <span class="star">
         {@render star(fill(i))}
-        <button type="button" class="half l" tabindex="-1" aria-label="{i - 0.5} Sterne"
+        <button type="button" class="half l" tabindex="-1" aria-label={t('stars.n', { n: i - 0.5 })}
           onmouseenter={() => (hover = i - 0.5)} onclick={() => pick(i - 0.5)}></button>
-        <button type="button" class="half r" tabindex="-1" aria-label="{i} Sterne"
+        <button type="button" class="half r" tabindex="-1" aria-label={t('stars.n', { n: i })}
           onmouseenter={() => (hover = i)} onclick={() => pick(i)}></button>
       </span>
     {/each}
   </div>
 {:else}
-  <span class="stars" style="--s: {size}px" aria-label={value ? `${value} von 5 Sternen` : 'keine Bewertung'} role="img">
+  <span class="stars" style="--s: {size}px" aria-label={value ? t('stars.of', { n: value }) : t('stars.none')} role="img">
     {#each [1, 2, 3, 4, 5] as i}
       <span class="star">
         {@render star(fill(i))}

@@ -4,6 +4,7 @@
   import Reviews from '../components/Reviews.svelte';
   import { toast, toastError } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
+  import { t, tn, i18n, fmtDate as fmtD } from '../lib/i18n.svelte.ts';
   import Cover from '../components/Cover.svelte';
   import CopyForm from '../components/CopyForm.svelte';
   import Sheet from '../components/Sheet.svelte';
@@ -43,7 +44,7 @@
     } catch (e) { toastError(e); }
   }
 
-  const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString('de-DE') : '';
+  const fmtDate = (d: string | null) => fmtD(d);
 
   function describe(c: Copy) {
     return [labels.format[c.format], c.binding && labels.binding[c.binding]].filter(Boolean).join(' · ');
@@ -56,16 +57,16 @@
       if (editing.copyId) await api.patch(`/copies/${editing.copyId}`, editing.values);
       else await api.post('/copies', { bookId: id, ...editing.values });
       editing = null;
-      toast('Gespeichert');
+      toast(t('common.saved'));
       await load();
     } catch (e) { toastError(e); } finally { busy = false; }
   }
 
   async function removeCopy(c: Copy) {
-    if (!confirm('Dieses Exemplar aus deinem Regal entfernen?')) return;
+    if (!confirm(t('book.removeCopyQ'))) return;
     try {
       await api.del(`/copies/${c.id}`);
-      toast('Entfernt');
+      toast(t('common.removed'));
       editing = null;
       await load();
       if (!mine.length && !others.length) router.go('/', true);
@@ -98,7 +99,7 @@
   <div class="spinner"></div>
 {:else}
   {@const b = data.book}
-  <button class="ghost back" onclick={() => router.back()}><Icon name="back" size={18} /> Zurück</button>
+  <button class="ghost back" onclick={() => router.back()}><Icon name="back" size={18} /> {t('common.back')}</button>
   <article class="detail">
     <div class="cover-wrap">
       <div class="glow" style={b.coverUrl ? `background-image: url(${b.coverUrl})` : ''}></div>
@@ -107,17 +108,17 @@
     <div class="meta">
       <h1>{b.title}</h1>
       {#if b.subtitle}<p class="subtitle">{b.subtitle}</p>{/if}
-      <p class="authors">{b.authors.join(', ') || 'Unbekannter Autor'}</p>
+      <p class="authors">{b.authors.join(', ') || t('book.unknownAuthor')}</p>
       <dl>
-        {#if b.publisher}<dt>Verlag</dt><dd>{b.publisher}</dd>{/if}
-        {#if b.year}<dt>Jahr</dt><dd>{b.year}</dd>{/if}
-        {#if b.pages}<dt>Seiten</dt><dd>{b.pages}</dd>{/if}
+        {#if b.publisher}<dt>{t('book.publisher')}</dt><dd>{b.publisher}</dd>{/if}
+        {#if b.year}<dt>{t('book.year')}</dt><dd>{b.year}</dd>{/if}
+        {#if b.pages}<dt>{t('book.pages')}</dt><dd>{b.pages}</dd>{/if}
         {#if b.isbn13}<dt>ISBN</dt><dd>{b.isbn13}</dd>{/if}
       </dl>
       {#if subjects.length}
         <div class="row subjects">{#each subjects as s}<span class="chip">{s}</span>{/each}</div>
       {/if}
-      {#if data.canEdit}<button class="ghost small" onclick={openBookEdit}><Icon name="edit" size={16} /> Buchdaten bearbeiten</button>{/if}
+      {#if data.canEdit}<button class="ghost small" onclick={openBookEdit}><Icon name="edit" size={16} /> {t('book.edit')}</button>{/if}
     </div>
   </article>
 
@@ -130,7 +131,7 @@
         {/each}
       </div>
       <button class="icon ghost fav" class:on={r.favorite} onclick={() => setReading({ favorite: !r.favorite })}
-        aria-label={r.favorite ? 'Kein Favorit mehr' : 'Als Favorit markieren'} aria-pressed={r.favorite}>
+        aria-label={r.favorite ? t('book.unfav') : t('book.fav')} aria-pressed={r.favorite}>
         <Icon name="heart" size={22} />
       </button>
     </div>
@@ -138,12 +139,12 @@
       {@const pct = percent(r.progress, b.pages)}
       <button class="bar" onclick={() => (progressOpen = true)}>
         <span class="fill" style="width: {Math.max(pct, 3)}%"></span>
-        <span class="pct">{pct}%{#if r.progress && b.pages} · Seite {r.progress} von {b.pages}{/if} – tippen zum Aktualisieren</span>
+        <span class="pct">{pct}%{#if r.progress && b.pages} · {t('book.pageOf', { p: r.progress, n: b.pages })}{/if} – {t('book.tapUpdate')}</span>
       </button>
     {/if}
     {#if r.startedAt || r.finishedAt}
       <p class="muted small dates">
-        {#if r.startedAt}Begonnen am {fmtDate(r.startedAt)}{/if}{#if r.startedAt && r.finishedAt} · {/if}{#if r.finishedAt}{r.status === 'dnf' ? 'Abgebrochen' : 'Beendet'} am {fmtDate(r.finishedAt)}{/if}
+        {#if r.startedAt}{t('book.started', { d: fmtDate(r.startedAt) })}{/if}{#if r.startedAt && r.finishedAt} · {/if}{#if r.finishedAt}{r.status === 'dnf' ? t('book.dnfOn', { d: fmtDate(r.finishedAt) }) : t('book.finishedOn', { d: fmtDate(r.finishedAt) })}{/if}
       </p>
     {/if}
   </section>
@@ -152,19 +153,19 @@
 
   <section class="stack copies">
     <div class="spread">
-      <h2>Meine Exemplare</h2>
-      <button onclick={() => (editing = { copyId: null, values: emptyCopy() })}><Icon name="plus" size={16} /> {mine.length ? 'Weiteres' : 'Ins Regal'}</button>
+      <h2>{t('book.myCopies')}</h2>
+      <button onclick={() => (editing = { copyId: null, values: emptyCopy() })}><Icon name="plus" size={16} /> {mine.length ? t('book.another') : t('add.toShelf')}</button>
     </div>
-    {#if !mine.length}<p class="muted">Du hast dieses Buch nicht im Regal.</p>{/if}
+    {#if !mine.length}<p class="muted">{t('book.notOwned')}</p>{/if}
     {#each mine as c (c.id)}
       <div class="card copy">
         <span class="fmt"><Icon name={c.format === 'ebook' ? 'tablet' : 'book'} /></span>
         <div class="grow">
           <strong>{describe(c)}</strong>
-          {#if c.sprayedEdges}<div class="row tags"><span class="chip edge">Farbschnitt</span></div>{/if}
+          {#if c.sprayedEdges}<div class="row tags"><span class="chip edge">{t('copy.edges')}</span></div>{/if}
           {#if c.notes}<p class="muted small note">{c.notes}</p>{/if}
         </div>
-        <button class="icon ghost" aria-label="Bearbeiten"
+        <button class="icon ghost" aria-label={t('common.edit')}
           onclick={() => (editing = { copyId: c.id, values: { format: c.format, binding: c.binding, sprayedEdges: c.sprayedEdges, readStatus: c.readStatus, notes: c.notes ?? '' } })}>
           <Icon name="edit" size={18} />
         </button>
@@ -172,7 +173,7 @@
     {/each}
 
     {#if others.length}
-      <h2>Im Freundeskreis</h2>
+      <h2>{t('book.amongFriends')}</h2>
       {#each others as c (c.id)}
         <a class="card copy" href="/people/{c.ownerId}">
           <span class="avatar">{c.ownerName.slice(0, 1).toUpperCase()}</span>
@@ -180,7 +181,7 @@
             <strong>{c.ownerName}</strong>
             <div class="muted small">{describe(c)} · {labels.read[c.readStatus]}</div>
           </div>
-          {#if c.sprayedEdges}<span class="chip edge">Farbschnitt</span>{/if}
+          {#if c.sprayedEdges}<span class="chip edge">{t('copy.edges')}</span>{/if}
         </a>
       {/each}
     {/if}
@@ -192,32 +193,32 @@
     onclose={() => (progressOpen = false)} onsaved={load} />
 {/if}
 
-<Sheet open={!!editing} onclose={() => (editing = null)} title={editing?.copyId ? 'Exemplar bearbeiten' : 'Exemplar hinzufügen'}>
+<Sheet open={!!editing} onclose={() => (editing = null)} title={editing?.copyId ? t('book.editCopy') : t('book.addCopy')}>
   {#if editing}
     <CopyForm bind:value={editing.values} showStatus={false} />
     <div class="row actions">
-      <button class="primary" onclick={saveCopy} disabled={busy}>Speichern</button>
+      <button class="primary" onclick={saveCopy} disabled={busy}>{t('common.save')}</button>
       {#if editing.copyId}
         {@const c = mine.find(m => m.id === editing!.copyId)}
-        {#if c}<button class="danger ghost" onclick={() => removeCopy(c)}><Icon name="trash" size={16} /> Entfernen</button>{/if}
+        {#if c}<button class="danger ghost" onclick={() => removeCopy(c)}><Icon name="trash" size={16} /> {t('common.remove')}</button>{/if}
       {/if}
     </div>
   {/if}
 </Sheet>
 
-<Sheet open={!!editBook} onclose={() => (editBook = null)} title="Buchdaten bearbeiten">
+<Sheet open={!!editBook} onclose={() => (editBook = null)} title={t('book.edit')}>
   {#if editBook}
     <form class="stack" onsubmit={saveBook}>
-      <label class="field"><span>Titel</span><input bind:value={editBook.title} required /></label>
-      <label class="field"><span>Untertitel</span><input bind:value={editBook.subtitle} /></label>
-      <label class="field"><span>Autor(en)</span><input bind:value={editBook.authors} /></label>
-      <label class="field"><span>Verlag</span><input bind:value={editBook.publisher} /></label>
+      <label class="field"><span>{t('book.title')}</span><input bind:value={editBook.title} required /></label>
+      <label class="field"><span>{t('book.subtitle')}</span><input bind:value={editBook.subtitle} /></label>
+      <label class="field"><span>{t('book.authors')}</span><input bind:value={editBook.authors} /></label>
+      <label class="field"><span>{t('book.publisher')}</span><input bind:value={editBook.publisher} /></label>
       <div class="row">
-        <label class="field grow"><span>Jahr</span><input bind:value={editBook.year} inputmode="numeric" /></label>
-        <label class="field grow"><span>Seiten</span><input bind:value={editBook.pages} inputmode="numeric" /></label>
+        <label class="field grow"><span>{t('book.year')}</span><input bind:value={editBook.year} inputmode="numeric" /></label>
+        <label class="field grow"><span>{t('book.pages')}</span><input bind:value={editBook.pages} inputmode="numeric" /></label>
       </div>
-      <p class="muted small">Die Buchdaten sind für alle Nutzer gleich.</p>
-      <button class="primary" disabled={busy}>Speichern</button>
+      <p class="muted small">{t('book.shared')}</p>
+      <button class="primary" disabled={busy}>{t('common.save')}</button>
     </form>
   {/if}
 </Sheet>

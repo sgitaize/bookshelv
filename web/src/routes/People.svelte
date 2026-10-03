@@ -2,6 +2,7 @@
   import { api } from '../lib/api.ts';
   import { session, toastError } from '../lib/state.svelte.ts';
   import Icon from '../components/Icon.svelte';
+  import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
 
   type Person = { id: number; displayName: string; username: string; shelfVisible: boolean; copies: number | null };
   let people = $state<Person[] | null>(null);
@@ -11,8 +12,8 @@
 
 <section class="stack">
   <div class="spread">
-    <h1>Freunde</h1>
-    <a href="/settings#invites" class="btn"><Icon name="link" size={16} /> Jemanden einladen</a>
+    <h1>{t('nav.friends')}</h1>
+    <a href="/settings#invites" class="btn"><Icon name="link" size={16} /> {t('people.invite')}</a>
   </div>
 
   {#if !people}
@@ -24,10 +25,10 @@
         <a class="card person" class:locked={!p.shelfVisible && !me} href={me ? '/me' : `/people/${p.id}`}>
           <span class="avatar" style="--h: {(p.id * 67) % 360}">{p.displayName.slice(0, 1).toUpperCase()}</span>
           <span class="grow">
-            <strong>{p.displayName}{#if me} <span class="muted">(du)</span>{/if}</strong>
+            <strong>{p.displayName}{#if me} <span class="muted">{t('people.you')}</span>{/if}</strong>
             <span class="muted small">@{p.username}</span>
           </span>
-          <span class="muted small">{p.copies === null ? 'privat' : `${p.copies} ${p.copies === 1 ? 'Buch' : 'Bücher'}`}</span>
+          <span class="muted small">{p.copies === null ? t('people.private') : tn('n.books', p.copies)}</span>
         </a>
       {/each}
     </div>

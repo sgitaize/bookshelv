@@ -1,13 +1,14 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { router } from '../lib/router.svelte.ts';
+  import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
 
   const items = $derived([
-    { href: '/', icon: 'home', label: 'Start', active: router.path === '/' },
-    { href: '/library', icon: 'library', label: 'Bibliothek', active: router.path === '/library' },
-    { href: '/add', icon: 'scan', label: 'Hinzufügen', active: router.path === '/add' },
-    { href: '/people', icon: 'users', label: 'Freunde', active: router.path.startsWith('/people') },
-    { href: '/me', icon: 'user', label: 'Profil', active: ['/me', '/settings', '/admin'].includes(router.path) }
+    { href: '/', icon: 'home', label: t('nav.home'), active: router.path === '/' },
+    { href: '/library', icon: 'library', label: t('nav.library'), active: router.path === '/library' },
+    { href: '/add', icon: 'scan', label: t('nav.add'), active: router.path === '/add' },
+    { href: '/people', icon: 'users', label: t('nav.friends'), active: router.path.startsWith('/people') },
+    { href: '/me', icon: 'user', label: t('nav.profile'), active: ['/me', '/settings', '/admin'].includes(router.path) }
   ]);
 
   let q = $state('');
@@ -19,12 +20,12 @@
 </script>
 
 <header class="top">
-  <a href="/" class="brand" aria-label="bookshelv – Start">
+  <a href="/" class="brand" aria-label="bookshelv">
     <img src="/icon.svg" alt="" width="30" height="30" /><span>bookshelv</span>
   </a>
   <form class="search" onsubmit={search} role="search">
-    <input bind:value={q} type="search" placeholder="Alle Bücher durchsuchen …" aria-label="Bücher suchen" />
-    <a href="/add?tab=scan" class="scan" aria-label="ISBN scannen"><Icon name="scan" size={22} /></a>
+    <input bind:value={q} type="search" placeholder={t('nav.search')} aria-label={t('nav.searchAria')} />
+    <a href="/add?tab=scan" class="scan" aria-label={t('nav.scan')}><Icon name="scan" size={22} /></a>
   </form>
   <nav class="desktop">
     {#each items as it}
@@ -33,7 +34,7 @@
   </nav>
 </header>
 
-<nav class="tabbar" aria-label="Hauptnavigation">
+<nav class="tabbar" aria-label={t('nav.main')}>
   {#each items as it}
     <a href={it.href} class:active={it.active} aria-label={it.label}>
       <Icon name={it.icon} size={24} />

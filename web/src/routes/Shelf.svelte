@@ -2,6 +2,7 @@
   import { api, labels, type ShelfItem } from '../lib/api.ts';
   import { session, toastError } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
+  import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
   import Cover from '../components/Cover.svelte';
   import Icon from '../components/Icon.svelte';
 
@@ -29,8 +30,8 @@
   });
 
   const filters = $derived([
-    ['all', 'Alle'], ['print', 'Gedruckt'], ['ebook', 'E-Books'], ['unread', 'Ungelesen'], ['reading', 'Am Lesen'],
-    ['read', 'Gelesen'], ['favorite', 'Favoriten'], ...(own ? [['lent', 'Verliehen']] : []), ['edges', 'Farbschnitt']
+    ['all', t('filter.all')], ['print', t('filter.print')], ['ebook', t('filter.ebook')], ['unread', t('read.unread')], ['reading', t('read.reading')],
+    ['read', t('read.read')], ['favorite', t('filter.favorites')], ...(own ? [['lent', t('filter.lent')]] : []), ['edges', t('copy.edges')]
   ] as [Filter, string][]);
 
   const shown = $derived.by(() => {
@@ -48,15 +49,15 @@
       }
     });
     const key = (it: ShelfItem) => sort === 'title' ? it.book.title : (it.book.authors[0]?.split(' ').pop() ?? '');
-    return sort === 'added' ? list : [...list].sort((a, b) => key(a).localeCompare(key(b), 'de'));
+    return sort === 'added' ? list : [...list].sort((a, b) => key(a).localeCompare(key(b), i18n.lang));
   });
 </script>
 
 <section>
   <div class="spread head">
     <div>
-      <h1>{own ? 'Meine Bibliothek' : `Regal von ${ownerName}`}</h1>
-      {#if items}<p class="muted">{items.length} {items.length === 1 ? 'Buch' : 'Bücher'}{#if shown.length !== items.length} · {shown.length} angezeigt{/if}</p>{/if}
+      <h1>{own ? t('shelf.mine') : t('shelf.of', { name: ownerName })}</h1>
+      {#if items}<p class="muted">{tn('n.books', items.length)}{#if shown.length !== items.length} · {t('shelf.shown', { n: shown.length })}{/if}</p>{/if}
     </div>
   </div>
 
@@ -64,12 +65,12 @@
     <div class="tools">
       <div class="searchbox">
         <Icon name="search" size={18} />
-        <input bind:value={q} placeholder="Titel oder Autor filtern" type="search" />
+        <input bind:value={q} placeholder={t('shelf.filter')} type="search" />
       </div>
-      <select bind:value={sort} aria-label="Sortierung">
-        <option value="added">Neueste</option>
-        <option value="title">Titel</option>
-        <option value="author">Autor</option>
+      <select bind:value={sort} aria-label={t('shelf.sort')}>
+        <option value="added">{t('shelf.newest')}</option>
+        <option value="title">{t('book.title')}</option>
+        <option value="author">{t('shelf.author')}</option>
       </select>
     </div>
     <div class="chips">
@@ -83,10 +84,10 @@
     <div class="grid">{#each Array(8) as _}<div class="skeleton"></div>{/each}</div>
   {:else if items.length === 0}
     <div class="empty">
-      <h2>{own ? 'Noch leer hier' : 'Noch keine Bücher'}</h2>
+      <h2>{own ? t('shelf.empty') : t('shelf.noBooks')}</h2>
       {#if own}
-        <p>Scanne den Barcode auf der Rückseite eines Buchs – oder such es nach Titel.</p>
-        <a href="/add" class="btn primary"><Icon name="scan" size={18} /> Erstes Buch hinzufügen</a>
+        <p>{t('shelf.emptyText')}</p>
+        <a href="/add" class="btn primary"><Icon name="scan" size={18} /> {t('shelf.addFirst')}</a>
       {/if}
     </div>
   {:else}
@@ -96,9 +97,9 @@
           <div class="cv">
             <Cover url={it.book.coverUrl} title={it.book.title} authors={it.book.authors} />
             <div class="badges">
-              {#if it.lent}<span class="chip accent">verliehen</span>{/if}
-              {#if it.format === 'ebook'}<span class="chip">E-Book</span>{/if}
-              {#if it.sprayedEdges}<span class="chip edge">Farbschnitt</span>{/if}
+              {#if it.lent}<span class="chip accent">{t('shelf.lent')}</span>{/if}
+              {#if it.format === 'ebook'}<span class="chip">{t('format.ebook')}</span>{/if}
+              {#if it.sprayedEdges}<span class="chip edge">{t('copy.edges')}</span>{/if}
             </div>
             {#if it.readStatus !== 'unread'}<span class="status {it.readStatus}" title={labels.read[it.readStatus]}></span>{/if}
           </div>
@@ -107,7 +108,7 @@
         </a>
       {/each}
     </div>
-    {#if !shown.length}<p class="empty">Nichts gefunden.</p>{/if}
+    {#if !shown.length}<p class="empty">{t('shelf.nothing')}</p>{/if}
   {/if}
 </section>
 

@@ -3,6 +3,7 @@
   import { session, loadSession, toast, toastError } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
   import Icon from '../components/Icon.svelte';
+  import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
   import { getTheme, setTheme, type Theme } from '../lib/theme.ts';
 
   let displayName = $state(session.me!.displayName);
@@ -21,7 +22,7 @@
     try {
       await api.patch('/me', { displayName, shelfVisible });
       await loadSession();
-      toast('Profil gespeichert');
+      toast(t('settings.profileSaved'));
     } catch (err) { toastError(err); }
   }
 
@@ -37,11 +38,11 @@
   async function share(token: string) {
     const url = inviteUrl(token);
     if (navigator.share) {
-      try { await navigator.share({ title: 'Einladung zu bookshelv', text: 'Komm in meine Bücherrunde:', url }); return; }
+      try { await navigator.share({ title: t('invite.shareTitle'), text: t('invite.shareText'), url }); return; }
       catch { /* abgebrochen → kopieren */ }
     }
     await navigator.clipboard.writeText(url);
-    toast('Link kopiert');
+    toast(t('invite.copied'));
   }
 
   async function revoke(i: Invite) {
@@ -50,11 +51,11 @@
 
   async function changePassword(e: SubmitEvent) {
     e.preventDefault();
-    if (pw.next !== pw.next2) return toastError('Neue Passwörter stimmen nicht überein');
+    if (pw.next !== pw.next2) return toastError(t('settings.pwMismatch'));
     try {
       await api.post('/me/password', { current: pw.current, password: pw.next });
       pw = { current: '', next: '', next2: '' };
-      toast('Passwort geändert – andere Geräte wurden abgemeldet');
+      toast(t('settings.pwChanged'));
     } catch (err) { toastError(err); }
   }
 
@@ -66,7 +67,7 @@
 
   async function deleteAccount(e: SubmitEvent) {
     e.preventDefault();
-    if (!confirm('Konto, Regal, Reviews und alle deine Daten endgültig löschen?')) return;
+    if (!confirm(t('settings.deleteQ'))) return;
     try {
       await api.del('/me', { password: deletePw });
       session.me = null;
@@ -74,54 +75,59 @@
     } catch (err) { toastError(err); }
   }
 
-  const fmt = (d: string) => new Date(d.replace(' ', 'T') + (d.endsWith('Z') ? '' : 'Z')).toLocaleDateString('de-DE');
+  const fmt = (d: string) => fmtDate(d);
 </script>
 
 <section class="stack">
   <div class="spread">
-    <h1>Profil</h1>
-    <button onclick={logout}><Icon name="logout" size={16} /> Abmelden</button>
+    <h1>{t('settings.title')}</h1>
+    <button onclick={logout}><Icon name="logout" size={16} /> {t('settings.logout')}</button>
   </div>
 
   <form class="card stack" onsubmit={saveProfile}>
-    <h2>Über dich</h2>
-    <p class="muted small">Angemeldet als <strong>@{session.me?.username}</strong></p>
-    <label class="field"><span>Anzeigename</span><input bind:value={displayName} maxlength="60" required /></label>
-    <label class="row check"><input type="checkbox" bind:checked={shelfVisible} /> Andere dürfen mein Regal sehen</label>
-    <button class="primary">Speichern</button>
+    <h2>{t('settings.about')}</h2>
+    <p class="muted small">{t('settings.signedInAs', { u: session.me?.username ?? '' })}</p>
+    <label class="field"><span>{t('auth.displayName')}</span><input bind:value={displayName} maxlength="60" required /></label>
+    <label class="row check"><input type="checkbox" bind:checked={shelfVisible} /> {t('settings.shelfVisible')}</label>
+    <button class="primary">{t('common.save')}</button>
   </form>
 
   <div class="card stack">
-    <h2>Darstellung</h2>
+    <h2>{t('settings.appearance')}</h2>
     <div class="segmented">
-      {#each [['dark', 'Dunkel'], ['light', 'Hell'], ['system', 'Wie Gerät']] as [t, label]}
-        <button class:active={theme === t} onclick={() => { theme = t as Theme; setTheme(theme); }}>{label}</button>
+      {#each [['dark', t('settings.dark')], ['light', t('settings.light')], ['system', t('settings.system')]] as [th, label]}
+        <button class:active={theme === th} onclick={() => { theme = th as Theme; setTheme(theme); }}>{label}</button>
       {/each}
+    </div>
+    <h2>{t('settings.language')}</h2>
+    <div class="segmented">
+      <button class:active={i18n.lang === 'de'} onclick={() => i18n.set('de')}>Deutsch</button>
+      <button class:active={i18n.lang === 'en'} onclick={() => i18n.set('en')}>English</button>
     </div>
   </div>
 
   <div class="card stack" id="invites">
-    <h2>Freunde einladen</h2>
-    <p class="muted small">Ein Link gilt 14 Tage und für genau eine Person.</p>
+    <h2>{t('invite.title')}</h2>
+    <p class="muted small">{t('invite.info')}</p>
     <div class="row">
-      <input bind:value={note} placeholder="Für wen? (optional, nur für dich)" maxlength="100" class="grow" />
-      <button class="primary" onclick={createInvite}><Icon name="link" size={16} /> Link erstellen</button>
+      <input bind:value={note} placeholder={t('invite.notePh')} maxlength="100" class="grow" />
+      <button class="primary" onclick={createInvite}><Icon name="link" size={16} /> {t('invite.create')}</button>
     </div>
     {#if invites.length}
       <ul class="invites">
         {#each invites as i (i.id)}
           <li>
             <span class="grow">
-              <strong>{i.note ?? 'Einladung'}</strong>
+              <strong>{i.note ?? t('invite.one')}</strong>
               <span class="muted small">
-                {#if i.usedBy}angenommen von {i.usedBy}
-                {:else if new Date(i.expiresAt) < new Date()}abgelaufen
-                {:else}offen bis {fmt(i.expiresAt)}{/if}
+                {#if i.usedBy}{t('invite.acceptedBy', { n: i.usedBy })}
+                {:else if new Date(i.expiresAt) < new Date()}{t('invite.expired')}
+                {:else}{t('invite.openUntil', { d: fmt(i.expiresAt) })}{/if}
               </span>
             </span>
             {#if !i.usedBy && new Date(i.expiresAt) > new Date()}
-              <button class="icon ghost" onclick={() => share(i.token)} aria-label="Teilen"><Icon name="copy" size={18} /></button>
-              <button class="icon ghost danger" onclick={() => revoke(i)} aria-label="Zurückziehen"><Icon name="x" size={18} /></button>
+              <button class="icon ghost" onclick={() => share(i.token)} aria-label={t('invite.share')}><Icon name="copy" size={18} /></button>
+              <button class="icon ghost danger" onclick={() => revoke(i)} aria-label={t('invite.revoke')}><Icon name="x" size={18} /></button>
             {/if}
           </li>
         {/each}
@@ -130,31 +136,31 @@
   </div>
 
   <form class="card stack" onsubmit={changePassword}>
-    <h2>Passwort ändern</h2>
+    <h2>{t('settings.changePw')}</h2>
     <input type="text" autocomplete="username" value={session.me?.username} hidden />
-    <label class="field"><span>Aktuelles Passwort</span><input type="password" bind:value={pw.current} required autocomplete="current-password" /></label>
-    <label class="field"><span>Neues Passwort</span><input type="password" bind:value={pw.next} required minlength="8" autocomplete="new-password" /></label>
-    <label class="field"><span>Wiederholen</span><input type="password" bind:value={pw.next2} required minlength="8" autocomplete="new-password" /></label>
-    <button>Passwort ändern</button>
+    <label class="field"><span>{t('settings.currentPw')}</span><input type="password" bind:value={pw.current} required autocomplete="current-password" /></label>
+    <label class="field"><span>{t('settings.newPw')}</span><input type="password" bind:value={pw.next} required minlength="8" autocomplete="new-password" /></label>
+    <label class="field"><span>{t('settings.repeat')}</span><input type="password" bind:value={pw.next2} required minlength="8" autocomplete="new-password" /></label>
+    <button>{t('settings.changePw')}</button>
   </form>
 
   <div class="card stack">
-    <h2>Deine Daten</h2>
-    <p class="muted small">bookshelv speichert nur, was du selbst einträgst. Keine E-Mail, kein Tracking, keine externen Dienste im Browser.</p>
-    <a class="btn" href="/api/me/export" download><Icon name="download" size={16} /> Alle Daten exportieren (JSON)</a>
+    <h2>{t('settings.data')}</h2>
+    <p class="muted small">{t('settings.dataInfo')}</p>
+    <a class="btn" href="/api/me/export" download><Icon name="download" size={16} /> {t('settings.export')}</a>
     <details>
-      <summary class="danger-text">Konto löschen …</summary>
+      <summary class="danger-text">{t('settings.deleteAccount')}</summary>
       <form class="stack del" onsubmit={deleteAccount}>
-        <p class="muted small">Löscht dein Konto mit Regal, Reviews, Kommentaren und Verleih-Einträgen endgültig.</p>
-        <input type="password" bind:value={deletePw} placeholder="Passwort zur Bestätigung" required autocomplete="current-password" />
-        <button class="danger">Endgültig löschen</button>
+        <p class="muted small">{t('settings.deleteInfo')}</p>
+        <input type="password" bind:value={deletePw} placeholder={t('settings.confirmPw')} required autocomplete="current-password" />
+        <button class="danger">{t('settings.deleteForever')}</button>
       </form>
     </details>
   </div>
 
   <p class="muted small about">
-    bookshelv ist freie Software (MIT) · <a href="https://github.com/sgitaize/bookshelv" target="_blank" rel="noopener">Quellcode auf GitHub</a>
-    · gebaut von <a href="https://sgitaize.aize-it.de" target="_blank" rel="noopener">sgitaize</a>
+    {t('settings.free')} · <a href="https://github.com/sgitaize/bookshelv" target="_blank" rel="noopener">{t('settings.source')}</a>
+    · {t('settings.builtBy')} <a href="https://sgitaize.aize-it.de" target="_blank" rel="noopener">sgitaize</a>
   </p>
 </section>
 
