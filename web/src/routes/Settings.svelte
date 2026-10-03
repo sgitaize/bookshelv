@@ -192,7 +192,14 @@
     <h2>{t('settings.data')}</h2>
     <p class="muted small">{t('settings.dataInfo')}</p>
     <a class="btn" href="/import"><Icon name="download" size={16} /> {t('imp.link')}</a>
-    <a class="btn" href="/api/me/export" download><Icon name="download" size={16} /> {t('settings.export')}</a>
+    <div class="exports">
+      <span class="muted small">{t('exp.title')}</span>
+      <a class="btn" href="/api/me/export.csv?format=goodreads" download><Icon name="upload" size={16} /> {t('exp.goodreads')}</a>
+      <a class="btn" href="/api/me/export.csv?format=storygraph" download><Icon name="upload" size={16} /> {t('exp.storygraph')}</a>
+      <a class="btn" href="/api/me/export.csv?format=simple" download><Icon name="upload" size={16} /> {t('exp.simple')}</a>
+      <a class="btn" href="/api/me/export" download><Icon name="download" size={16} /> {t('settings.export')}</a>
+      <span class="muted small">{t('exp.info')}</span>
+    </div>
     <details>
       <summary class="danger-text">{t('settings.deleteAccount')}</summary>
       <form class="stack del" onsubmit={deleteAccount}>
@@ -225,4 +232,6 @@
   label.btn { cursor: pointer; }
   label.btn.disabled { opacity: 0.5; pointer-events: none; }
   .about { text-align: center; margin-top: 1rem; }
+  .exports { display: grid; gap: 0.5rem; justify-items: start; }
+  .exports .btn { max-width: 100%; white-space: normal; text-align: left; }
 </style>

@@ -136,6 +136,9 @@ button, .btn {
   text-decoration: none;
   white-space: nowrap;
 }
+/* Lange Beschriftungen (z. B. „Bücher importieren (Goodreads, …)“) dürfen umbrechen statt die Seite zu verbreitern */
+.stack > button, .stack > .btn, .stack > div > .btn { white-space: normal; max-width: 100%; }
+button > svg, .btn > svg { flex: none; }
 button:hover, .btn:hover { background: var(--surface-3); text-decoration: none; }
 button:active, .btn:active { transform: scale(0.97); }
 button:disabled { opacity: 0.5; cursor: default; transform: none; }

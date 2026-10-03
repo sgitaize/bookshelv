@@ -18,6 +18,8 @@
   import Feed from './routes/Feed.svelte';
   import Wishlist from './routes/Wishlist.svelte';
   import Import from './routes/Import.svelte';
+  import Lists from './routes/Lists.svelte';
+  import ListView from './routes/ListView.svelte';
   import Stats from './routes/Stats.svelte';
   import Wrapup from './routes/Wrapup.svelte';
   import { t } from './lib/i18n.svelte.ts';
@@ -36,6 +38,7 @@
   const person = $derived(router.match('/people/:id'));
   const personShelf = $derived(router.match('/people/:id/shelf'));
   const personWish = $derived(router.match('/people/:id/wishlist'));
+  const listView = $derived(router.match('/lists/:id'));
 </script>
 
 {#if session.me === undefined}
@@ -68,6 +71,8 @@
         {:else if router.path === '/wishlist'}<Wishlist />
         {:else if personWish}<Wishlist userId={Number(personWish.id)} />
         {:else if router.path === '/import'}<Import />
+        {:else if router.path === '/lists'}<Lists />
+        {:else if listView}<ListView id={Number(listView.id)} />
         {:else if router.path === '/stats'}<Stats />
         {:else if router.path === '/wrapup'}<Wrapup />
         {:else if router.path === '/settings'}<Settings />
