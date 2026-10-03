@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { router } from '../lib/router.svelte.ts';
+  import { notifications } from '../lib/state.svelte.ts';
   import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
 
   const items = $derived([
@@ -27,6 +28,10 @@
     <input bind:value={q} type="search" placeholder={t('nav.search')} aria-label={t('nav.searchAria')} />
     <a href="/add?tab=scan" class="scan" aria-label={t('nav.scan')}><Icon name="scan" size={22} /></a>
   </form>
+  <a href="/notifications" class="bell" class:active={router.path === '/notifications'} aria-label={t('notif.bell', { n: notifications.unread })}>
+    <Icon name="bell" size={22} />
+    {#if notifications.unread}<span class="badge">{notifications.unread > 9 ? '9+' : notifications.unread}</span>{/if}
+  </a>
   <nav class="desktop">
     {#each items as it}
       <a href={it.href} class:active={it.active}><Icon name={it.icon} size={18} />{it.label}</a>
@@ -57,6 +62,13 @@
   .search { flex: 1; position: relative; display: flex; align-items: center; max-width: 520px; }
   .search input { padding-right: 3rem; border-radius: 10px; }
   .scan { position: absolute; right: 0.6rem; color: var(--text); display: grid; place-items: center; padding: 0.2rem; }
+  .bell { position: relative; color: var(--text); display: grid; place-items: center; padding: 0.4rem; border-radius: 999px; }
+  .bell:hover { background: var(--surface-2); text-decoration: none; }
+  .bell.active { color: var(--accent); }
+  .badge {
+    position: absolute; top: 0; right: 0; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px;
+    background: var(--danger); color: #fff; font-size: 0.68rem; font-weight: 700; display: grid; place-items: center;
+  }
   .desktop { display: none; gap: 0.2rem; margin-left: auto; }
   .desktop a {
     display: flex; align-items: center; gap: 0.45em;
@@ -91,6 +103,7 @@
 
   /* Desktop-Navigation erst ab 1000px – iPad hochkant bekommt die Tabbar (passt besser zu Touch) */
   @media (min-width: 1000px) {
+    .bell { order: 3; }
     .brand { display: flex; }
     .desktop { display: flex; }
     .tabbar { display: none; }

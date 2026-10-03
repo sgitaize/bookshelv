@@ -30,7 +30,7 @@ export const api = {
 
 // ---------- Typen ----------
 
-export type Me = { id: number; username: string; displayName: string; isAdmin: boolean; shelfVisible: boolean; createdAt: string };
+export type Me = { id: number; username: string; displayName: string; isAdmin: boolean; shelfVisible: boolean; createdAt: string; avatarUrl: string | null };
 
 export type Book = {
   id: number; isbn13: string | null; title: string; subtitle: string | null; authors: string[];
@@ -67,10 +67,10 @@ export type Home = {
 };
 
 export type Visibility = 'private' | 'instance' | 'federated';
-export type ReviewComment = { id: number; text: string; createdAt: string; user: { id: number; displayName: string }; canDelete: boolean };
+export type ReviewComment = { id: number; text: string; createdAt: string; user: { id: number; displayName: string; avatarUrl: string | null }; canDelete: boolean };
 export type Review = {
   id: number; bookId: number; rating: number | null; text: string | null; visibility: Visibility; spoiler: boolean;
-  createdAt: string; updatedAt: string; mine: boolean; user: { id: number; displayName: string; username: string };
+  createdAt: string; updatedAt: string; mine: boolean; user: { id: number; displayName: string; username: string; avatarUrl: string | null };
   comments: ReviewComment[];
 };
 export type BookReviews = { average: number | null; count: number; reviews: Review[] };
@@ -98,7 +98,7 @@ export function ago(ts: string): string {
 }
 
 export type Profile = {
-  id: number; username: string; displayName: string; createdAt: string; shelfVisible: boolean;
+  id: number; username: string; displayName: string; createdAt: string; shelfVisible: boolean; avatarUrl: string | null;
   counts: { books: number; read: number; readThisYear: number; reviews: number };
   averageRating: number | null;
   favorites: BookBrief[]; reading: BookBrief[];
@@ -119,6 +119,15 @@ export type Loan = {
   copy: { format: Format; binding: Binding | null }; book: BookBrief;
 };
 export type Loans = { lent: Loan[]; borrowed: Loan[]; history: Loan[] };
+
+export type NotificationItem = {
+  id: number; type: 'loan_new' | 'loan_returned' | 'comment' | 'invite_accepted'; refId: number | null; createdAt: string; read: boolean;
+  actor: { id: number; displayName: string; avatarUrl: string | null } | null; book: BookBrief | null;
+};
+export type FeedItem = {
+  type: 'started' | 'finished' | 'reviewed'; ts: string; rating: number | null; reviewId: number | null; text: string | null; spoiler: boolean;
+  user: { id: number; displayName: string; avatarUrl: string | null }; book: BookBrief;
+};
 
 export type HistoryType = 'added' | 'removed' | 'started' | 'finished' | 'dnf' | 'reviewed' | 'lent' | 'got_back' | 'borrowed' | 'gave_back';
 export const HISTORY_TYPES: HistoryType[] = ['added', 'started', 'finished', 'dnf', 'reviewed', 'lent', 'got_back', 'borrowed', 'gave_back', 'removed'];

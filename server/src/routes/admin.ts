@@ -7,6 +7,7 @@ import { requireAdmin, hashPassword, randomToken } from '../auth.ts';
 import { deleteCoverFile, prunePreviews, dnbGenres } from '../catalog.ts';
 import { router, body, idParam, notFound } from '../util.ts';
 import { anonymizeBorrower } from './loans.ts';
+import { purgeAvatar } from './social.ts';
 
 export const adminRoutes = router();
 
@@ -34,12 +35,12 @@ adminRoutes.get('/stats', c => {
 adminRoutes.get('/users', c => {
   requireAdmin(c);
   return c.json(db.prepare(`
-    SELECT u.id, u.username, u.display_name AS displayName, u.is_admin AS isAdmin, u.disabled, u.created_at AS createdAt,
+    SELECT u.id, u.username, u.display_name AS displayName, u.is_admin AS isAdmin, u.disabled, u.created_at AS createdAt, u.avatar IS NOT NULL AS hasAvatar,
            inv.display_name AS invitedBy,
            (SELECT COUNT(*) FROM copies WHERE owner_id = u.id AND removed_at IS NULL) AS copies,
            (SELECT MAX(created_at) FROM sessions WHERE user_id = u.id) AS lastLogin
     FROM users u LEFT JOIN users inv ON inv.id = u.invited_by ORDER BY u.id
-  `).all().map(r => ({ ...r, isAdmin: !!r.isAdmin, disabled: !!r.disabled })));
+  `).all().map(r => ({ ...r, isAdmin: !!r.isAdmin, disabled: !!r.disabled, hasAvatar: !!r.hasAvatar })));
 });
 
 adminRoutes.patch('/users/:id', async c => {
@@ -72,6 +73,7 @@ adminRoutes.delete('/users/:id', c => {
   const id = idParam(c);
   if (id === me.id) throw new HTTPException(400, { message: 'Eigenes Konto bitte über die Einstellungen löschen' });
   anonymizeBorrower(id);
+  purgeAvatar(id);
   if (!db.prepare('DELETE FROM users WHERE id = ?').run(id).changes) throw notFound('Nutzer');
   return c.json({ ok: true });
 });

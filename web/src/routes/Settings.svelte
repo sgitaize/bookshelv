@@ -5,6 +5,7 @@
   import Icon from '../components/Icon.svelte';
   import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
   import { getTheme, setTheme, type Theme } from '../lib/theme.ts';
+  import Avatar from '../components/Avatar.svelte';
 
   let displayName = $state(session.me!.displayName);
   let shelfVisible = $state(session.me!.shelfVisible);
@@ -13,6 +14,31 @@
   let pw = $state({ current: '', next: '', next2: '' });
   let deletePw = $state('');
   let theme = $state<Theme>(getTheme());
+  let uploading = $state(false);
+
+  /** Bild im Browser quadratisch zuschneiden und auf 256 px verkleinern – hochgeladen werden nur ein paar KB */
+  async function pickAvatar(e: Event) {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    (e.target as HTMLInputElement).value = '';
+    if (!file) return;
+    uploading = true;
+    try {
+      const img = await createImageBitmap(file);
+      const side = Math.min(img.width, img.height);
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 256;
+      canvas.getContext('2d')!.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, 256, 256);
+      let data = canvas.toDataURL('image/webp', 0.85);
+      if (!data.startsWith('data:image/webp')) data = canvas.toDataURL('image/jpeg', 0.85); // ältere Safari
+      await api.post('/me/avatar', { image: data });
+      await loadSession();
+      toast(t('avatar.saved'));
+    } catch (err) { toastError(err); } finally { uploading = false; }
+  }
+
+  async function removeAvatar() {
+    try { await api.del('/me/avatar'); await loadSession(); } catch (err) { toastError(err); }
+  }
 
   const loadInvites = () => api.get<Invite[]>('/invites').then(r => (invites = r)).catch(toastError);
   $effect(() => { loadInvites(); });
@@ -82,6 +108,19 @@
   <div class="spread">
     <h1>{t('settings.title')}</h1>
     <button onclick={logout}><Icon name="logout" size={16} /> {t('settings.logout')}</button>
+  </div>
+
+  <div class="card stack">
+    <h2>{t('avatar.title')}</h2>
+    <div class="row avrow">
+      <Avatar name={session.me?.displayName ?? '?'} url={session.me?.avatarUrl} size={72} />
+      <label class="btn" class:disabled={uploading}>
+        {uploading ? '…' : t('avatar.upload')}
+        <input type="file" accept="image/*" onchange={pickAvatar} hidden />
+      </label>
+      {#if session.me?.avatarUrl}<button class="ghost danger" onclick={removeAvatar}>{t('avatar.remove')}</button>{/if}
+    </div>
+    <p class="muted small">{t('avatar.info')}</p>
   </div>
 
   <form class="card stack" onsubmit={saveProfile}>
@@ -174,5 +213,8 @@
   .danger-text { color: var(--danger); cursor: pointer; font-weight: 550; }
   .del { margin-top: 0.8rem; }
   .segmented { align-self: start; }
+  .avrow { gap: 1rem; }
+  label.btn { cursor: pointer; }
+  label.btn.disabled { opacity: 0.5; pointer-events: none; }
   .about { text-align: center; margin-top: 1rem; }
 </style>

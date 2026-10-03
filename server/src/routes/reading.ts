@@ -6,6 +6,7 @@ import { db } from '../db.ts';
 import { requireUser } from '../auth.ts';
 import { router, body, int, oneOf, idParam, notFound } from '../util.ts';
 import { bookBrief, getBook, shelf } from './books.ts';
+import { avatarUrl } from './social.ts';
 
 export const readingRoutes = router();
 
@@ -115,15 +116,15 @@ readingRoutes.get('/home', c => {
 readingRoutes.get('/users', c => {
   requireUser(c);
   return c.json(db.prepare(`
-    SELECT u.id, u.display_name AS displayName, u.username, u.shelf_visible AS shelfVisible,
+    SELECT u.id, u.display_name AS displayName, u.username, u.shelf_visible AS shelfVisible, u.avatar,
            (SELECT COUNT(DISTINCT book_id) FROM copies WHERE owner_id = u.id AND removed_at IS NULL) AS copies
     FROM users u WHERE u.disabled = 0 ORDER BY u.display_name COLLATE NOCASE
-  `).all().map(r => ({ ...r, shelfVisible: !!r.shelfVisible, copies: r.shelfVisible ? r.copies : null })));
+  `).all().map(({ avatar, ...r }) => ({ ...r, avatarUrl: avatarUrl(avatar), shelfVisible: !!r.shelfVisible, copies: r.shelfVisible ? r.copies : null })));
 });
 
 function visibleUser(viewerId: number, id: number) {
-  const owner = db.prepare('SELECT id, username, display_name AS displayName, shelf_visible AS shelfVisible, created_at AS createdAt FROM users WHERE id = ? AND disabled = 0').get(id) as
-    { id: number; username: string; displayName: string; shelfVisible: number; createdAt: string } | undefined;
+  const owner = db.prepare('SELECT id, username, display_name AS displayName, shelf_visible AS shelfVisible, created_at AS createdAt, avatar FROM users WHERE id = ? AND disabled = 0').get(id) as
+    { id: number; username: string; displayName: string; shelfVisible: number; createdAt: string; avatar: string | null } | undefined;
   if (!owner) throw notFound('Nutzer');
   return { ...owner, visible: !!owner.shelfVisible || owner.id === viewerId };
 }
@@ -141,7 +142,7 @@ readingRoutes.get('/users/:id/profile', c => {
   const year = String(new Date().getFullYear());
   const n = (sql: string, ...args: (string | number)[]) => (db.prepare(sql).get(...args) as { n: number }).n;
   return c.json({
-    id: p.id, username: p.username, displayName: p.displayName, createdAt: p.createdAt, shelfVisible: p.visible,
+    id: p.id, username: p.username, displayName: p.displayName, createdAt: p.createdAt, shelfVisible: p.visible, avatarUrl: avatarUrl(p.avatar),
     counts: {
       books: n('SELECT COUNT(DISTINCT book_id) AS n FROM copies WHERE owner_id = ? AND removed_at IS NULL', p.id),
       read: n("SELECT COUNT(*) AS n FROM user_books WHERE user_id = ? AND status = 'read'", p.id),

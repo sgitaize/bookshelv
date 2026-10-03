@@ -9,6 +9,8 @@ import {
 } from '../auth.ts';
 import { router, body, str, idParam, notFound } from '../util.ts';
 import { anonymizeBorrower } from './loans.ts';
+import { notify } from '../notify.ts';
+import { avatarUrl, purgeAvatar } from './social.ts';
 
 export const authRoutes = router();
 
@@ -30,7 +32,7 @@ export function ensureSetupToken() {
 
 const publicUser = (u: User) => ({
   id: u.id, username: u.username, displayName: u.display_name, isAdmin: !!u.is_admin,
-  shelfVisible: !!u.shelf_visible, createdAt: u.created_at
+  shelfVisible: !!u.shelf_visible, createdAt: u.created_at, avatarUrl: avatarUrl(u.avatar)
 });
 
 authRoutes.get('/status', c => c.json({
@@ -126,6 +128,7 @@ authRoutes.delete('/me', async c => {
     throw new HTTPException(409, { message: 'Du bist der einzige Admin – ernenne zuerst einen anderen Admin' });
   endSession(c);
   anonymizeBorrower(u.id);
+  purgeAvatar(u.id);
   db.prepare('DELETE FROM users WHERE id = ?').run(u.id);
   return c.json({ ok: true });
 });
@@ -184,6 +187,7 @@ authRoutes.post('/register', async c => {
     const id = Number(db.prepare('INSERT INTO users (username, display_name, pw_hash, invited_by) VALUES (?, ?, ?, ?)')
       .run(username, str(b.displayName, 60) ?? username, hash, inv.createdBy).lastInsertRowid);
     db.prepare(`UPDATE invites SET used_by = ?, used_at = datetime('now') WHERE id = ?`).run(id, inv.id);
+    notify(inv.createdBy, 'invite_accepted', id);
     return id;
   });
   startSession(c, id);

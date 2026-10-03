@@ -5,7 +5,7 @@
   import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
 
   type Stats = { users: number; books: number; copies: number; reviews: number; openLoans: number; orphanBooks: number; dbBytes: number; coverBytes: number; version: string; node: string };
-  type AdminUser = { id: number; username: string; displayName: string; isAdmin: boolean; disabled: boolean; createdAt: string; invitedBy: string | null; copies: number; lastLogin: string | null };
+  type AdminUser = { id: number; username: string; displayName: string; isAdmin: boolean; disabled: boolean; createdAt: string; invitedBy: string | null; copies: number; lastLogin: string | null; hasAvatar: boolean };
 
   let stats = $state<Stats | null>(null);
   let users = $state<AdminUser[]>([]);
@@ -109,6 +109,7 @@
             <div class="row acts">
               <button class="small" onclick={() => patch(u, { isAdmin: !u.isAdmin })}>{u.isAdmin ? t('admin.revokeAdmin') : t('admin.makeAdmin')}</button>
               <button class="small" onclick={() => patch(u, { disabled: !u.disabled })}>{u.disabled ? t('admin.unblock') : t('admin.block')}</button>
+              {#if u.hasAvatar}<button class="small" onclick={() => api.del(`/admin/users/${u.id}/avatar`).then(load).catch(toastError)}>{t('avatar.adminRemove')}</button>{/if}
               <button class="small" onclick={() => reset(u)}>{t('admin.resetPw')}</button>
               <button class="small danger" onclick={() => remove(u)}>{t('common.delete')}</button>
             </div>

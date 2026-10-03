@@ -13,6 +13,18 @@ export async function loadSession() {
   }
 }
 
+// ---------- Benachrichtigungen (Zähler für die Glocke) ----------
+
+export const notifications = $state({ unread: 0 });
+let lastPoll = 0;
+
+/** Höchstens alle 30 s nachfragen; wird bei Navigation und periodisch aufgerufen */
+export async function pollNotifications(force = false) {
+  if (!session.me || (!force && Date.now() - lastPoll < 30_000)) return;
+  lastPoll = Date.now();
+  try { notifications.unread = (await api.get<{ unread: number }>('/notifications/count')).unread; } catch { /* offline */ }
+}
+
 // ---------- Toasts ----------
 
 type Toast = { id: number; text: string; kind: 'ok' | 'error' };

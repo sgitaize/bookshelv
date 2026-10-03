@@ -39,6 +39,8 @@ const EN: Record<string, string> = {
   'Rückgabe kann nicht vor dem Verleihdatum liegen': 'The return date cannot be before the lending date',
   'Dieses Exemplar ist gerade verliehen – erst als zurückbekommen markieren': 'This copy is currently lent out – mark it as returned first',
   'Name fehlt': 'Name is missing',
+  'Bild fehlt oder hat ein ungültiges Format': 'Image is missing or has an invalid format',
+  'Bild ist zu groß': 'Image is too large',
   'Zu viele Fehlversuche – bitte in ein paar Minuten erneut versuchen': 'Too many failed attempts – please try again in a few minutes'
 };
 

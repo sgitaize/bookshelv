@@ -7,6 +7,7 @@ import { db } from '../db.ts';
 import { requireUser, type User } from '../auth.ts';
 import { router, body, str, int, idParam, notFound } from '../util.ts';
 import { bookBrief } from './books.ts';
+import { notify } from '../notify.ts';
 
 export const loanRoutes = router();
 
@@ -85,6 +86,8 @@ loanRoutes.post('/copies/:id/loans', async c => {
   const id = Number(db.prepare(`
     INSERT INTO loans (copy_id, lender_id, borrower_id, borrower_name, lent_at, due_at, note) VALUES (?, ?, ?, ?, ?, ?, ?)
   `).run(copy.id, u.id, borrowerId, borrowerId ? null : borrowerName, lentAt, dueAt, str(b.note, 500)).lastInsertRowid);
+  const bookId = (db.prepare('SELECT book_id FROM copies WHERE id = ?').get(copy.id) as { book_id: number }).book_id;
+  notify(borrowerId, 'loan_new', u.id, bookId, id);
   return c.json({ id });
 });
 
@@ -101,6 +104,9 @@ loanRoutes.post('/loans/:id/return', async c => {
   if (loan.returned_at) return c.json({ ok: true });
   const returnedAt = date((await body(c)).returnedAt, today())!;
   db.prepare('UPDATE loans SET returned_at = ? WHERE id = ?').run(returnedAt < loan.lent_at ? loan.lent_at : returnedAt, loan.id);
+  // die jeweils andere Seite informieren
+  const bookId = (db.prepare('SELECT book_id FROM copies WHERE id = ?').get(loan.copy_id) as { book_id: number }).book_id;
+  notify(u.id === loan.lender_id ? loan.borrower_id : loan.lender_id, 'loan_returned', u.id, bookId, loan.id);
   return c.json({ ok: true });
 });
 

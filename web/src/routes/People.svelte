@@ -2,9 +2,10 @@
   import { api } from '../lib/api.ts';
   import { session, toastError } from '../lib/state.svelte.ts';
   import Icon from '../components/Icon.svelte';
+  import Avatar from '../components/Avatar.svelte';
   import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
 
-  type Person = { id: number; displayName: string; username: string; shelfVisible: boolean; copies: number | null };
+  type Person = { id: number; displayName: string; username: string; shelfVisible: boolean; copies: number | null; avatarUrl: string | null };
   let people = $state<Person[] | null>(null);
 
   $effect(() => { api.get<Person[]>('/users').then(r => (people = r)).catch(toastError); });
@@ -23,7 +24,7 @@
       {#each people as p (p.id)}
         {@const me = p.id === session.me?.id}
         <a class="card person" class:locked={!p.shelfVisible && !me} href={me ? '/me' : `/people/${p.id}`}>
-          <span class="avatar" style="--h: {(p.id * 67) % 360}">{p.displayName.slice(0, 1).toUpperCase()}</span>
+          <Avatar name={p.displayName} url={p.avatarUrl} size={44} />
           <span class="grow">
             <strong>{p.displayName}{#if me} <span class="muted">{t('people.you')}</span>{/if}</strong>
             <span class="muted small">@{p.username}</span>
@@ -41,9 +42,4 @@
   .person:hover { text-decoration: none; border-color: var(--surface-3); }
   .person.locked { opacity: 0.75; }
   .grow { flex: 1; display: grid; min-width: 0; }
-  .avatar {
-    width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0;
-    font-weight: 700; font-size: 1.2rem;
-    background: var(--accent-soft); color: var(--accent);
-  }
 </style>

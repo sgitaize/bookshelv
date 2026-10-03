@@ -1,7 +1,7 @@
 <script lang="ts">
   import { fly } from 'svelte/transition';
   import { router } from './lib/router.svelte.ts';
-  import { session, loadSession, toasts } from './lib/state.svelte.ts';
+  import { session, loadSession, toasts, pollNotifications } from './lib/state.svelte.ts';
   import Nav from './components/Nav.svelte';
   import Auth from './routes/Auth.svelte';
   import Shelf from './routes/Shelf.svelte';
@@ -14,9 +14,18 @@
   import Admin from './routes/Admin.svelte';
   import Loans from './routes/Loans.svelte';
   import History from './routes/History.svelte';
+  import Notifications from './routes/Notifications.svelte';
+  import Feed from './routes/Feed.svelte';
   import { t } from './lib/i18n.svelte.ts';
 
   loadSession().catch(() => (session.me = null));
+
+  // Glocke aktuell halten: bei jedem Seitenwechsel (gedrosselt) und jede Minute
+  $effect(() => { router.path; if (session.me) pollNotifications(); });
+  $effect(() => {
+    const id = setInterval(() => pollNotifications(true), 60_000);
+    return () => clearInterval(id);
+  });
 
   const invite = $derived(router.match('/invite/:token'));
   const book = $derived(router.match('/book/:id'));
@@ -49,6 +58,8 @@
         {:else if personShelf}<Shelf userId={Number(personShelf.id)} />
         {:else if router.path === '/loans'}<Loans />
         {:else if router.path === '/history'}<History />
+        {:else if router.path === '/notifications'}<Notifications />
+        {:else if router.path === '/feed'}<Feed />
         {:else if router.path === '/settings'}<Settings />
         {:else if router.path === '/admin' && session.me.isAdmin}<Admin />
         {:else if invite}

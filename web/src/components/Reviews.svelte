@@ -3,6 +3,7 @@
   import { toastError } from '../lib/state.svelte.ts';
   import Stars from './Stars.svelte';
   import Icon from './Icon.svelte';
+  import Avatar from './Avatar.svelte';
   import ReviewSheet from './ReviewSheet.svelte';
   import { t, tn } from '../lib/i18n.svelte.ts';
 
@@ -69,7 +70,7 @@
 {#snippet reviewCard(r: Review)}
   <article class="card review">
     <header>
-      <a class="avatar" href={r.mine ? '/me' : `/people/${r.user.id}`}>{r.user.displayName.slice(0, 1).toUpperCase()}</a>
+      <a class="av" href={r.mine ? '/me' : `/people/${r.user.id}`}><Avatar name={r.user.displayName} url={r.user.avatarUrl} size={36} /></a>
       <div class="who">
         <a href={r.mine ? '/me' : `/people/${r.user.id}`}><strong>{r.mine ? t('review.you') : r.user.displayName}</strong></a>
         <span class="muted small">{ago(r.updatedAt)}{#if r.visibility === 'private'} · {t('review.onlyYou')}{/if}</span>
@@ -93,7 +94,7 @@
       <div class="comments">
         {#each r.comments as c (c.id)}
           <div class="comment">
-            <strong>{c.user.displayName}</strong> <span class="muted small">{ago(c.createdAt)}</span>
+            <span class="cuser"><Avatar name={c.user.displayName} url={c.user.avatarUrl} size={20} /> <strong>{c.user.displayName}</strong> <span class="muted small">{ago(c.createdAt)}</span></span>
             {#if c.canDelete}<button class="icon ghost del" onclick={() => removeComment(c.id)} aria-label={t('comment.delete')}><Icon name="x" size={14} /></button>{/if}
             <p>{c.text}</p>
           </div>
@@ -117,11 +118,8 @@
   .cta strong { color: var(--accent); }
   .review { display: grid; gap: 0.6rem; padding: 1rem; }
   header { display: flex; align-items: center; gap: 0.5rem 0.7rem; flex-wrap: wrap; }
-  .avatar {
-    width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0;
-    background: var(--accent-soft); color: var(--accent); font-weight: 600;
-  }
-  .avatar:hover { text-decoration: none; }
+  .av { display: inline-flex; }
+  .cuser { display: inline-flex; align-items: center; gap: 0.35rem; }
   .who { display: grid; flex: 1 1 8rem; min-width: 0; line-height: 1.3; }
   .who a { color: var(--text); }
   .rating { display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 600; font-size: 0.9rem; }

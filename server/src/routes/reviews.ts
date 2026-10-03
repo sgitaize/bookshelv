@@ -7,6 +7,8 @@ import { db } from '../db.ts';
 import { requireUser, type User } from '../auth.ts';
 import { router, body, str, oneOf, idParam, notFound } from '../util.ts';
 import { getBook, bookBrief } from './books.ts';
+import { notify } from '../notify.ts';
+import { avatarUrl } from './social.ts';
 
 export const reviewRoutes = router();
 
@@ -26,17 +28,17 @@ const VISIBLE = `(r.user_id = ? OR (r.visibility != 'private' AND u.disabled = 0
 
 type ReviewRow = {
   id: number; book_id: number; user_id: number; rating: number | null; text: string | null; visibility: string;
-  spoiler: number; created_at: string; updated_at: string; displayName: string; username: string;
+  spoiler: number; created_at: string; updated_at: string; displayName: string; username: string; avatar?: string | null;
 };
 
 function reviewJson(r: ReviewRow, me: User, comments: Array<Record<string, unknown>> = []) {
   return {
     id: r.id, bookId: r.book_id, rating: r.rating, text: r.text, visibility: r.visibility, spoiler: !!r.spoiler,
     createdAt: r.created_at, updatedAt: r.updated_at, mine: r.user_id === me.id,
-    user: { id: r.user_id, displayName: r.displayName, username: r.username },
+    user: { id: r.user_id, displayName: r.displayName, username: r.username, avatarUrl: avatarUrl(r.avatar) },
     comments: comments.map(c => ({
       id: c.id, text: c.text, createdAt: c.created_at,
-      user: { id: c.user_id, displayName: c.displayName },
+      user: { id: c.user_id, displayName: c.displayName, avatarUrl: avatarUrl(c.avatar) },
       canDelete: c.user_id === me.id || r.user_id === me.id || !!me.is_admin
     }))
   };
@@ -45,7 +47,7 @@ function reviewJson(r: ReviewRow, me: User, comments: Array<Record<string, unkno
 const commentsFor = (reviewIds: number[]) => {
   if (!reviewIds.length) return new Map<number, Array<Record<string, unknown>>>();
   const rows = db.prepare(`
-    SELECT c.*, u.display_name AS displayName FROM comments c JOIN users u ON u.id = c.user_id
+    SELECT c.*, u.display_name AS displayName, u.avatar FROM comments c JOIN users u ON u.id = c.user_id
     WHERE c.review_id IN (${reviewIds.map(() => '?').join(',')}) ORDER BY c.created_at, c.id
   `).all(...reviewIds) as Array<Record<string, unknown>>;
   const map = new Map<number, Array<Record<string, unknown>>>();
@@ -56,7 +58,7 @@ const commentsFor = (reviewIds: number[]) => {
 /** Reviews eines Buchs inkl. Durchschnitt (nur sichtbare Bewertungen zählen) */
 export function bookReviews(bookId: number, me: User) {
   const rows = db.prepare(`
-    SELECT r.*, u.display_name AS displayName, u.username FROM reviews r JOIN users u ON u.id = r.user_id
+    SELECT r.*, u.display_name AS displayName, u.username, u.avatar FROM reviews r JOIN users u ON u.id = r.user_id
     WHERE r.book_id = ? AND ${VISIBLE} ORDER BY r.user_id = ? DESC, r.updated_at DESC
   `).all(bookId, me.id, me.id) as ReviewRow[];
   const comments = commentsFor(rows.map(r => r.id));
@@ -109,12 +111,13 @@ reviewRoutes.delete('/books/:id/review', c => {
 reviewRoutes.post('/reviews/:id/comments', async c => {
   const u = requireUser(c);
   const review = db.prepare(`
-    SELECT r.id, r.book_id FROM reviews r JOIN users u ON u.id = r.user_id WHERE r.id = ? AND ${VISIBLE}
-  `).get(idParam(c), u.id) as { id: number; book_id: number } | undefined;
+    SELECT r.id, r.book_id, r.user_id FROM reviews r JOIN users u ON u.id = r.user_id WHERE r.id = ? AND ${VISIBLE}
+  `).get(idParam(c), u.id) as { id: number; book_id: number; user_id: number } | undefined;
   if (!review) throw notFound('Review');
   const text = str((await body(c)).text, 2000);
   if (!text) throw new HTTPException(400, { message: 'Kommentar ist leer' });
   db.prepare('INSERT INTO comments (review_id, user_id, text) VALUES (?, ?, ?)').run(review.id, u.id, text);
+  notify(review.user_id, 'comment', u.id, review.book_id, review.id);
   return c.json(bookReviews(review.book_id, u));
 });
 
@@ -136,7 +139,7 @@ reviewRoutes.delete('/comments/:id', c => {
 reviewRoutes.get('/reviews/recent', c => {
   const u = requireUser(c);
   const rows = db.prepare(`
-    SELECT r.*, u.display_name AS displayName, u.username,
+    SELECT r.*, u.display_name AS displayName, u.username, u.avatar,
            b.id AS bookId, b.title, b.subtitle, b.authors, b.year, b.pages, b.cover,
            (SELECT COUNT(*) FROM comments WHERE review_id = r.id) AS commentCount
     FROM reviews r JOIN users u ON u.id = r.user_id JOIN books b ON b.id = r.book_id
@@ -155,7 +158,7 @@ reviewRoutes.get('/users/:id/reviews', c => {
   const u = requireUser(c);
   const id = idParam(c);
   const rows = db.prepare(`
-    SELECT r.*, u.display_name AS displayName, u.username, b.id AS bookId, b.title, b.subtitle, b.authors, b.year, b.pages, b.cover
+    SELECT r.*, u.display_name AS displayName, u.username, u.avatar, b.id AS bookId, b.title, b.subtitle, b.authors, b.year, b.pages, b.cover
     FROM reviews r JOIN users u ON u.id = r.user_id JOIN books b ON b.id = r.book_id
     WHERE r.user_id = ? AND ${VISIBLE} ORDER BY r.updated_at DESC LIMIT 100
   `).all(id, u.id) as Array<ReviewRow & Record<string, unknown>>;

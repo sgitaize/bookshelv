@@ -133,6 +133,22 @@ const migrations: string[] = [
   INSERT INTO stores (name) VALUES ('tolino'), ('Hugendubel'), ('Thalia'), ('Kindle (Amazon)'), ('Apple Books'),
     ('Google Play Books'), ('Kobo'), ('Weltbild'), ('ebook.de'), ('Onleihe'), ('Bücher.de');
   ALTER TABLE copies ADD COLUMN store_id INTEGER REFERENCES stores(id) ON DELETE SET NULL;
+  `,
+  // 4: Profilbilder und In-App-Benachrichtigungen
+  `
+  ALTER TABLE users ADD COLUMN avatar TEXT;
+  CREATE TABLE notifications (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
+    actor_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    book_id INTEGER REFERENCES books(id) ON DELETE CASCADE,
+    ref_id INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    read_at TEXT
+  );
+  CREATE INDEX notifications_user ON notifications(user_id, read_at);
+  CREATE INDEX user_books_finished ON user_books(finished_at);
   `
 ];
 

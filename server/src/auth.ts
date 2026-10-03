@@ -17,6 +17,7 @@ export type User = {
   display_name: string;
   is_admin: number;
   shelf_visible: number;
+  avatar: string | null;
   created_at: string;
 };
 
@@ -71,7 +72,7 @@ export const loadUser: MiddlewareHandler = async (c, next) => {
   let user: User | null = null;
   if (token) {
     user = (db.prepare(`
-      SELECT u.id, u.username, u.display_name, u.is_admin, u.shelf_visible, u.created_at
+      SELECT u.id, u.username, u.display_name, u.is_admin, u.shelf_visible, u.avatar, u.created_at
       FROM sessions s JOIN users u ON u.id = s.user_id
       WHERE s.id = ? AND s.expires_at > ? AND u.disabled = 0
     `).get(sha256(token), new Date().toISOString()) as User | undefined) ?? null;

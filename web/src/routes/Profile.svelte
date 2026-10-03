@@ -3,6 +3,7 @@
   import { session, toastError } from '../lib/state.svelte.ts';
   import Cover from '../components/Cover.svelte';
   import Icon from '../components/Icon.svelte';
+  import Avatar from '../components/Avatar.svelte';
   import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
 
   // ohne userId: eigenes Profil
@@ -21,7 +22,7 @@
   <div class="spinner"></div>
 {:else}
   <section class="profile">
-    <div class="avatar" style="--h: {(p.id * 67) % 360}">{p.displayName.slice(0, 1).toUpperCase()}</div>
+    <div class="bigav"><Avatar name={p.displayName} url={p.avatarUrl} size={88} /></div>
     <h1>@{p.username}</h1>
     {#if p.displayName !== p.username}<p class="muted name">{p.displayName}</p>{/if}
 
@@ -78,10 +79,7 @@
 
 <style>
   .profile { display: grid; justify-items: center; text-align: center; max-width: 560px; margin: 0 auto; }
-  .avatar {
-    width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; margin: 0.8rem 0;
-    font-weight: 600; font-size: 2.1rem; background: var(--accent); color: var(--accent-ink);
-  }
+  .bigav { margin: 0.8rem 0; }
   h1 { color: var(--accent); font-size: 1.4rem; margin: 0; }
   .name { margin: 0.1rem 0 0; }
   .stats {
