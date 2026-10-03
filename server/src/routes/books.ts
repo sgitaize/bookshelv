@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import { HTTPException } from 'hono/http-exception';
 import { db } from '../db.ts';
 import { requireUser, type User } from '../auth.ts';
-import { lookupIsbn, normalizeIsbn, searchCatalog, fetchCover, previewCover, type BookData } from '../catalog.ts';
+import { lookupIsbn, normalizeIsbn, searchCatalog, fetchCover, previewCover, deleteCoverFile, type BookData } from '../catalog.ts';
 import { router, body, str, int, oneOf, idParam, notFound } from '../util.ts';
 import { setReading, readingJson, READ_STATUS, type ReadingRow } from './reading.ts';
 import { openLoanFor } from './loans.ts';
@@ -34,6 +34,14 @@ const getBookByIsbn = (isbn: string) => db.prepare('SELECT * FROM books WHERE is
 
 /** Parallele Anfragen zur gleichen ISBN (Doppelscan) nur einmal ausführen */
 const pending = new Map<string, Promise<BookRow | null>>();
+
+/** Fehlendes Cover nachladen (wartet nicht, Fehler sind egal) */
+export function repairCover(bookId: number, hint: { isbn?: string; ol?: number }) {
+  fetchCover(hint).then(name => {
+    if (!name) return;
+    if (!db.prepare('UPDATE books SET cover = ? WHERE id = ? AND cover IS NULL').run(name, bookId).changes) deleteCoverFile(name);
+  }).catch(() => {});
+}
 
 export async function importIsbn(isbn: string, userId: number): Promise<BookRow | null> {
   const existing = getBookByIsbn(isbn);
@@ -79,6 +87,8 @@ bookRoutes.get('/catalog/search', async c => {
   const hits = isbn ? [] : await searchCatalog(q);
   return c.json(hits.map(h => {
     const local = h.isbn13 ? getBookByIsbn(h.isbn13) : undefined;
+    // Buch im Bestand ohne Cover, die Suche kennt aber eins → im Hintergrund übernehmen
+    if (local && !local.cover && h.coverHint?.ol) repairCover(local.id, { ol: h.coverHint.ol });
     return {
       isbn13: h.isbn13, title: h.title, subtitle: h.subtitle, authors: h.authors, publisher: h.publisher, year: h.year,
       bookId: local?.id ?? null,

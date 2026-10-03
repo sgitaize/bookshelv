@@ -106,5 +106,9 @@ check('no conflict after merge', r.data.results[0].result === 'exists', JSON.str
 // --- Löschen ---
 check('friend cannot delete', (await anna('DELETE', `/lists/${herbst}`)).status === 404);
 check('delete list', (await simon('DELETE', `/lists/${secret}`)).status === 200 && (await simon('GET', `/lists/${secret}`)).status === 404);
+// --- Cover-Fallback: Ausgabe ohne eigenes Bild bei Open Library, das Werk hat eins (Simons „Hackers“) ---
+r = await simon('POST', '/import', { items: [{ isbn: '9780613922081', title: 'Hackers', status: 'unread' }], options: { copies: 'none' } });
+const hb = (await simon('GET', `/books/${r.data.results[0].bookId}`)).data.book;
+check('cover from OL work', !!hb.coverUrl, JSON.stringify(hb));
 console.log(`Listen/Top5/Feed/Export-Test: ${ok} ok, ${fail} fehlgeschlagen`);
 if (fail) process.exitCode = 1;

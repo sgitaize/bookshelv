@@ -261,11 +261,23 @@ async function findCoverImage(hint: { isbn?: string; ol?: number }) {
 
 /** Cover herunterladen und lokal ablegen; gibt den Dateinamen zurück. */
 export async function fetchCover(hint: { isbn?: string; ol?: number }): Promise<string | null> {
-  const preview = await previewCover(hint); // meist schon von der Suche im Cache
+  let preview = await previewCover(hint); // meist schon von der Suche im Cache
+  // Für viele Ausgaben hat Open Library kein Bild unter der ISBN, wohl aber am Werk (dasselbe Cover zeigt die Suche)
+  if (!preview && hint.isbn && !hint.ol) {
+    const ol = await olCoverId(hint.isbn);
+    if (ol) preview = await previewCover({ ol });
+  }
   if (!preview) return null;
   const name = `${hint.isbn ?? 'ol' + hint.ol}-${crypto.randomBytes(4).toString('hex')}.${preview.ext}`;
   fs.copyFileSync(preview.file, path.join(coverDir, name));
   return name;
+}
+
+/** Cover-ID des Werks zu einer ISBN (Open-Library-Suche liefert cover_i auch für Ausgaben ohne eigenes Bild) */
+async function olCoverId(isbn: string): Promise<number | null> {
+  const res = await get(`https://openlibrary.org/search.json?isbn=${isbn}&fields=cover_i&limit=1`);
+  if (!res) return null;
+  try { return ((await res.json()).docs?.[0]?.cover_i as number | undefined) ?? null; } catch { return null; }
 }
 
 /** Vorschaubilder für Suchergebnisse: einmal laden, dann aus dem Cache (alte Einträge räumt prunePreviews weg). */

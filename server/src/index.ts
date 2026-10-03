@@ -6,6 +6,8 @@ import { ensureSetupToken } from './routes/auth.ts';
 import { purgeExpiredSessions } from './auth.ts';
 import { prunePreviews } from './catalog.ts';
 import { deliver } from './federation.ts';
+import { db } from './db.ts';
+import { fetchCover, deleteCoverFile } from './catalog.ts';
 
 ensureSetupToken();
 purgeExpiredSessions();
@@ -13,6 +15,22 @@ prunePreviews();
 setInterval(() => { purgeExpiredSessions(); prunePreviews(); }, 6 * 3600_000).unref();
 // Föderation: Warteschlange regelmäßig abarbeiten
 setInterval(() => { deliver().catch(() => {}); }, 60_000).unref();
+
+/**
+ * Einmalig (je Version des Flags): Bücher ohne Cover erneut versuchen – früher wurde nur unter der ISBN gesucht,
+ * inzwischen auch am Open-Library-Werk. Läuft im Hintergrund, nacheinander, damit die Dienste nicht überlastet werden.
+ */
+async function repairMissingCovers() {
+  const flag = 'covers_repaired_v1';
+  if (db.prepare('SELECT 1 FROM settings WHERE key = ?').get(flag)) return;
+  db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, datetime('now'))").run(flag);
+  const books = db.prepare('SELECT id, isbn13 FROM books WHERE cover IS NULL AND isbn13 IS NOT NULL LIMIT 500').all() as { id: number; isbn13: string }[];
+  for (const b of books) {
+    const name = await fetchCover({ isbn: b.isbn13 }).catch(() => null);
+    if (name && !db.prepare('UPDATE books SET cover = ? WHERE id = ? AND cover IS NULL').run(name, b.id).changes) deleteCoverFile(name);
+  }
+}
+setTimeout(() => { repairMissingCovers().catch(e => console.error('Cover-Nachladen:', e)); }, 5000).unref();
 
 const server = http.createServer(getRequestListener(app.fetch));
 
