@@ -59,6 +59,15 @@
     }
   }
 
+  async function toWishlist() {
+    if (!selected) return;
+    try {
+      await api.put(`/books/${selected.book.id}/wishlist`, {});
+      toast(t('wish.added'));
+      selected = null;
+    } catch (e) { toastError(e); }
+  }
+
   // ---------- Suche ----------
   let q = $state(router.query.get('q') ?? '');
   let hits = $state<SearchHit[] | null>(null);
@@ -221,7 +230,7 @@
     <CopyForm bind:value={copy} />
     <div class="row actions">
       <button class="primary" onclick={addToShelf} disabled={busy}><Icon name="check" size={18} /> {t('add.toShelf')}</button>
-      <button class="ghost" onclick={() => (selected = null)}>{t('common.cancel')}</button>
+      <button onclick={toWishlist} disabled={busy}><Icon name="bookmark" size={16} /> {t('wish.add')}</button>
     </div>
   {/if}
 </Sheet>

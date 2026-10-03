@@ -14,6 +14,7 @@ import { loanRoutes } from './routes/loans.ts';
 import { historyRoutes } from './routes/history.ts';
 import { socialRoutes } from './routes/social.ts';
 import { federationRoutes } from './routes/federation.ts';
+import { extraRoutes } from './routes/extras.ts';
 import { adminRoutes } from './routes/admin.ts';
 import { router } from './util.ts';
 import { translate } from './i18n.ts';
@@ -46,6 +47,7 @@ app.route('/api', loanRoutes);
 app.route('/api', historyRoutes);
 app.route('/api', socialRoutes);
 app.route('/api', federationRoutes);
+app.route('/api', extraRoutes);
 app.route('/api/admin', adminRoutes);
 app.all('/api/*', c => c.json({ error: translate('Unbekannter Endpunkt', c.req.header('x-lang')) }, 404));
 

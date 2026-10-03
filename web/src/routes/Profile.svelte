@@ -68,10 +68,12 @@
         <a class="btn dark" href="/library"><Icon name="library" size={16} /> {t('shelf.mine')}</a>
         <a class="btn" href="/loans"><Icon name="users" size={16} /> {t('loan.title')}</a>
         <a class="btn" href="/history"><Icon name="book" size={16} /> {t('hist.title')}</a>
+        <a class="btn" href="/wishlist"><Icon name="bookmark" size={16} /> {t('wish.count', { n: p.wishlistCount })}</a>
         <a class="btn" href="/settings"><Icon name="settings" size={16} /> {t('settings.title')}</a>
         {#if session.me?.isAdmin}<a class="btn" href="/admin"><Icon name="shield" size={16} /> Admin</a>{/if}
       {:else if p.shelfVisible}
         <a class="btn dark" href="/people/{p.id}/shelf"><Icon name="library" size={16} /> {t('profile.toShelf')}</a>
+        {#if p.wishlistCount}<a class="btn" href="/people/{p.id}/wishlist"><Icon name="bookmark" size={16} /> {t('wish.count', { n: p.wishlistCount })}</a>{/if}
       {/if}
     </div>
   </section>

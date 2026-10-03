@@ -146,6 +146,7 @@ bookRoutes.get('/books/:id', c => {
   return c.json({
     book: bookJson(book),
     canEdit: !!u.is_admin || book.created_by === u.id,
+    wishlisted: !!db.prepare('SELECT 1 FROM wishlist WHERE user_id = ? AND book_id = ?').get(u.id, book.id),
     reading: readingJson(reading),
     archived,
     copies: copies.map(cp => {
@@ -263,6 +264,8 @@ bookRoutes.post('/copies', async c => {
     .run(bookId, u.id, f.format, f.binding, f.sprayed, f.notes, f.storeId).lastInsertRowid);
   // Lesestatus gleich mit setzen (gehört zur Person, nicht zum Exemplar)
   if (b.readStatus !== undefined) setReading(u.id, bookId, { status: oneOf(b.readStatus, READ_STATUS, 'unread') });
+  // jetzt im Regal → nicht mehr auf der Wunschliste
+  db.prepare('DELETE FROM wishlist WHERE user_id = ? AND book_id = ?').run(u.id, bookId);
   return c.json({ id });
 });
 

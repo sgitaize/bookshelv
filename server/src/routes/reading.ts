@@ -151,6 +151,7 @@ readingRoutes.get('/users/:id/profile', c => {
     },
     averageRating: (db.prepare("SELECT ROUND(AVG(rating), 2) AS a FROM reviews WHERE user_id = ? AND rating IS NOT NULL AND (user_id = ? OR visibility != 'private')").get(p.id, u.id) as { a: number | null }).a,
     favorites: p.visible ? readingList(p.id, 'ub.favorite = 1', 'ub.updated_at DESC', 10).map(r => r.book) : [],
+    wishlistCount: p.visible ? n('SELECT COUNT(*) AS n FROM wishlist WHERE user_id = ?', p.id) : 0,
     reading: p.visible ? readingList(p.id, "ub.status = 'reading'", 'ub.updated_at DESC', 10).map(r => r.book) : []
   });
 });

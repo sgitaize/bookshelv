@@ -118,15 +118,14 @@ BOOKSHELV_INSECURE_COOKIES=1 npm run dev   # API on :3000, Vite on :5173
 
 ## Roadmap
 
-Done so far: accounts and invitations, the admin area, ISBN scanning and catalogue search, the library with copies (including e-book shops), reading progress, favourites, profiles with pictures, reviews and comments, lending with due dates, an archive for sold or given-away books, a history timeline with filters, a feed of what friends are reading, in-app notifications, and German/English.
+Done so far: accounts and invitations, the admin area, ISBN scanning and catalogue search, the library with copies (including e-book shops), reading progress, favourites, profiles with pictures, reviews and comments, lending with due dates, an archive for sold or given-away books, a history timeline with filters, a feed of what friends are reading, in-app notifications, a wishlist friends can see, your own covers, import from Goodreads, StoryGraph or a plain CSV file, and German/English.
 
 Separate bookshelv instances can be linked, so reviews can be shared and books lent across instances. How that works is described in [docs/FEDERATION.md](docs/FEDERATION.md).
 
 Next up, roughly in this order:
 
-1. Import from Goodreads and StoryGraph, a wishlist, and uploading your own covers.
-2. Reading statistics and a yearly wrap-up you can share.
-3. Offline mode for the installed app: your data stays available on the device, reading progress and ratings can be changed offline and sync later, and the app shows clearly what isn't possible without a connection (such as adding books from the catalogue).
+1. Reading statistics and a yearly wrap-up you can share.
+2. Offline mode for the installed app: your data stays available on the device, reading progress and ratings can be changed offline and sync later, and the app shows clearly what isn't possible without a connection (such as adding books from the catalogue).
 
 ## Data sources
 

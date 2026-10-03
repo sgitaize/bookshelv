@@ -113,6 +113,7 @@
       {#if own}
         <p>{t('shelf.emptyText')}</p>
         <a href="/add" class="btn primary"><Icon name="scan" size={18} /> {t('shelf.addFirst')}</a>
+        <p><a href="/import">{t('imp.link')}</a></p>
       {/if}
     </div>
   {:else}

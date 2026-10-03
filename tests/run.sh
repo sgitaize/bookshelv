@@ -16,6 +16,7 @@ for i in $(seq 1 50); do curl -sf localhost:3999/api/status >/dev/null && break;
 node api.mjs "$T"
 node loans.mjs
 node social.mjs
+node extras.mjs
 # Föderation: zwei weitere frische Instanzen
 FA=$(mktemp -d); FB=$(mktemp -d)
 for d in "$FA" "$FB"; do cp -r ../dist/server.js ../dist/package.json ../dist/public "$d/"; done

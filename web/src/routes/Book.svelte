@@ -16,7 +16,7 @@
 
   let { id }: { id: number } = $props();
 
-  let data = $state<{ book: Book; copies: Copy[]; canEdit: boolean; reading: Reading; archived: ArchivedCopy[] } | null>(null);
+  let data = $state<{ book: Book; copies: Copy[]; canEdit: boolean; wishlisted: boolean; reading: Reading; archived: ArchivedCopy[] } | null>(null);
   let removing = $state<{ id: number; archived: boolean } | null>(null);
   let progressOpen = $state(false);
   let askReview = $state(false);
@@ -80,6 +80,33 @@
     } catch (e) { toastError(e); } finally { busy = false; }
   }
 
+  async function toggleWish() {
+    try {
+      if (data!.wishlisted) await api.del(`/books/${id}/wishlist`);
+      else { await api.put(`/books/${id}/wishlist`, {}); toast(t('wish.added')); }
+      data!.wishlisted = !data!.wishlisted;
+    } catch (e) { toastError(e); }
+  }
+
+  /** Eigenes Cover: im Browser auf max. 900 px Höhe verkleinern, dann hochladen */
+  async function pickCover(e: Event) {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    (e.target as HTMLInputElement).value = '';
+    if (!file) return;
+    try {
+      const img = await createImageBitmap(file);
+      const scale = Math.min(1, 900 / img.height);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      let image = canvas.toDataURL('image/webp', 0.85);
+      if (!image.startsWith('data:image/webp')) image = canvas.toDataURL('image/jpeg', 0.85);
+      data!.book = await api.post<Book>(`/books/${id}/cover`, { image });
+      toast(t('cover.saved'));
+    } catch (err) { toastError(err); }
+  }
+
   function removeCopy(c: { id: number }, archived = false) {
     editing = null;
     removing = { id: c.id, archived };
@@ -138,7 +165,15 @@
       {#if subjects.length}
         <div class="row subjects">{#each subjects as s}<span class="chip">{s}</span>{/each}</div>
       {/if}
-      {#if data.canEdit}<button class="ghost small" onclick={openBookEdit}><Icon name="edit" size={16} /> {t('book.edit')}</button>{/if}
+      <div class="row bookacts">
+        {#if !mine.length || data.wishlisted}
+          <button class="small" class:on={data.wishlisted} onclick={toggleWish}><Icon name="bookmark" size={16} /> {data.wishlisted ? t('wish.on') : t('wish.add')}</button>
+        {/if}
+        {#if data.canEdit || (!b.coverUrl && mine.length)}
+          <label class="btn small ghost"><Icon name="image" size={16} /> {t('cover.upload')}<input type="file" accept="image/*" onchange={pickCover} hidden /></label>
+        {/if}
+        {#if data.canEdit}<button class="ghost small" onclick={openBookEdit}><Icon name="edit" size={16} /> {t('book.edit')}</button>{/if}
+      </div>
     </div>
   </article>
 
@@ -332,6 +367,10 @@
   a.small { font-size: 0.82rem; }
   .lendbtn { margin: 0; }
   .hist, .archived { margin-top: 2rem; }
+  .bookacts { gap: 0.4rem; justify-content: inherit; }
+  .bookacts .small { padding: 0.4em 0.8em; font-size: 0.85rem; }
+  .bookacts .on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+  .bookacts label { cursor: pointer; }
   .hist h2 { margin-bottom: 1rem; }
   .avatar {
     width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0;

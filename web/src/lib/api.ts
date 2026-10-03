@@ -102,7 +102,7 @@ export type Profile = {
   id: number; username: string; displayName: string; createdAt: string; shelfVisible: boolean; avatarUrl: string | null;
   counts: { books: number; read: number; readThisYear: number; reviews: number };
   averageRating: number | null;
-  favorites: BookBrief[]; reading: BookBrief[];
+  favorites: BookBrief[]; reading: BookBrief[]; wishlistCount: number;
 };
 
 export type CopyLoan = { id: number | null; borrowerId: number | null; borrowerName: string | null; lentAt: string; dueAt: string | null; note: string | null };

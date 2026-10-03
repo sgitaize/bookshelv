@@ -16,6 +16,8 @@
   import History from './routes/History.svelte';
   import Notifications from './routes/Notifications.svelte';
   import Feed from './routes/Feed.svelte';
+  import Wishlist from './routes/Wishlist.svelte';
+  import Import from './routes/Import.svelte';
   import { t } from './lib/i18n.svelte.ts';
 
   loadSession().catch(() => (session.me = null));
@@ -31,6 +33,7 @@
   const book = $derived(router.match('/book/:id'));
   const person = $derived(router.match('/people/:id'));
   const personShelf = $derived(router.match('/people/:id/shelf'));
+  const personWish = $derived(router.match('/people/:id/wishlist'));
 </script>
 
 {#if session.me === undefined}
@@ -60,6 +63,9 @@
         {:else if router.path === '/history'}<History />
         {:else if router.path === '/notifications'}<Notifications />
         {:else if router.path === '/feed'}<Feed />
+        {:else if router.path === '/wishlist'}<Wishlist />
+        {:else if personWish}<Wishlist userId={Number(personWish.id)} />
+        {:else if router.path === '/import'}<Import />
         {:else if router.path === '/settings'}<Settings />
         {:else if router.path === '/admin' && session.me.isAdmin}<Admin />
         {:else if invite}

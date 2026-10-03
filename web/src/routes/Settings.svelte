@@ -191,6 +191,7 @@
   <div class="card stack">
     <h2>{t('settings.data')}</h2>
     <p class="muted small">{t('settings.dataInfo')}</p>
+    <a class="btn" href="/import"><Icon name="download" size={16} /> {t('imp.link')}</a>
     <a class="btn" href="/api/me/export" download><Icon name="download" size={16} /> {t('settings.export')}</a>
     <details>
       <summary class="danger-text">{t('settings.deleteAccount')}</summary>

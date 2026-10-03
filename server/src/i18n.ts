@@ -48,6 +48,7 @@ const EN: Record<string, string> = {
   'Das ist diese Instanz': 'That is this instance',
   'Dort läuft keine erreichbare bookshelv-Instanz': 'No reachable bookshelv instance at that address',
   'Die andere Instanz hat die Anfrage abgelehnt': 'The other instance rejected the request',
+  'Nur Ersteller oder Admin dürfen das Cover ersetzen': 'Only the creator or an admin may replace the cover',
   'Zu viele Fehlversuche – bitte in ein paar Minuten erneut versuchen': 'Too many failed attempts – please try again in a few minutes'
 };
 

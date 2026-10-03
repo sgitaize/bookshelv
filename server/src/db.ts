@@ -210,6 +210,16 @@ const migrations: string[] = [
     next_at TEXT NOT NULL DEFAULT (datetime('now')),
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+  `,
+  // 6: Wunschliste
+  `
+  CREATE TABLE wishlist (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    book_id INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    note TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, book_id)
+  );
   `
 ];
 

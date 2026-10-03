@@ -20,7 +20,10 @@ const token = fs.readFileSync(`${D}/data/setup-token.txt`, 'utf8').trim();
 check('setup', (await simon('POST', '/setup', { token, username: 'simon', displayName: 'Simon', password: 'geheim1234' })).status === 200);
 const books = [];
 for (const isbn of ['9783453317178', '9783257236965', '9783442476336', '9783423143592']) {
-  const r = await simon('POST', '/catalog/isbn', { isbn }); books.push(r.data.book);
+  // Katalogdienste haben gelegentlich Aussetzer → einmal wiederholen
+  let r = await simon('POST', '/catalog/isbn', { isbn });
+  if (!r.data?.book) { await new Promise(res => setTimeout(res, 2000)); r = await simon('POST', '/catalog/isbn', { isbn }); }
+  books.push(r.data.book);
   await simon('POST', '/copies', { bookId: r.data.book.id, format: 'print', binding: 'hardcover' });
 }
 for (const [cl, name] of [[anna, 'anna'], [ben, 'ben']]) {
