@@ -15,6 +15,7 @@ import { importIsbn, getBook, getBookByIsbn, bookBrief, bookJson, type BookRow }
 import { setReading } from './reading.ts';
 import { imageType } from './social.ts';
 import { federate } from './reviews.ts';
+import { selfUrl } from '../federation.ts';
 
 export const extraRoutes = router();
 
@@ -84,7 +85,7 @@ type ImportItem = {
   isbn?: string; title?: string; authors?: string[]; status?: string; rating?: number | null; review?: string | null;
   spoiler?: boolean; finishedAt?: string | null; startedAt?: string | null; addedAt?: string | null;
   owned?: boolean; format?: string; binding?: string | null; resolve?: string[]; lists?: ListRef[];
-  favorite?: boolean; wishlist?: boolean; dateUnknown?: boolean;
+  favorite?: boolean; wishlist?: boolean; dateUnknown?: boolean; policy?: string;
 };
 
 const isDate = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
@@ -127,37 +128,190 @@ extraRoutes.post('/imports', async c => {
 
 extraRoutes.get('/imports', c => {
   const u = requireUser(c);
-  const rows = db.prepare('SELECT * FROM imports WHERE user_id = ? ORDER BY id DESC LIMIT 50').all(u.id) as
-    { id: number; source: string; filename: string | null; total: number; created_at: string; undone_at: string | null }[];
-  return c.json(rows.map(r => ({ id: r.id, source: r.source, filename: r.filename, total: r.total, createdAt: r.created_at, undoneAt: r.undone_at, changes: journal.summary(r.id) })));
+  kickImports();
+  const rows = db.prepare('SELECT * FROM imports WHERE user_id = ? ORDER BY id DESC LIMIT 50').all(u.id) as ImportRow[];
+  return c.json(rows.map(r => ({ ...jobJson(r, false), changes: journal.summary(r.id) })));
 });
+
+// ---------- Import als Hintergrund-Job ----------
+// Die App lädt die ganze Datei auf einmal hoch; der Server arbeitet sie in Paketen ab (Katalogabfragen dauern).
+// Fortschritt, Fehlschläge und Konflikte stehen in der Zeile – die App darf geschlossen werden.
+// Startet der Prozess neu (Passenger legt untätige Apps schlafen), geht es beim nächsten Start weiter.
+
+type ImportRow = {
+  id: number; user_id: number; source: string; filename: string | null; total: number; created_at: string; undone_at: string | null;
+  status: string; options: string | null; queue: string | null; done: number; results: string | null; finished_at: string | null;
+};
+type JobConflict = { item: ImportItem; title: string; bookId?: number; field: string; mine: unknown; theirs: unknown };
+type JobResults = { ok: number; exists: number; failed: string[]; conflicts: JobConflict[] };
+const emptyResults = (): JobResults => ({ ok: 0, exists: 0, failed: [], conflicts: [] });
+const parseResults = (r: ImportRow): JobResults => { try { return { ...emptyResults(), ...JSON.parse(r.results ?? '{}') }; } catch { return emptyResults(); } };
+
+function jobJson(r: ImportRow, withConflicts = true) {
+  const res = parseResults(r);
+  return {
+    id: r.id, source: r.source, filename: r.filename, total: r.total, createdAt: r.created_at, undoneAt: r.undone_at,
+    status: r.status, done: r.done, finishedAt: r.finished_at,
+    ok: res.ok, exists: res.exists, failed: res.failed, conflictCount: res.conflicts.length,
+    ...(withConflicts ? { conflicts: res.conflicts } : {})
+  };
+}
+const ownJob = (id: number, userId: number) => {
+  const r = db.prepare('SELECT * FROM imports WHERE id = ? AND user_id = ?').get(id, userId) as ImportRow | undefined;
+  if (!r) throw notFound('Import');
+  return r;
+};
+
+extraRoutes.post('/imports/jobs', async c => {
+  const u = requireUser(c);
+  const b = await body(c);
+  const items = Array.isArray(b.items) ? (b.items as ImportItem[]).filter(x => x && typeof x === 'object').slice(0, 20000) : [];
+  if (!items.length) throw new HTTPException(400, { message: 'Keine Einträge zum Importieren' });
+  if (db.prepare("SELECT 1 FROM imports WHERE user_id = ? AND status = 'running'").get(u.id))
+    throw new HTTPException(409, { message: 'Es läuft schon ein Import – bitte warte, bis er fertig ist' });
+  const r = db.prepare(`INSERT INTO imports (user_id, source, filename, total, status, options, queue, results) VALUES (?, ?, ?, ?, 'running', ?, ?, ?)`)
+    .run(u.id, str(b.source, 40) ?? 'csv', str(b.filename, 200), items.length, JSON.stringify(b.options ?? {}), JSON.stringify(items), JSON.stringify(emptyResults()));
+  const host = c.req.header('x-forwarded-host') ?? c.req.header('host');
+  if (host) seenUrl = `${c.req.header('x-forwarded-proto') ?? new URL(c.req.url).protocol.replace(':', '')}://${host}`;
+  kickImports();
+  return c.json({ id: Number(r.lastInsertRowid) });
+});
+
+extraRoutes.get('/imports/:id', c => {
+  const u = requireUser(c);
+  kickImports();
+  return c.json(jobJson(ownJob(idParam(c), u.id)));
+});
+
+extraRoutes.post('/imports/:id/cancel', c => {
+  const u = requireUser(c);
+  const r = ownJob(idParam(c), u.id);
+  if (r.status === 'running') db.prepare("UPDATE imports SET status = 'cancelled', queue = NULL, finished_at = datetime('now') WHERE id = ?").run(r.id);
+  return c.json(jobJson(ownJob(r.id, u.id)));
+});
+
+/** Entscheidungen zu Konflikten: Einträge mit „Import übernehmen“ laufen noch einmal durch, der Rest bleibt wie er ist */
+extraRoutes.post('/imports/:id/resolve', async c => {
+  const u = requireUser(c);
+  const r = ownJob(idParam(c), u.id);
+  if (r.status === 'running') throw new HTTPException(409, { message: 'Der Import läuft noch' });
+  if (r.undone_at) throw new HTTPException(409, { message: 'Dieser Import wurde schon rückgängig gemacht' });
+  const b = await body(c);
+  const picks = Array.isArray(b.theirs) ? b.theirs.filter((i): i is number => Number.isInteger(i)) : [];
+  const res = parseResults(r);
+  const byItem = new Map<string, ImportItem & { resolve: string[] }>();
+  for (const i of picks) {
+    const cf = res.conflicts[i];
+    if (!cf) continue;
+    const key = JSON.stringify(cf.item);
+    const it = byItem.get(key) ?? { ...cf.item, resolve: [], policy: 'mine' };
+    it.resolve.push(cf.field);
+    byItem.set(key, it);
+  }
+  res.conflicts = [];
+  const queue = [...byItem.values()];
+  db.prepare(`UPDATE imports SET results = ?, queue = ?, status = ?, finished_at = ? WHERE id = ?`)
+    .run(JSON.stringify(res), JSON.stringify(queue), queue.length ? 'running' : 'done', queue.length ? null : r.finished_at, r.id);
+  kickImports();
+  return c.json(jobJson(ownJob(r.id, u.id)));
+});
+
+let working = false;
+/**
+ * Passenger (Plesk) legt Apps ohne Anfragen nach ein paar Minuten schlafen – dann stünde der Import still,
+ * bis jemand die Seite öffnet. Solange ein Import läuft, ruft sich der Server deshalb jede Minute selbst auf.
+ */
+let seenUrl: string | null = null;
+let lastPing = 0;
+function keepAlive() {
+  const url = selfUrl() ?? seenUrl;
+  if (!url || Date.now() - lastPing < 60_000) return;
+  lastPing = Date.now();
+  fetch(`${url}/api/status`, { signal: AbortSignal.timeout(10_000) }).catch(() => {});
+}
+/** Worker anstoßen (idempotent): beim Start, bei neuen Jobs und bei Abfragen des Fortschritts */
+export function kickImports() {
+  if (!working) void work();
+}
+async function work() {
+  working = true;
+  try {
+    for (;;) {
+      const job = db.prepare("SELECT * FROM imports WHERE status = 'running' ORDER BY id LIMIT 1").get() as ImportRow | undefined;
+      if (!job) break;
+      const queue = JSON.parse(job.queue ?? '[]') as ImportItem[];
+      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(job.user_id) as User | undefined;
+      if (!queue.length || !user) {
+        db.prepare("UPDATE imports SET status = 'done', queue = NULL, finished_at = datetime('now') WHERE id = ?").run(job.id);
+        continue;
+      }
+      keepAlive();
+      const batch = queue.slice(0, 8);
+      let out: ImportResult[];
+      try { out = await importItems(user, batch, JSON.parse(job.options ?? '{}'), job.id); }
+      catch { out = batch.map(it => ({ title: it.title ?? it.isbn ?? '?', result: 'failed' as const })); }
+      // inzwischen abgebrochen oder rückgängig gemacht? Dann nichts mehr eintragen
+      const now = db.prepare('SELECT status, results FROM imports WHERE id = ?').get(job.id) as { status: string; results: string | null } | undefined;
+      if (!now || now.status !== 'running') continue;
+      const res = parseResults({ ...job, results: now.results });
+      out.forEach((r, j) => {
+        if (r.result === 'ok') res.ok++;
+        else if (r.result === 'exists') res.exists++;
+        else if (r.result === 'failed') res.failed.push(r.title);
+        else { res.ok++; for (const cf of r.conflicts ?? []) res.conflicts.push({ item: batch[j], title: r.title, bookId: r.bookId, ...cf }); }
+      });
+      const rest = queue.slice(batch.length);
+      // fertig → Glocke (die App ist dann womöglich längst zu); nicht nach Entscheidungen zu Konflikten
+      if (!rest.length && !batch.some(it => it.policy))
+        db.prepare("INSERT INTO notifications (user_id, type, actor_label, ref_id) VALUES (?, 'import_done', ?, ?)").run(job.user_id, job.filename ?? job.source, job.id);
+      db.prepare(`UPDATE imports SET queue = ?, done = MIN(total, done + ?), results = ?, status = ?, finished_at = ? WHERE id = ?`)
+        .run(rest.length ? JSON.stringify(rest) : null, batch.filter(it => !it.policy).length, JSON.stringify(res),
+          rest.length ? 'running' : 'done', rest.length ? null : new Date().toISOString().slice(0, 19).replace('T', ' '), job.id);
+      // föderierte Reviews etc. am Ende nicht nötig – importItems verteilt sie selbst
+      await new Promise(r => setImmediate(r));
+    }
+  } finally {
+    working = false;
+  }
+}
 
 extraRoutes.post('/imports/:id/undo', c => {
   const u = requireUser(c);
   const imp = db.prepare('SELECT * FROM imports WHERE id = ? AND user_id = ?').get(idParam(c), u.id) as { id: number; undone_at: string | null } | undefined;
   if (!imp) throw notFound('Import');
   if (imp.undone_at) throw new HTTPException(409, { message: 'Dieser Import wurde schon rückgängig gemacht' });
+  // läuft er noch: erst anhalten, dann zurückspielen
+  db.prepare("UPDATE imports SET status = 'cancelled', queue = NULL WHERE id = ? AND status = 'running'").run(imp.id);
   const r = journal.undo(imp.id);
   // föderierte Reviews auf den anderen Instanzen nachziehen
   for (const rb of r.reviewBooks) federate(rb.bookId, rb.userId, rb.prevId);
   return c.json({ reverted: r.reverted, skipped: r.skipped });
 });
 
-/** Ein Paket (max. 10) Einträge importieren; Optionen bestimmen, was entsteht */
+type ImportOptions = Record<string, unknown>;
+type ImportResult = { title: string; bookId?: number; result: 'ok' | 'exists' | 'failed' | 'conflict'; done?: string[];
+  conflicts?: Array<{ field: 'status' | 'finishedAt' | 'rating' | 'review'; mine: unknown; theirs: unknown }> };
+
+/** Ein Paket (max. 10) Einträge direkt importieren – für ältere Clients; die App nutzt den Hintergrund-Job (/imports/jobs) */
 extraRoutes.post('/import', async c => {
   const u = requireUser(c);
   const b = await body(c);
   const items = Array.isArray(b.items) ? (b.items as ImportItem[]).slice(0, 10) : [];
-  const o = (b.options ?? {}) as Record<string, unknown>;
-  const copies = oneOf(o.copies, ['owned', 'all', 'none'] as const, 'owned');
-  const visibility = oneOf(o.visibility, ['private', 'instance', 'federated'] as const, 'instance');
-  // Unterschiede zum Bestand: ask = melden, mine = bookshelv behalten, theirs = Import übernehmen
-  const policy = oneOf(o.conflict, ['ask', 'mine', 'theirs'] as const, 'mine');
   // Journal: ohne importId wird nichts aufgezeichnet (ältere Clients) – dann ist kein Rückgängig möglich
   const imp = int(b.importId, 1, Number.MAX_SAFE_INTEGER);
   if (imp && !db.prepare('SELECT 1 FROM imports WHERE id = ? AND user_id = ? AND undone_at IS NULL').get(imp, u.id)) throw notFound('Import');
-  const results = [];
+  return c.json({ results: await importItems(u, items, (b.options ?? {}) as ImportOptions, imp) });
+});
+
+/** Einträge importieren; Optionen bestimmen, was entsteht. it.policy (vom Job bei Entscheidungen gesetzt) überstimmt die Regel */
+async function importItems(u: User, items: ImportItem[], o: ImportOptions, imp: number | null): Promise<ImportResult[]> {
+  const copies = oneOf(o.copies, ['owned', 'all', 'none'] as const, 'owned');
+  const visibility = oneOf(o.visibility, ['private', 'instance', 'federated'] as const, 'instance');
+  // Unterschiede zum Bestand: ask = melden, mine = bookshelv behalten, theirs = Import übernehmen
+  const basePolicy = oneOf(o.conflict, ['ask', 'mine', 'theirs'] as const, 'mine');
+  const results: ImportResult[] = [];
   for (const it of items) {
+    const policy = it.policy === 'mine' || it.policy === 'theirs' ? it.policy : basePolicy;
     try {
       const book = await findOrCreateBook(it, u, imp);
       if (!book) { results.push({ title: it.title ?? '?', result: 'failed' }); continue; }
@@ -268,5 +422,5 @@ extraRoutes.post('/import', async c => {
       results.push({ title: it.title ?? '?', result: 'failed' });
     }
   }
-  return c.json({ results });
-});
+  return results;
+}

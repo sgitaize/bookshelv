@@ -8,6 +8,7 @@ import { prunePreviews } from './catalog.ts';
 import { deliver } from './federation.ts';
 import { db } from './db.ts';
 import { fetchCover, deleteCoverFile } from './catalog.ts';
+import { kickImports } from './routes/extras.ts';
 
 ensureSetupToken();
 purgeExpiredSessions();
@@ -15,6 +16,9 @@ prunePreviews();
 setInterval(() => { purgeExpiredSessions(); prunePreviews(); }, 6 * 3600_000).unref();
 // Föderation: Warteschlange regelmäßig abarbeiten
 setInterval(() => { deliver().catch(() => {}); }, 60_000).unref();
+// Importe im Hintergrund: nach einem Neustart weitermachen, und zur Sicherheit jede Minute anstoßen
+kickImports();
+setInterval(kickImports, 60_000).unref();
 
 /**
  * Einmalig (je Version des Flags): Bücher ohne Cover erneut versuchen – früher wurde nur unter der ISBN gesucht,

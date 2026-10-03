@@ -8,7 +8,7 @@
   type ConflictField = 'status' | 'finishedAt' | 'rating' | 'review';
   type Conflict = { field: ConflictField; mine: unknown; theirs: unknown };
   type Result = { title: string; bookId?: number; result: 'ok' | 'exists' | 'failed' | 'conflict'; done?: string[]; conflicts?: Conflict[] };
-  type Open = { item: ImportItem; title: string; field: ConflictField; mine: unknown; theirs: unknown; pick: 'mine' | 'theirs' };
+  type Open = { item: ImportItem; title: string; field: ConflictField; mine: unknown; theirs: unknown; pick: 'mine' | 'theirs'; index: number };
 
   let source = $state<ImportSource | null>(null);
   let rows = $state<string[][]>([]);
@@ -81,66 +81,70 @@
     shelfLists = r.source === 'booky' ? listNames(r.items).filter(n => /stapel|ungelesen|sub\b|will ich lesen/i.test(n) && !/wunsch|geburtstag|weihnacht|geschenk/i.test(n)) : [];
   }
 
-  async function send(batch: ImportItem[], policy: 'ask' | 'mine' | 'theirs') {
-    const options = { copies, reviews, wishlist, visibility, lists, conflict: policy };
-    return (await api.post<{ results: Result[] }>('/import', { items: batch, options, importId })).results;
-  }
-
-  // Der Import läuft aus der App heraus (Pakete à 8) – Bildschirm wachhalten und vor dem Schließen warnen
-  let wake: { release: () => Promise<void> } | null = null;
-  let startedAt = 0;
+  /**
+   * Der Import läuft als Job auf dem Server: Datei einmal hochladen, danach nur noch den Fortschritt abfragen.
+   * Die App darf geschlossen werden; beim nächsten Öffnen der Seite wird ein laufender Import wieder angezeigt.
+   */
+  type Job = {
+    id: number; status: 'running' | 'done' | 'cancelled'; total: number; done: number; ok: number; exists: number; failed: string[];
+    conflicts?: { item: ImportItem; title: string; field: ConflictField; mine: unknown; theirs: unknown }[]; undoneAt: string | null; filename: string | null;
+  };
+  let job = $state<Job | null>(null);
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let startedAt = 0, startedDone = 0;
+  const total = $derived(job?.total ?? items.length);
   const eta = $derived.by(() => {
-    if (!running || done < 8 || !startedAt) return null;
-    const min = Math.ceil((((Date.now() - startedAt) / done) * (items.length - done)) / 60000);
+    if (!running || !job || job.done - startedDone < 8 || !startedAt) return null;
+    const min = Math.ceil((((Date.now() - startedAt) / (job.done - startedDone)) * (job.total - job.done)) / 60000);
     return min > 0 ? min : null;
   });
-  async function keepAwake(on: boolean) {
-    try {
-      if (on) wake = await (navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void> }> } }).wakeLock?.request('screen') ?? null;
-      else { await wake?.release(); wake = null; }
-    } catch { /* nicht unterstützt oder abgelehnt */ }
+
+  function apply(j: Job) {
+    job = j; importId = j.id; done = j.done; undone = !!j.undoneAt;
+    running = j.status === 'running';
+    if (!running) {
+      finished = true;
+      if (!resolved) open = (j.conflicts ?? []).map((c, i) => ({ ...c, index: i, pick: 'mine' as const }));
+    }
   }
-  const onLeave = (e: BeforeUnloadEvent) => { if (running) e.preventDefault(); };
-  // Sperre geht beim Wechsel in den Hintergrund verloren → beim Zurückkommen neu anfordern
-  const onVisible = () => { if (running && document.visibilityState === 'visible') keepAwake(true); };
+  async function poll() {
+    if (!importId) return;
+    try { apply(await api.get<Job>(`/imports/${importId}`)); } catch { /* offline – später erneut */ }
+    if (running) timer = setTimeout(poll, 2000);
+  }
+  // laufenden Import beim Öffnen der Seite wieder aufnehmen
+  $effect(() => {
+    api.get<Job[]>('/imports').then(list => {
+      const r = list.find(j => j.status === 'running');
+      if (r && !importId) { importId = r.id; filename = r.filename ?? ''; startedAt = Date.now(); startedDone = r.done; poll(); }
+    }).catch(() => {});
+    return () => { if (timer) clearTimeout(timer); };
+  });
 
   async function start() {
     running = true;
-    startedAt = Date.now();
-    keepAwake(true);
-    results = []; done = 0; open = [];
-    const all = items;
-    // ein Import = ein Journal-Eintrag, damit er später rückgängig gemacht werden kann
-    try { importId = (await api.post<{ id: number }>('/imports', { source: app, filename, total: all.length })).id; }
-    catch (e) { toastError(e); running = false; return; }
-    // in kleinen Paketen, damit Katalogabfragen nicht in Zeitüberschreitungen laufen
-    for (let i = 0; i < all.length; i += 8) {
-      const batch = all.slice(i, i + 8);
-      try {
-        const r = await send(batch, conflict);
-        results = [...results, ...r];
-        r.forEach((res, j) => res.conflicts?.forEach(c => open.push({ item: batch[j], title: res.title, ...c, pick: 'mine' })));
-      } catch (e) {
-        toastError(e);
-        results = [...results, ...batch.map(x => ({ title: x.title ?? x.isbn ?? '?', result: 'failed' as const }))];
-      }
-      done = Math.min(all.length, i + 8);
-    }
-    running = false;
-    finished = true;
-    keepAwake(false);
+    results = []; done = 0; open = []; resolved = false;
+    const options = { copies, reviews, wishlist, visibility, lists, conflict };
+    try {
+      importId = (await api.post<{ id: number }>('/imports/jobs', { source: app, filename, items: $state.snapshot(items), options })).id;
+      startedAt = Date.now(); startedDone = 0;
+      poll();
+    } catch (e) { toastError(e); running = false; }
   }
 
-  /** Entscheidungen anwenden: nur „Import übernehmen“ muss noch einmal gesendet werden */
+  async function cancel() {
+    if (!importId || !confirm(t('imp.cancelQ'))) return;
+    try { apply(await api.post<Job>(`/imports/${importId}/cancel`)); } catch (e) { toastError(e); }
+  }
+
+  /** Entscheidungen anwenden: Einträge mit „Import übernehmen“ laufen auf dem Server noch einmal durch */
   async function applyDecisions() {
-    running = true;
-    const byItem = new Map<ImportItem, ConflictField[]>();
-    for (const o of open) if (o.pick === 'theirs') byItem.set(o.item, [...(byItem.get(o.item) ?? []), o.field]);
-    const batch = [...byItem].map(([item, resolve]) => ({ ...$state.snapshot(item), resolve }));
+    if (!importId) return;
+    resolved = true;
     try {
-      for (let i = 0; i < batch.length; i += 8) await send(batch.slice(i, i + 8), 'mine');
-      resolved = true;
-    } catch (e) { toastError(e); } finally { running = false; }
+      apply(await api.post<Job>(`/imports/${importId}/resolve`, { theirs: open.filter(o => o.pick === 'theirs').map(o => o.index) }));
+      if (running) poll();
+    } catch (e) { resolved = false; toastError(e); }
   }
 
   async function undoImport() {
@@ -157,15 +161,9 @@
       : f === 'finishedAt' ? fmtDate(String(v))
       : String(v).length > 120 ? String(v).slice(0, 120) + '…' : String(v);
 
-  const summary = $derived({
-    ok: results.filter(r => r.result === 'ok' || r.result === 'conflict').length,
-    exists: results.filter(r => r.result === 'exists').length,
-    failed: results.filter(r => r.result === 'failed')
-  });
+  const summary = $derived({ ok: job?.ok ?? 0, exists: job?.exists ?? 0, failed: (job?.failed ?? []).map(title => ({ title })) });
 </script>
 
-<svelte:window onbeforeunload={onLeave} />
-<svelte:document onvisibilitychange={onVisible} />
 
 <section class="stack">
   <h1>{t('imp.title')}</h1>
@@ -268,19 +266,25 @@
         {/if}
       {/if}
 
-      {#if !finished}
-        <p class="note small" class:warn={running}>{t('imp.stayOpen')}</p>
+      {#if !finished && !running}
+        <p class="note small">{t('imp.serverInfo')}</p>
       {/if}
-      {#if running || finished}
-        <div class="bar"><span style="width: {(done / items.length) * 100}%"></span></div>
-        <p class="small muted">{t('imp.progress', { n: done, total: items.length })}{#if eta} · {t('imp.eta', { n: eta })}{/if}</p>
-      {/if}
-      {#if !finished}
-        <button class="primary" onclick={start} disabled={running}>{running ? t('imp.running') : t('imp.start', { n: items.length })}</button>
+      {#if !finished && !running}
+        <button class="primary" onclick={start}>{t('imp.start', { n: items.length })}</button>
       {/if}
     </div>
   {:else if source}
     <p class="empty">{t('imp.empty')}</p>
+  {/if}
+
+  {#if running && job}
+    <div class="card stack">
+      <h2>{t('imp.running')}</h2>
+      <div class="bar"><span style="width: {(job.done / Math.max(1, total)) * 100}%"></span></div>
+      <p class="small muted">{t('imp.progress', { n: job.done, total })}{#if eta} · {t('imp.eta', { n: eta })}{/if}</p>
+      <p class="note small">{t('imp.canClose')}</p>
+      <div class="row"><button class="ghost danger" onclick={cancel}>{t('imp.cancel')}</button></div>
+    </div>
   {/if}
 
   {#if finished && open.length && !resolved}
@@ -350,5 +354,4 @@
   .choices label.on { border-color: var(--accent); }
   .src { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent); font-weight: 600; flex: none; }
   .note { margin: 0; padding: 0.6rem 0.8rem; border-radius: 10px; background: var(--surface-2); color: var(--muted); }
-  .note.warn { color: var(--text); border: 1px solid var(--accent); }
 </style>

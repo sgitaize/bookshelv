@@ -20,7 +20,7 @@
   });
 
   const href = (n: NotificationItem) =>
-    n.type === 'invite_accepted' ? `/people/${n.actor?.id}` : n.type.startsWith('loan') ? '/loans' : n.type === 'wish_available' && n.book ? `/book/${n.book.id}` : n.book ? `/book/${n.book.id}` : '/';
+    n.type === 'import_done' ? '/imports' : n.type === 'invite_accepted' ? `/people/${n.actor?.id}` : n.type.startsWith('loan') ? '/loans' : n.type === 'wish_available' && n.book ? `/book/${n.book.id}` : n.book ? `/book/${n.book.id}` : '/';
   const text = (n: NotificationItem) => t(`notif.${n.type}` as Key, { name: n.actor?.displayName ?? '–', title: n.book?.title ?? '' });
 </script>
 

@@ -280,6 +280,15 @@ const migrations: string[] = [
   `
   ALTER TABLE reviews ADD COLUMN moods TEXT NOT NULL DEFAULT '[]';
   ALTER TABLE reviews ADD COLUMN pace TEXT;
+  `,
+  // 11: Import als Hintergrund-Job auf dem Server (App darf geschlossen werden); alte Importe gelten als fertig
+  `
+  ALTER TABLE imports ADD COLUMN status TEXT NOT NULL DEFAULT 'done';
+  ALTER TABLE imports ADD COLUMN options TEXT;
+  ALTER TABLE imports ADD COLUMN queue TEXT;
+  ALTER TABLE imports ADD COLUMN done INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE imports ADD COLUMN results TEXT;
+  ALTER TABLE imports ADD COLUMN finished_at TEXT;
   `
 ];
 

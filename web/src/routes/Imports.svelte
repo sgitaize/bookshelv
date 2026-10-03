@@ -6,13 +6,19 @@
 
   type Imp = {
     id: number; source: string; filename: string | null; total: number; createdAt: string; undoneAt: string | null;
+    status: 'running' | 'done' | 'cancelled'; done: number; conflictCount: number;
     changes: Record<string, { added: number; changed: number }>;
   };
   let list = $state<Imp[] | null>(null);
   let busy = $state<number | null>(null);
 
   const load = () => api.get<Imp[]>('/imports').then(r => (list = r)).catch(toastError);
-  $effect(() => { load(); });
+  // läuft noch ein Import: Fortschritt alle 3 s nachladen
+  $effect(() => {
+    load();
+    const id = setInterval(() => { if (list?.some(i => i.status === 'running')) load(); }, 3000);
+    return () => clearInterval(id);
+  });
 
   const when = (ts: string) => new Date(ts.replace(' ', 'T') + 'Z').toLocaleString(i18n.locale, { dateStyle: 'medium', timeStyle: 'short' });
   // nur die Tabellen, die für Menschen etwas bedeuten
@@ -44,6 +50,8 @@
           <div class="head">
             <strong>{i.source}</strong>{#if i.filename} <span class="muted small">· {i.filename}</span>{/if}
             <p class="muted small">{when(i.createdAt)} · {t('imp.entries', { n: i.total })}</p>
+            {#if i.status === 'running'}<p class="small"><span class="chip accent">{t('imp.statusRunning', { n: i.done, total: i.total })}</span> <a href="/import">{t('imp.showProgress')}</a></p>
+            {:else if i.status === 'cancelled'}<p class="small"><span class="chip">{t('imp.statusCancelled', { n: i.done, total: i.total })}</span></p>{/if}
           </div>
           {#if i.undoneAt}
             <span class="chip">{t('imp.undoneOn', { d: when(i.undoneAt) })}</span>
