@@ -83,6 +83,8 @@ cp .env.deploy.example .env.deploy   # host, user, target folder, SSH key – no
 npm run deploy
 ```
 
+The script refuses to deploy unless it runs on the machine named in `DEPLOY_FROM_HOST`, on a clean `main` that matches `origin/main`. Whatever is live is therefore always a commit on GitHub, and its hash ends up in `app/deployed-commit.txt`.
+
 ### Plain Node
 
 ```bash
