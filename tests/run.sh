@@ -2,7 +2,8 @@
 # Startet dist/server.js mit frischen Daten auf Port 3999 und führt die Tests aus.
 #   tests/run.sh            API-Tests (Setup, Reviews, Verleih)
 #   tests/run.sh --offline  zusätzlich Offline-Test im Browser
-#   tests/run.sh --ui       zusätzlich Offline-Test und Überlauf-Audit in Chrome/Chromium (DE + EN, 320–1920 px)
+#   tests/run.sh --ui       zusätzlich Offline-Test und Überlauf-Audit in Chrome/Chromium (DE + EN parallel, 320–1920 px)
+#   ONLY=/settings,/stats tests/run.sh --ui   Überlauf-Audit nur für diese Seiten (schnell)
 # Voraussetzung: npm run build; für --ui einmalig (cd tests && npm install)
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -36,7 +37,9 @@ node federation.mjs "$FA" "$FB"
 # Offline-Modus im Browser (auch einzeln: tests/run.sh --offline)
 if [ "${1:-}" = "--ui" ] || [ "${1:-}" = "--offline" ]; then node offline.mjs; fi
 if [ "${1:-}" = "--ui" ]; then
-  node overflow.mjs "$T" "${SHOTS:-}"
+  # DE und EN parallel (eigene Browser); ONLY=/settings,/stats prüft nur diese Seiten
+  node overflow.mjs "$T" "${SHOTS:-}" & OD=$!
+  LANG_EN=1 node overflow.mjs "$T" "" & OE=$!
+  wait $OD; wait $OE
   [ -n "${SHOTS:-}" ] && cp "$T"/shot-*.png "${SHOTDIR:-/tmp}/" 2>/dev/null || true
-  LANG_EN=1 node overflow.mjs "$T" ""
 fi

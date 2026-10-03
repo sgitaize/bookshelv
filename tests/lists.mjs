@@ -104,6 +104,37 @@ r = await simon('POST', '/import', { items: [bk.items[0]], options: { conflict: 
 check('no conflict after merge', r.data.results[0].result === 'exists', JSON.stringify(r.data.results[0]));
 
 // --- Löschen ---
+// --- Gemeinsame Listen: secret ist privat, Anna wird Mitglied ---
+const carl = client();
+await carl('POST', '/login', { username: 'carl', password: 'geheim1234' });
+const annaId = (await anna('GET', '/me')).data.id, carlId = (await carl('GET', '/me')).data.id;
+check('private list hidden before sharing', (await anna('GET', `/lists/${secret}`)).status === 404);
+check('member: only owner adds', (await anna('POST', `/lists/${secret}/members`, { userId: carlId })).status === 404);
+check('member: not self', (await simon('POST', `/lists/${secret}/members`, { userId: simonId })).status === 400);
+r = await simon('POST', `/lists/${secret}/members`, { userId: annaId });
+check('member added', r.status === 200 && r.data.members.length === 1 && r.data.members[0].id === annaId, JSON.stringify(r.data));
+check('member add idempotent', (await simon('POST', `/lists/${secret}/members`, { userId: annaId })).data.members.length === 1);
+const nf = (await anna('GET', '/notifications')).data.items.filter(n => n.type === 'list_shared');
+check('member notified once', nf.length === 1 && nf[0].list?.id === secret && nf[0].actor?.id === simonId, JSON.stringify(nf));
+r = await anna('GET', `/lists/${secret}`);
+check('member sees private list', r.status === 200 && r.data.canEdit && !r.data.mine && r.data.members.length === 1, JSON.stringify(r.data).slice(0, 200));
+check('shared list in member overview', (await anna('GET', '/lists')).data.some(l => l.id === secret && l.owner?.id === simonId));
+check('shared list in owner overview flagged', (await simon('GET', '/lists')).data.find(l => l.id === secret)?.shared === true);
+const annaBook = (await anna('GET', '/me/books')).data[0]?.book.id ?? other;
+check('member adds book', (await anna('PUT', `/lists/${secret}/books/${annaBook}`, {})).status === 200);
+r = await simon('GET', `/lists/${secret}`);
+const added = r.data.items.find(i => i.book.id === annaBook);
+check('added by member shown', added?.addedBy?.id === annaId, JSON.stringify(added));
+check('member reorders', (await anna('PUT', `/lists/${secret}/order`, { bookIds: r.data.items.map(i => i.book.id).reverse() })).status === 200);
+check('member cannot rename', (await anna('PATCH', `/lists/${secret}`, { name: 'x' })).status === 404);
+check('member cannot delete list', (await anna('DELETE', `/lists/${secret}`)).status === 404);
+check('book dialog lists shared list', (await anna('GET', `/books/${annaBook}/lists`)).data.mine.some(l => l.id === secret && l.ownerName && l.has));
+check('non-member cannot edit', (await carl('PUT', `/lists/${secret}/books/${annaBook}`, {})).status === 404);
+check('non-member cannot remove member', (await carl('DELETE', `/lists/${secret}/members/${annaId}`)).status === 404);
+check('member removes book', (await anna('DELETE', `/lists/${secret}/books/${annaBook}`)).status === 200);
+check('member leaves', (await anna('DELETE', `/lists/${secret}/members/${annaId}`)).status === 200 && (await anna('GET', `/lists/${secret}`)).status === 404);
+await simon('POST', `/lists/${secret}/members`, { userId: carlId });
+check('owner removes member', (await simon('DELETE', `/lists/${secret}/members/${carlId}`)).data.members.length === 0);
 check('friend cannot delete', (await anna('DELETE', `/lists/${herbst}`)).status === 404);
 check('delete list', (await simon('DELETE', `/lists/${secret}`)).status === 200 && (await simon('GET', `/lists/${secret}`)).status === 404);
 // --- Cover-Fallback: Ausgabe ohne eigenes Bild bei Open Library, das Werk hat eins (Simons „Hackers“) ---

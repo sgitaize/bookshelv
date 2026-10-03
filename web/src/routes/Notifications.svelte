@@ -20,8 +20,8 @@
   });
 
   const href = (n: NotificationItem) =>
-    n.type === 'import_done' ? '/imports' : n.type === 'invite_accepted' ? `/people/${n.actor?.id}` : n.type.startsWith('loan') ? '/loans' : n.type === 'wish_available' && n.book ? `/book/${n.book.id}` : n.book ? `/book/${n.book.id}` : '/';
-  const text = (n: NotificationItem) => t(`notif.${n.type}` as Key, { name: n.actor?.displayName ?? '–', title: n.book?.title ?? '' });
+    n.type === 'import_done' ? '/imports' : n.type === 'list_shared' ? `/lists/${n.refId}` : n.type === 'invite_accepted' ? `/people/${n.actor?.id}` : n.type.startsWith('loan') ? '/loans' : n.type === 'wish_available' && n.book ? `/book/${n.book.id}` : n.book ? `/book/${n.book.id}` : '/';
+  const text = (n: NotificationItem) => t(`notif.${n.type}` as Key, { name: n.actor?.displayName ?? '–', title: n.book?.title ?? n.list?.name ?? '' });
 </script>
 
 <section class="stack">

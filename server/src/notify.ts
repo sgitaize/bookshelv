@@ -5,9 +5,10 @@ import { db } from './db.ts';
  * Typen: loan_new (dir wurde etwas verliehen), loan_returned (Rückgabe), comment (Kommentar auf deine Review),
  *        invite_accepted (deine Einladung wurde angenommen),
  *        import_done (Hintergrund-Import fertig, Dateiname in actor_label, ref_id = imports.id),
- *        loan_due / loan_overdue (Erinnerung an beide Seiten, je Verleih einmal), wish_available (jemand hat ein Buch von deiner Wunschliste)
+ *        loan_due / loan_overdue (Erinnerung an beide Seiten, je Verleih einmal), wish_available (jemand hat ein Buch von deiner Wunschliste),
+ *        list_shared (du wurdest zu einer gemeinsamen Liste hinzugefügt, ref_id = lists.id)
  */
-export type NotificationType = 'loan_new' | 'loan_returned' | 'comment' | 'invite_accepted' | 'loan_due' | 'loan_overdue' | 'wish_available' | 'import_done';
+export type NotificationType = 'loan_new' | 'loan_returned' | 'comment' | 'invite_accepted' | 'loan_due' | 'loan_overdue' | 'wish_available' | 'import_done' | 'list_shared';
 
 export function notify(userId: number | null | undefined, type: NotificationType, actorId: number, bookId: number | null = null, refId: number | null = null) {
   if (!userId || userId === actorId) return;

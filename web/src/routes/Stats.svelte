@@ -5,6 +5,7 @@
   import { t, tn, i18n, type Key } from '../lib/i18n.svelte.ts';
   import BarChart from '../components/BarChart.svelte';
   import HBarChart from '../components/HBarChart.svelte';
+  import MonthLine from '../components/MonthLine.svelte';
   import MoodLine from '../components/MoodLine.svelte';
   import BooksSheet from '../components/BooksSheet.svelte';
   import Icon from '../components/Icon.svelte';
@@ -81,19 +82,11 @@
               <p class="muted small">{t('stats.moodEmpty')}</p>
             {/if}
           </div>
-          <div class="card">
-            <h2>{t('stats.perMonth')}</h2>
-            <p class="sub">{tn('list.books', s.totals.books)}</p>
-            <BarChart label={t('stats.perMonth')} unit={t('stats.books.unit')}
-              onpick={i => show(monthName(i + 1, 'long'), s!.perMonth[i].ids)}
-              data={s.perMonth.map(m => ({ label: monthName(m.month, 'short').slice(0, 3), value: m.books, tip: monthName(m.month, 'long') }))} />
-          </div>
-          <div class="card">
-            <h2>{t('stats.pagesPerMonth')}</h2>
-            <p class="sub">{t('stats.pagesSum', { n: nf(s.totals.pages) })}</p>
-            <BarChart label={t('stats.pagesPerMonth')}
-              onpick={i => show(monthName(i + 1, 'long'), s!.perMonth[i].ids)}
-              data={s.perMonth.map(m => ({ label: monthName(m.month, 'short').slice(0, 3), value: m.pages, tip: monthName(m.month, 'long') }))} />
+          <div class="card wide">
+            <h2>{t('stats.perMonthBoth')}</h2>
+            <p class="sub"><strong>{tn('list.books', s.totals.books)}</strong>, {t('stats.pagesSum', { n: nf(s.totals.pages) })}</p>
+            <MonthLine onpick={i => show(monthName(i + 1, 'long'), s!.perMonth[i].ids)}
+              data={s.perMonth.map(m => ({ label: monthName(m.month, 'short').slice(0, 3), tip: monthName(m.month, 'long'), books: m.books, pages: m.pages }))} />
           </div>
         {:else}
           <div class="card wide">

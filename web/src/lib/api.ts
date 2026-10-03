@@ -156,8 +156,8 @@ export type Loan = {
 export type Loans = { lent: Loan[]; borrowed: Loan[]; history: Loan[] };
 
 export type NotificationItem = {
-  id: number; type: 'loan_new' | 'loan_returned' | 'comment' | 'invite_accepted' | 'loan_due' | 'loan_overdue' | 'wish_available' | 'import_done'; refId: number | null; createdAt: string; read: boolean;
-  actor: { id: number | null; displayName: string; avatarUrl: string | null } | null; book: BookBrief | null;
+  id: number; type: 'loan_new' | 'loan_returned' | 'comment' | 'invite_accepted' | 'loan_due' | 'loan_overdue' | 'wish_available' | 'import_done' | 'list_shared'; refId: number | null; createdAt: string; read: boolean;
+  actor: { id: number | null; displayName: string; avatarUrl: string | null } | null; book: BookBrief | null; list: { id: number; name: string } | null;
 };
 export type FeedItem = {
   type: 'added' | 'started' | 'finished' | 'dnf' | 'reviewed' | 'listed'; ts: string; rating: number | null; reviewId: number | null; text: string | null; spoiler: boolean;
@@ -202,9 +202,11 @@ export type Stats = {
 };
 
 export type ListVisibility = 'private' | 'instance';
-export type ReadingListSummary = { id: number; name: string; description: string | null; visibility: ListVisibility; updatedAt: string; count: number; preview: BookBrief[] };
+export type ReadingListSummary = { id: number; name: string; description: string | null; visibility: ListVisibility; updatedAt: string; count: number; preview: BookBrief[];
+  shared: boolean; owner: { id: number; displayName: string } | null };
+export type ListMember = { id: number; displayName: string; username: string; avatarUrl: string | null };
 export type ReadingList = {
   id: number; name: string; description: string | null; visibility: ListVisibility; createdAt: string; updatedAt: string; mine: boolean;
-  owner: { id: number; displayName: string; username: string };
-  items: { note: string | null; addedAt: string; myStatus: ReadStatus; book: BookBrief }[];
+  canEdit: boolean; owner: { id: number; displayName: string; username: string; avatarUrl: string | null }; members: ListMember[];
+  items: { note: string | null; addedAt: string; myStatus: ReadStatus; book: BookBrief; addedBy: { id: number; displayName: string } | null }[];
 };

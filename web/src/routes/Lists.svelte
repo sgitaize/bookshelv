@@ -39,7 +39,7 @@
         <div class="section-head">
           <a class="lname" href="/lists/{l.id}">
             <h2>{l.name}</h2>
-            <span class="muted small">{tn('list.books', l.count)}{#if l.visibility === 'private'} · {t('vis.private')}{/if}</span>
+            <span class="muted small">{tn('list.books', l.count)}{#if l.visibility === 'private'} · {t('vis.private')}{/if}{#if l.owner} · {t('list.byOwner', { name: l.owner.displayName })}{:else if l.shared} · {t('list.sharedBadge')}{/if}</span>
           </a>
           <a href="/lists/{l.id}" aria-label={l.name}><Icon name="arrow" size={22} /></a>
         </div>

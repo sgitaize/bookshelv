@@ -6,7 +6,7 @@
 
   // „Zur Leseliste“ auf der Buchseite: eigene Listen an-/abhaken oder neue anlegen
   let { bookId, open, onclose }: { bookId: number; open: boolean; onclose: () => void } = $props();
-  let mine = $state<{ id: number; name: string; visibility: string; has: boolean }[] | null>(null);
+  let mine = $state<{ id: number; name: string; visibility: string; has: boolean; ownerName: string | null }[] | null>(null);
   let name = $state('');
 
   const load = () => api.get<{ mine: NonNullable<typeof mine> }>(`/books/${bookId}/lists`).then(r => (mine = r.mine)).catch(toastError);
@@ -36,7 +36,7 @@
   {:else}
     <div class="ls">
       {#each mine as l (l.id)}
-        <label class="row check"><input type="checkbox" checked={l.has} onchange={() => toggle(l)} /> {l.name}{#if l.visibility === 'private'} <span class="muted small">· {t('vis.private')}</span>{/if}</label>
+        <label class="row check"><input type="checkbox" checked={l.has} onchange={() => toggle(l)} /> {l.name}{#if l.ownerName} <span class="muted small">· {t('list.byOwner', { name: l.ownerName })}</span>{:else if l.visibility === 'private'} <span class="muted small">· {t('vis.private')}</span>{/if}</label>
       {/each}
     </div>
     <form class="row newl" onsubmit={create}>

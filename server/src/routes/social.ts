@@ -104,8 +104,9 @@ socialRoutes.get('/notifications', c => {
   const rows = db.prepare(`
     SELECT n.id, n.type, n.ref_id AS refId, n.created_at AS createdAt, n.read_at AS readAt, n.actor_label AS actorLabel,
            a.id AS actorId, a.display_name AS actorName, a.avatar AS actorAvatar,
-           b.id AS bookId, b.title, b.subtitle, b.authors, b.year, b.pages, b.cover
+           b.id AS bookId, b.title, b.subtitle, b.authors, b.year, b.pages, b.cover, ls.name AS listName
     FROM notifications n LEFT JOIN users a ON a.id = n.actor_id LEFT JOIN books b ON b.id = n.book_id
+    LEFT JOIN lists ls ON n.type = 'list_shared' AND ls.id = n.ref_id
     WHERE n.user_id = ? ORDER BY n.id DESC LIMIT 60
   `).all(u.id) as Array<Record<string, unknown>>;
   return c.json({
@@ -114,7 +115,8 @@ socialRoutes.get('/notifications', c => {
       id: r.id, type: r.type, refId: r.refId, createdAt: r.createdAt, read: !!r.readAt,
       actor: r.actorId ? { id: r.actorId, displayName: r.actorName, avatarUrl: avatarUrl(r.actorAvatar) }
         : r.actorLabel ? { id: null, displayName: r.actorLabel, avatarUrl: null } : null,
-      book: r.bookId ? bookBrief(r) : null
+      book: r.bookId ? bookBrief(r) : null,
+      list: r.listName ? { id: r.refId, name: r.listName } : null
     }))
   });
 });
@@ -164,7 +166,7 @@ socialRoutes.get('/feed', c => {
       SELECT 'reviewed', r.updated_at, r.user_id, r.book_id, r.rating, r.text, r.spoiler, r.id, NULL, r.visibility != 'private'
         FROM reviews r WHERE r.quiet = 0
       UNION ALL
-      SELECT 'listed', li.added_at, l.user_id, li.book_id, NULL, NULL, NULL, l.id, l.name, l.visibility = 'instance'
+      SELECT 'listed', li.added_at, COALESCE(li.added_by, l.user_id), li.book_id, NULL, NULL, NULL, l.id, l.name, l.visibility = 'instance'
         FROM list_items li JOIN lists l ON l.id = li.list_id WHERE li.quiet = 0
     ) e
     JOIN users u ON u.id = e.user_id AND u.disabled = 0

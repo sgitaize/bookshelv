@@ -56,10 +56,41 @@
   async function saveProfile(e: SubmitEvent) {
     e.preventDefault();
     try {
-      await api.patch('/me', { displayName, shelfVisible });
+      await api.patch('/me', { displayName });
       await loadSession();
       toast(t('settings.profileSaved'));
     } catch (err) { toastError(err); }
+  }
+
+  /** Schalter speichern sofort, ohne extra Knopf */
+  async function saveShelfVisible() {
+    try { await api.patch('/me', { shelfVisible }); await loadSession(); toast(t('settings.saved')); }
+    catch (err) { shelfVisible = !shelfVisible; toastError(err); }
+  }
+
+  /** Übersicht → Bereich per ?s=…; am Handy entweder Menü oder Bereich, am Desktop beides nebeneinander */
+  const SECTIONS = [
+    { id: 'profile', icon: 'user', label: 'settings.secProfile' },
+    { id: 'privacy', icon: 'shield', label: 'settings.secPrivacy' },
+    { id: 'appearance', icon: 'sparkle', label: 'settings.appearance' },
+    { id: 'invites', icon: 'link', label: 'invite.title' },
+    { id: 'data', icon: 'download', label: 'settings.secData' },
+    { id: 'account', icon: 'settings', label: 'settings.secAccount' },
+  ] as const;
+  type Sec = typeof SECTIONS[number]['id'];
+  const picked = $derived(router.query.get('s') as Sec | null);
+  const sec = $derived<Sec>(SECTIONS.some(s => s.id === picked) ? picked! : 'profile');
+  const openInvites = $derived(invites.filter(i => !i.usedBy && new Date(i.expiresAt) > new Date()).length);
+  const visLabel = (v: string) => t(`vis.${v}` as Key);
+  function summary(id: Sec): string {
+    switch (id) {
+      case 'profile': return session.me?.displayName ?? '';
+      case 'privacy': return `${t(shelfVisible ? 'settings.shelfOpen' : 'settings.shelfClosed')} · ${visLabel(reviewVisibility)}`;
+      case 'appearance': return `${t(`theme.${theme}` as Key)} · ${t(`font.${font}` as Key)} · ${i18n.lang === 'de' ? 'Deutsch' : 'English'}`;
+      case 'invites': return tn('settings.openInvites', openInvites);
+      case 'data': return t('settings.secDataSub');
+      case 'account': return `@${session.me?.username ?? ''}`;
+    }
   }
 
   async function createInvite() {
@@ -116,141 +147,206 @@
   const fmt = (d: string) => fmtDate(d);
 </script>
 
-<section class="stack">
-  <div class="spread">
+<section class="wrap" class:picked={!!picked}>
+  <nav class="menu stack">
     <h1>{t('settings.title')}</h1>
-    <button onclick={logout}><Icon name="logout" size={16} /> {t('settings.logout')}</button>
-  </div>
-
-  <div class="card stack">
-    <h2>{t('avatar.title')}</h2>
-    <div class="row avrow">
-      <Avatar name={session.me?.displayName ?? '?'} url={session.me?.avatarUrl} size={72} />
-      <label class="btn" class:disabled={uploading}>
-        {uploading ? '…' : t('avatar.upload')}
-        <input type="file" accept="image/*" onchange={pickAvatar} hidden />
-      </label>
-      {#if session.me?.avatarUrl}<button class="ghost danger" onclick={removeAvatar}>{t('avatar.remove')}</button>{/if}
-    </div>
-    <p class="muted small">{t('avatar.info')}</p>
-  </div>
-
-  <form class="card stack" onsubmit={saveProfile}>
-    <h2>{t('settings.about')}</h2>
-    <p class="muted small">{t('settings.signedInAs', { u: session.me?.username ?? '' })}</p>
-    <label class="field"><span>{t('auth.displayName')}</span><input bind:value={displayName} maxlength="60" required /></label>
-    <div class="handle">
-      <span class="muted small">{t('fed.myHandle')}</span>
-      <code>@{session.me?.username}@{location.host}</code>
-      <span class="muted small">{t('fed.myHandleInfo')}</span>
-    </div>
-    <label class="row check"><input type="checkbox" bind:checked={shelfVisible} /> {t('settings.shelfVisible')}</label>
-    <label class="field"><span>{t('settings.reviewVisibility')}</span>
-      <select bind:value={reviewVisibility} onchange={() => choose({ reviewVisibility })}>
-        <option value="instance">{t('vis.instance')}</option>
-        <option value="private">{t('vis.private')}</option>
-        <option value="federated">{t('vis.federated')}</option>
-      </select>
-      <small class="muted">{t('settings.reviewVisibilityInfo')}</small>
-    </label>
-    <button class="primary">{t('common.save')}</button>
-  </form>
-
-  <div class="card stack">
-    <h2>{t('settings.appearance')}</h2>
-    <div class="themes" role="radiogroup" aria-label={t('settings.theme')}>
-      {#each THEMES as th (th)}
-        {@const sw = th === 'system' ? null : SWATCH[th]}
-        <button class="theme" class:active={theme === th} role="radio" aria-checked={theme === th} onclick={() => choose({ theme: th })}>
-          <span class="sw" style={sw ? `--a: ${sw[0]}; --b: ${sw[1]}; --c: ${sw[2]}` : `--a: ${SWATCH.light[0]}; --b: ${SWATCH.night[0]}; --c: ${SWATCH.night[2]}`} class:split={!sw}>
-            <span class="bar"></span><span class="dotc"></span>
-          </span>
-          <span>{t(`theme.${th}` as Key)}</span>
-        </button>
+    <ul class="card list">
+      {#each SECTIONS as s (s.id)}
+        <li>
+          <a href="/settings?s={s.id}" class:active={sec === s.id} aria-current={sec === s.id ? 'page' : undefined}>
+            <span class="ic"><Icon name={s.icon} size={18} /></span>
+            <span class="txt"><strong>{t(s.label)}</strong><span class="muted small">{summary(s.id)}</span></span>
+            <Icon name="chevron" size={18} />
+          </a>
+        </li>
       {/each}
-    </div>
-    <h2>{t('settings.font')}</h2>
-    <div class="segmented">
-      <button class:active={font === 'typewriter'} onclick={() => choose({ font: 'typewriter' })} style="font-family: 'Courier Prime', monospace">{t('font.typewriter')}</button>
-      <button class:active={font === 'modern'} onclick={() => choose({ font: 'modern' })} style="font-family: Poppins, sans-serif">{t('font.modern')}</button>
-    </div>
-    <h2>{t('settings.language')}</h2>
-    <div class="segmented">
-      <button class:active={i18n.lang === 'de'} onclick={() => i18n.set('de')}>Deutsch</button>
-      <button class:active={i18n.lang === 'en'} onclick={() => i18n.set('en')}>English</button>
-    </div>
-  </div>
+    </ul>
+    <button class="ghost logout" onclick={logout}><Icon name="logout" size={16} /> {t('settings.logout')}</button>
+    <p class="muted small about">
+      {t('settings.free')} · <a href="https://github.com/sgitaize/bookshelv" target="_blank" rel="noopener">{t('settings.source')}</a>
+      · {t('settings.builtBy')} <a href="https://sgitaize.aize-it.de" target="_blank" rel="noopener">sgitaize</a>
+      · <a href="/legal#impressum">{t('privacy.imprint')}</a> · <a href="/legal#datenschutz">{t('privacy.title')}</a>
+    </p>
+  </nav>
 
-  <div class="card stack" id="invites">
-    <h2>{t('invite.title')}</h2>
-    <p class="muted small">{t('invite.info')}</p>
-    <div class="row">
-      <input bind:value={note} placeholder={t('invite.notePh')} maxlength="100" class="grow" />
-      <button class="primary" onclick={createInvite}><Icon name="link" size={16} /> {t('invite.create')}</button>
-    </div>
-    {#if invites.length}
-      <ul class="invites">
-        {#each invites as i (i.id)}
-          <li>
-            <span class="grow">
-              <strong>{i.note ?? t('invite.one')}</strong>
-              <span class="muted small">
-                {#if i.usedBy}{t('invite.acceptedBy', { n: i.usedBy })}
-                {:else if new Date(i.expiresAt) < new Date()}{t('invite.expired')}
-                {:else}{t('invite.openUntil', { d: fmt(i.expiresAt) })}{/if}
+  <div class="content stack">
+    <a class="backlink" href="/settings"><Icon name="back" size={18} /> {t('settings.title')}</a>
+
+    {#if sec === 'profile'}
+      <h2 class="sec-title">{t('settings.secProfile')}</h2>
+      <div class="card stack">
+        <div class="row avrow">
+          <Avatar name={session.me?.displayName ?? '?'} url={session.me?.avatarUrl} size={72} />
+          <div class="row">
+            <label class="btn" class:disabled={uploading}>
+              {uploading ? '…' : t('avatar.upload')}
+              <input type="file" accept="image/*" onchange={pickAvatar} hidden />
+            </label>
+            {#if session.me?.avatarUrl}<button class="ghost danger" onclick={removeAvatar}>{t('avatar.remove')}</button>{/if}
+          </div>
+        </div>
+        <p class="muted small">{t('avatar.info')}</p>
+      </div>
+      <form class="card stack" onsubmit={saveProfile}>
+        <label class="field"><span>{t('auth.displayName')}</span><input bind:value={displayName} maxlength="60" required /></label>
+        <button class="primary" disabled={displayName.trim() === session.me?.displayName}>{t('common.save')}</button>
+      </form>
+      <div class="card handle">
+        <span class="muted small">{t('fed.myHandle')}</span>
+        <code>@{session.me?.username}@{location.host}</code>
+        <span class="muted small">{t('fed.myHandleInfo')}</span>
+      </div>
+
+    {:else if sec === 'privacy'}
+      <h2 class="sec-title">{t('settings.secPrivacy')}</h2>
+      <div class="card stack">
+        <label class="row check"><input type="checkbox" bind:checked={shelfVisible} onchange={saveShelfVisible} /> {t('settings.shelfVisible')}</label>
+        <p class="muted small">{t('settings.shelfVisibleInfo')}</p>
+      </div>
+      <div class="card stack">
+        <label class="field"><span>{t('settings.reviewVisibility')}</span>
+          <select bind:value={reviewVisibility} onchange={() => choose({ reviewVisibility })}>
+            <option value="instance">{t('vis.instance')}</option>
+            <option value="private">{t('vis.private')}</option>
+            <option value="federated">{t('vis.federated')}</option>
+          </select>
+          <small class="muted">{t('settings.reviewVisibilityInfo')}</small>
+        </label>
+      </div>
+
+    {:else if sec === 'appearance'}
+      <h2 class="sec-title">{t('settings.appearance')}</h2>
+      <div class="card stack">
+        <h3>{t('settings.theme')}</h3>
+        <div class="themes" role="radiogroup" aria-label={t('settings.theme')}>
+          {#each THEMES as th (th)}
+            {@const sw = th === 'system' ? null : SWATCH[th]}
+            <button class="theme" class:active={theme === th} role="radio" aria-checked={theme === th} onclick={() => choose({ theme: th })}>
+              <span class="sw" style={sw ? `--a: ${sw[0]}; --b: ${sw[1]}; --c: ${sw[2]}` : `--a: ${SWATCH.light[0]}; --b: ${SWATCH.night[0]}; --c: ${SWATCH.night[2]}`} class:split={!sw}>
+                <span class="bar"></span><span class="dotc"></span>
               </span>
-            </span>
-            {#if !i.usedBy && new Date(i.expiresAt) > new Date()}
-              <button class="icon ghost" onclick={() => share(i.token)} aria-label={t('invite.share')}><Icon name="copy" size={18} /></button>
-              <button class="icon ghost danger" onclick={() => revoke(i)} aria-label={t('invite.revoke')}><Icon name="x" size={18} /></button>
-            {/if}
-          </li>
-        {/each}
-      </ul>
+              <span>{t(`theme.${th}` as Key)}</span>
+            </button>
+          {/each}
+        </div>
+      </div>
+      <div class="card stack">
+        <h3>{t('settings.font')}</h3>
+        <div class="segmented">
+          <button class:active={font === 'typewriter'} onclick={() => choose({ font: 'typewriter' })} style="font-family: 'Courier Prime', monospace">{t('font.typewriter')}</button>
+          <button class:active={font === 'modern'} onclick={() => choose({ font: 'modern' })} style="font-family: Poppins, sans-serif">{t('font.modern')}</button>
+        </div>
+        <h3>{t('settings.language')}</h3>
+        <div class="segmented">
+          <button class:active={i18n.lang === 'de'} onclick={() => i18n.set('de')}>Deutsch</button>
+          <button class:active={i18n.lang === 'en'} onclick={() => i18n.set('en')}>English</button>
+        </div>
+      </div>
+
+    {:else if sec === 'invites'}
+      <h2 class="sec-title">{t('invite.title')}</h2>
+      <div class="card stack">
+        <p class="muted small">{t('invite.info')}</p>
+        <div class="row">
+          <input bind:value={note} placeholder={t('invite.notePh')} maxlength="100" class="grow" />
+          <button class="primary" onclick={createInvite}><Icon name="link" size={16} /> {t('invite.create')}</button>
+        </div>
+        {#if invites.length}
+          <ul class="invites">
+            {#each invites as i (i.id)}
+              <li>
+                <span class="grow">
+                  <strong>{i.note ?? t('invite.one')}</strong>
+                  <span class="muted small">
+                    {#if i.usedBy}{t('invite.acceptedBy', { n: i.usedBy })}
+                    {:else if new Date(i.expiresAt) < new Date()}{t('invite.expired')}
+                    {:else}{t('invite.openUntil', { d: fmt(i.expiresAt) })}{/if}
+                  </span>
+                </span>
+                {#if !i.usedBy && new Date(i.expiresAt) > new Date()}
+                  <button class="icon ghost" onclick={() => share(i.token)} aria-label={t('invite.share')}><Icon name="copy" size={18} /></button>
+                  <button class="icon ghost danger" onclick={() => revoke(i)} aria-label={t('invite.revoke')}><Icon name="x" size={18} /></button>
+                {/if}
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+
+    {:else if sec === 'data'}
+      <h2 class="sec-title">{t('settings.secData')}</h2>
+      <p class="muted small">{t('settings.dataInfo')}</p>
+      <div class="card stack">
+        <h3>{t('settings.importTitle')}</h3>
+        <div class="btns">
+          <a class="btn primary" href="/import"><Icon name="download" size={16} /> {t('imp.link')}</a>
+          <a class="btn ghost" href="/imports"><Icon name="book" size={16} /> {t('imp.history')}</a>
+        </div>
+      </div>
+      <div class="card stack">
+        <h3>{t('exp.title')}</h3>
+        <div class="btns">
+          <a class="btn" href="/api/me/export.csv?format=goodreads" download><Icon name="upload" size={16} /> {t('exp.goodreads')}</a>
+          <a class="btn" href="/api/me/export.csv?format=storygraph" download><Icon name="upload" size={16} /> {t('exp.storygraph')}</a>
+          <a class="btn" href="/api/me/export.csv?format=simple" download><Icon name="upload" size={16} /> {t('exp.simple')}</a>
+        </div>
+        <p class="muted small">{t('exp.info')}</p>
+        <h3>{t('settings.backupTitle')}</h3>
+        <div class="btns"><a class="btn" href="/api/me/export" download><Icon name="download" size={16} /> {t('settings.export')}</a></div>
+      </div>
+
+    {:else if sec === 'account'}
+      <h2 class="sec-title">{t('settings.secAccount')}</h2>
+      <p class="muted small">{t('settings.signedInAs', { u: session.me?.username ?? '' })}</p>
+      <form class="card stack" onsubmit={changePassword}>
+        <h3>{t('settings.changePw')}</h3>
+        <input type="text" autocomplete="username" value={session.me?.username} hidden />
+        <label class="field"><span>{t('settings.currentPw')}</span><input type="password" bind:value={pw.current} required autocomplete="current-password" /></label>
+        <label class="field"><span>{t('settings.newPw')}</span><input type="password" bind:value={pw.next} required minlength="8" autocomplete="new-password" /></label>
+        <label class="field"><span>{t('settings.repeat')}</span><input type="password" bind:value={pw.next2} required minlength="8" autocomplete="new-password" /></label>
+        <button>{t('settings.changePw')}</button>
+      </form>
+      <div class="card stack">
+        <button onclick={logout}><Icon name="logout" size={16} /> {t('settings.logout')}</button>
+      </div>
+      <details class="card danger-zone">
+        <summary class="danger-text">{t('settings.deleteAccount')}</summary>
+        <form class="stack del" onsubmit={deleteAccount}>
+          <p class="muted small">{t('settings.deleteInfo')}</p>
+          <input type="password" bind:value={deletePw} placeholder={t('settings.confirmPw')} required autocomplete="current-password" />
+          <button class="danger">{t('settings.deleteForever')}</button>
+        </form>
+      </details>
     {/if}
   </div>
-
-  <form class="card stack" onsubmit={changePassword}>
-    <h2>{t('settings.changePw')}</h2>
-    <input type="text" autocomplete="username" value={session.me?.username} hidden />
-    <label class="field"><span>{t('settings.currentPw')}</span><input type="password" bind:value={pw.current} required autocomplete="current-password" /></label>
-    <label class="field"><span>{t('settings.newPw')}</span><input type="password" bind:value={pw.next} required minlength="8" autocomplete="new-password" /></label>
-    <label class="field"><span>{t('settings.repeat')}</span><input type="password" bind:value={pw.next2} required minlength="8" autocomplete="new-password" /></label>
-    <button>{t('settings.changePw')}</button>
-  </form>
-
-  <div class="card stack">
-    <h2>{t('settings.data')}</h2>
-    <p class="muted small">{t('settings.dataInfo')}</p>
-    <a class="btn" href="/import"><Icon name="download" size={16} /> {t('imp.link')}</a>
-    <a class="btn ghost" href="/imports"><Icon name="book" size={16} /> {t('imp.history')}</a>
-    <div class="exports">
-      <span class="muted small">{t('exp.title')}</span>
-      <a class="btn" href="/api/me/export.csv?format=goodreads" download><Icon name="upload" size={16} /> {t('exp.goodreads')}</a>
-      <a class="btn" href="/api/me/export.csv?format=storygraph" download><Icon name="upload" size={16} /> {t('exp.storygraph')}</a>
-      <a class="btn" href="/api/me/export.csv?format=simple" download><Icon name="upload" size={16} /> {t('exp.simple')}</a>
-      <a class="btn" href="/api/me/export" download><Icon name="download" size={16} /> {t('settings.export')}</a>
-      <span class="muted small">{t('exp.info')}</span>
-    </div>
-    <details>
-      <summary class="danger-text">{t('settings.deleteAccount')}</summary>
-      <form class="stack del" onsubmit={deleteAccount}>
-        <p class="muted small">{t('settings.deleteInfo')}</p>
-        <input type="password" bind:value={deletePw} placeholder={t('settings.confirmPw')} required autocomplete="current-password" />
-        <button class="danger">{t('settings.deleteForever')}</button>
-      </form>
-    </details>
-  </div>
-
-  <p class="muted small about">
-    {t('settings.free')} · <a href="https://github.com/sgitaize/bookshelv" target="_blank" rel="noopener">{t('settings.source')}</a>
-    · {t('settings.builtBy')} <a href="https://sgitaize.aize-it.de" target="_blank" rel="noopener">sgitaize</a>
-    · <a href="/legal#impressum">{t('privacy.imprint')}</a> · <a href="/legal#datenschutz">{t('privacy.title')}</a>
-  </p>
 </section>
 
 <style>
-  section { max-width: 680px; margin: 0 auto; }
+  .wrap { max-width: 1000px; margin: 0 auto; display: grid; gap: 1.5rem; }
+  .menu, .content { min-width: 0; align-content: start; }
+  .list { list-style: none; margin: 0; padding: 0.3rem 0; }
+  .list li + li { border-top: 1px solid var(--line); }
+  .list a { display: flex; align-items: center; gap: 0.8rem; padding: 0.75rem 1rem; color: var(--text); }
+  .list a:hover { text-decoration: none; background: var(--surface-2); }
+  .ic { display: grid; place-items: center; width: 34px; height: 34px; flex: none; border-radius: 10px; background: var(--surface-2); color: var(--accent); }
+  .txt { display: grid; flex: 1; min-width: 0; }
+  .txt .small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .logout { justify-self: start; }
+  .about { text-align: center; margin-top: 0.5rem; }
+  .backlink { display: inline-flex; align-items: center; gap: 0.3rem; justify-self: start; font-weight: 550; }
+  .sec-title { margin: 0; }
+  h3 { margin: 0; font-size: 1rem; }
+  .content > p { margin: 0; }
+  /* Handy/Tablet: entweder Übersicht oder Bereich */
+  .wrap:not(.picked) .content, .wrap.picked .menu { display: none; }
+  @media (min-width: 1000px) {
+    .wrap { grid-template-columns: 300px 1fr; align-items: start; }
+    .wrap:not(.picked) .content, .wrap.picked .menu { display: grid; }
+    .menu { position: sticky; top: 1rem; }
+    .backlink, .menu .logout { display: none; }
+    .list a.active { background: var(--surface-2); }
+    .list a.active strong { color: var(--accent); }
+  }
   .check { font-weight: 500; cursor: pointer; }
   .grow { flex: 1; min-width: 0; }
   .invites { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }
@@ -258,15 +354,14 @@
   .invites .grow { display: grid; }
   .danger-text { color: var(--danger); cursor: pointer; font-weight: 550; }
   .del { margin-top: 0.8rem; }
-  .segmented { align-self: start; }
+  .segmented { align-self: start; justify-self: start; }
   .avrow { gap: 1rem; }
-  .handle { display: grid; gap: 0.2rem; }
+  .handle { display: grid; gap: 0.3rem; }
   .handle code { font-size: 0.95rem; background: var(--surface-2); padding: 0.4rem 0.6rem; border-radius: 8px; justify-self: start; user-select: all; overflow-wrap: anywhere; }
   label.btn { cursor: pointer; }
   label.btn.disabled { opacity: 0.5; pointer-events: none; }
-  .about { text-align: center; margin-top: 1rem; }
-  .exports { display: grid; gap: 0.5rem; justify-items: start; }
-  .exports .btn { max-width: 100%; white-space: normal; text-align: left; }
+  .btns { display: grid; gap: 0.5rem; justify-items: start; }
+  .btns .btn { max-width: 100%; white-space: normal; text-align: left; }
   .themes { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
   .theme { display: grid; grid-template-columns: 1fr; justify-content: stretch; gap: 0.35rem; justify-items: stretch; padding: 0.45rem; border-radius: 12px; font-size: 0.85rem; white-space: normal; }
   .theme.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }

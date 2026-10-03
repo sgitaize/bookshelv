@@ -289,6 +289,17 @@ const migrations: string[] = [
   ALTER TABLE imports ADD COLUMN done INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE imports ADD COLUMN results TEXT;
   ALTER TABLE imports ADD COLUMN finished_at TEXT;
+  `,
+  // 12: Gemeinsame Leselisten – Mitglieder dürfen Bücher hinzufügen, entfernen und sortieren; wer ein Buch hinzugefügt hat, steht am Eintrag
+  `
+  CREATE TABLE list_members (
+    list_id INTEGER NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    added_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (list_id, user_id)
+  );
+  CREATE INDEX list_members_user ON list_members(user_id);
+  ALTER TABLE list_items ADD COLUMN added_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
   `
 ];
 

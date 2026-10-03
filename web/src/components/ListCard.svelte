@@ -16,7 +16,7 @@
     {/each}
   </div>
   <strong class="name">{list.name}</strong>
-  <span class="muted small">{tn('list.books', list.count)}{#if list.visibility === 'private'} · {t('vis.private')}{/if}</span>
+  <span class="muted small">{tn('list.books', list.count)}{#if list.visibility === 'private'} · {t('vis.private')}{/if}{#if list.owner} · {t('list.byOwner', { name: list.owner.displayName })}{:else if list.shared} · {t('list.sharedBadge')}{/if}</span>
 </a>
 
 <style>

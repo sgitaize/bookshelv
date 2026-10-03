@@ -14,7 +14,7 @@
 <section class="stack">
   <div class="spread">
     <h1>{t('nav.friends')}</h1>
-    <a href="/settings#invites" class="btn"><Icon name="link" size={16} /> {t('people.invite')}</a>
+    <a href="/settings?s=invites" class="btn"><Icon name="link" size={16} /> {t('people.invite')}</a>
   </div>
 
   {#if !people}

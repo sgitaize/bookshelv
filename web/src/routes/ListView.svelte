@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { api, labels, type ReadingList, type ListVisibility } from '../lib/api.ts';
-  import { toast, toastError } from '../lib/state.svelte.ts';
+  import { api, labels, type ReadingList, type ListVisibility, type ListMember } from '../lib/api.ts';
+  import { session, toast, toastError } from '../lib/state.svelte.ts';
+  import Avatar from '../components/Avatar.svelte';
   import { router } from '../lib/router.svelte.ts';
   import { t, tn, fmtDate } from '../lib/i18n.svelte.ts';
   import Cover from '../components/Cover.svelte';
@@ -12,6 +13,9 @@
   let l = $state<ReadingList | null>(null);
   let editing = $state(false);
   let adding = $state(false);
+  let sharing = $state(false);
+  let people = $state<ListMember[]>([]);
+  let pick = $state('');
   let form = $state({ name: '', description: '', visibility: 'instance' as ListVisibility });
 
   const load = () => api.get<ReadingList>(`/lists/${id}`).then(r => (l = r)).catch(toastError);
@@ -38,6 +42,32 @@
   async function drop(bookId: number) {
     try { await api.del(`/lists/${id}/books/${bookId}`); l!.items = l!.items.filter(x => x.book.id !== bookId); } catch (err) { toastError(err); }
   }
+  /** Mitglieder: Besitzer*in lädt Personen der Instanz ein, Mitglieder können austreten */
+  async function openShare() {
+    sharing = true;
+    if (!people.length) people = await api.get<ListMember[]>('/users').catch(e => (toastError(e), []));
+  }
+  const candidates = $derived(people.filter(p => p.id !== session.me?.id && !l?.members.some(m => m.id === p.id)));
+  async function addMember() {
+    if (!pick) return;
+    try { const r = await api.post<{ members: ListMember[] }>(`/lists/${id}/members`, { userId: Number(pick) }); l!.members = r.members; pick = ''; toast(t('list.memberAdded')); }
+    catch (err) { toastError(err); }
+  }
+  async function dropMember(m: ListMember) {
+    if (!confirm(t('list.memberRemoveQ', { name: m.displayName }))) return;
+    try { const r = await api.del<{ members: ListMember[] }>(`/lists/${id}/members/${m.id}`); l!.members = r.members; } catch (err) { toastError(err); }
+  }
+  async function leave() {
+    if (!confirm(t('list.leaveQ', { name: l!.name }))) return;
+    try { await api.del(`/lists/${id}/members/${session.me!.id}`); toast(t('list.left')); router.go('/lists', true); } catch (err) { toastError(err); }
+  }
+  async function shareLink() {
+    const url = `${location.origin}/lists/${id}`;
+    if (navigator.share) { try { await navigator.share({ title: l!.name, url }); return; } catch { /* abgebrochen → kopieren */ } }
+    await navigator.clipboard.writeText(url);
+    toast(t('invite.copied'));
+  }
+
   async function add(bookId: number) {
     try { await api.put(`/lists/${id}/books/${bookId}`, {}); await load(); } catch (err) { toastError(err); }
   }
@@ -54,18 +84,28 @@
           {#if !l.mine}<a href="/people/{l.owner.id}">{l.owner.displayName}</a> · {/if}{tn('list.books', l.items.length)} · {l.visibility === 'private' ? t('vis.private') : t('list.visPublic')} · {t('list.updated', { d: fmtDate(l.updatedAt) })}
         </p>
       </div>
+      <div class="row">
+        <button class="icon ghost" onclick={openShare} aria-label={t('list.share')}><Icon name="users" /></button>
       {#if l.mine}
-        <div class="row">
           <button class="icon ghost" onclick={openEdit} aria-label={t('common.edit')}><Icon name="edit" /></button>
           <button class="icon ghost" onclick={remove} aria-label={t('common.delete')}><Icon name="trash" /></button>
-        </div>
       {/if}
+      </div>
     </div>
+    {#if l.members.length}
+      <button class="members" onclick={openShare}>
+        <span class="avs">
+          <Avatar name={l.owner.displayName} url={l.owner.avatarUrl} size={28} />
+          {#each l.members.slice(0, 5) as m (m.id)}<Avatar name={m.displayName} url={m.avatarUrl} size={28} />{/each}
+        </span>
+        <span class="muted small">{t('list.sharedWith', { n: l.members.length + 1 })}</span>
+      </button>
+    {/if}
     {#if l.description}<p class="desc">{l.description}</p>{/if}
-    {#if l.mine}<button class="small addbtn" onclick={() => (adding = true)}><Icon name="plus" size={16} /> {t('list.addBooks')}</button>{/if}
+    {#if l.canEdit}<button class="small addbtn" onclick={() => (adding = true)}><Icon name="plus" size={16} /> {t('list.addBooks')}</button>{/if}
 
     {#if !l.items.length}
-      <p class="empty">{l.mine ? t('list.emptyMine') : t('list.empty')}</p>
+      <p class="empty">{l.canEdit ? t('list.emptyMine') : t('list.empty')}</p>
     {:else}
       <ol class="items">
         {#each l.items as it, i (it.book.id)}
@@ -74,9 +114,9 @@
             <a href="/book/{it.book.id}" class="cov"><Cover url={it.book.coverUrl} title={it.book.title} authors={it.book.authors} size="sm" /></a>
             <a href="/book/{it.book.id}" class="grow">
               <strong>{it.book.title}</strong>
-              <span class="muted small">{it.book.authors.join(', ')}{#if it.myStatus !== 'unread'} · {labels.read[it.myStatus]}{/if}</span>
+              <span class="muted small">{it.book.authors.join(', ')}{#if it.myStatus !== 'unread'} · {labels.read[it.myStatus]}{/if}{#if it.addedBy} · {t('list.addedBy', { name: it.addedBy.displayName })}{/if}</span>
             </a>
-            {#if l.mine}
+            {#if l.canEdit}
               <div class="acts">
                 <button class="icon ghost" disabled={i === 0} onclick={() => move(i, -1)} aria-label={t('list.up')}><Icon name="up" size={18} /></button>
                 <button class="icon ghost" disabled={i === l.items.length - 1} onclick={() => move(i, 1)} aria-label={t('list.down')}><Icon name="down" size={18} /></button>
@@ -101,6 +141,38 @@
     </form>
   </Sheet>
 
+  <Sheet open={sharing} onclose={() => (sharing = false)} title={t('list.share')}>
+    <div class="stack">
+      <p class="muted small">{t('list.shareInfo')}</p>
+      <ul class="mlist">
+        <li><Avatar name={l.owner.displayName} url={l.owner.avatarUrl} size={32} /><span class="grow"><strong>{l.owner.displayName}</strong><span class="muted small">{t('list.ownerRole')}</span></span></li>
+        {#each l.members as m (m.id)}
+          <li>
+            <Avatar name={m.displayName} url={m.avatarUrl} size={32} />
+            <span class="grow"><strong>{m.displayName}</strong><span class="muted small">@{m.username}</span></span>
+            {#if l.mine}<button class="icon ghost danger" onclick={() => dropMember(m)} aria-label={t('list.memberRemove')}><Icon name="x" size={18} /></button>{/if}
+          </li>
+        {/each}
+      </ul>
+      {#if l.mine}
+        <div class="row">
+          <select bind:value={pick} class="grow" aria-label={t('list.memberPick')}>
+            <option value="">{candidates.length ? t('list.memberPick') : t('list.memberNone')}</option>
+            {#each candidates as p (p.id)}<option value={String(p.id)}>{p.displayName} (@{p.username})</option>{/each}
+          </select>
+          <button class="primary" disabled={!pick} onclick={addMember}><Icon name="plus" size={16} /> {t('list.memberAdd')}</button>
+        </div>
+        {#if l.visibility === 'private'}<p class="muted small">{t('list.sharePrivate')}</p>{/if}
+      {/if}
+      {#if l.visibility === 'instance' || l.canEdit}
+        <button onclick={shareLink}><Icon name="link" size={16} /> {t('list.copyLink')}</button>
+      {/if}
+      {#if !l.mine && l.canEdit}
+        <button class="ghost danger" onclick={leave}>{t('list.leave')}</button>
+      {/if}
+    </div>
+  </Sheet>
+
   <Sheet open={adding} onclose={() => (adding = false)} title={t('list.addBooks')}>
     <p class="muted small">{t('list.addHint')}</p>
     <BookPicker exclude={l.items.map(x => x.book.id)} onpick={b => add(b.id)} />
@@ -122,5 +194,13 @@
   .grow:hover { text-decoration: none; }
   .grow strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .acts { display: flex; flex: none; }
+  .members { display: flex; align-items: center; gap: 0.6rem; justify-self: start; border: none; background: none; padding: 0; }
+  .avs { display: flex; }
+  .avs > :global(*) { margin-left: -6px; box-shadow: 0 0 0 2px var(--bg); border-radius: 50%; }
+  .avs > :global(*:first-child) { margin-left: 0; }
+  .mlist { list-style: none; margin: 0; padding: 0; display: grid; }
+  .mlist li { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0; border-top: 1px solid var(--line); }
+  .mlist li:first-child { border-top: none; }
+  .mlist .grow { display: grid; }
   @media (max-width: 420px) { .acts .icon { width: 34px; } }
 </style>
