@@ -229,7 +229,8 @@ function migrate() {
   try {
     const current = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version;
     for (let v = current; v < migrations.length; v++) db.exec(migrations[v]);
-    db.exec(`PRAGMA user_version = ${migrations.length}`);
+    // nie zurückstufen: läuft ein älterer Stand gegen eine neuere DB, bleibt die Version stehen
+    if (current < migrations.length) db.exec(`PRAGMA user_version = ${migrations.length}`);
     db.exec('COMMIT');
   } catch (e) {
     db.exec('ROLLBACK');
