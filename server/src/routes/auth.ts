@@ -11,6 +11,7 @@ import { router, body, str, idParam, notFound } from '../util.ts';
 import { anonymizeBorrower } from './loans.ts';
 import { notify } from '../notify.ts';
 import { avatarUrl, purgeAvatar } from './social.ts';
+import { retractFederatedReviews } from './reviews.ts';
 
 export const authRoutes = router();
 
@@ -129,6 +130,7 @@ authRoutes.delete('/me', async c => {
   endSession(c);
   anonymizeBorrower(u.id);
   purgeAvatar(u.id);
+  retractFederatedReviews(u.id);
   db.prepare('DELETE FROM users WHERE id = ?').run(u.id);
   return c.json({ ok: true });
 });

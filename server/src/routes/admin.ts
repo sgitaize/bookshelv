@@ -8,6 +8,7 @@ import { deleteCoverFile, prunePreviews, dnbGenres } from '../catalog.ts';
 import { router, body, idParam, notFound } from '../util.ts';
 import { anonymizeBorrower } from './loans.ts';
 import { purgeAvatar } from './social.ts';
+import { retractFederatedReviews } from './reviews.ts';
 
 export const adminRoutes = router();
 
@@ -74,6 +75,7 @@ adminRoutes.delete('/users/:id', c => {
   if (id === me.id) throw new HTTPException(400, { message: 'Eigenes Konto bitte über die Einstellungen löschen' });
   anonymizeBorrower(id);
   purgeAvatar(id);
+  retractFederatedReviews(id);
   if (!db.prepare('DELETE FROM users WHERE id = ?').run(id).changes) throw notFound('Nutzer');
   return c.json({ ok: true });
 });

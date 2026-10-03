@@ -73,7 +73,8 @@ export type Review = {
   createdAt: string; updatedAt: string; mine: boolean; user: { id: number; displayName: string; username: string; avatarUrl: string | null };
   comments: ReviewComment[];
 };
-export type BookReviews = { average: number | null; count: number; reviews: Review[] };
+export type RemoteReview = { id: number; rating: number | null; text: string | null; spoiler: boolean; createdAt: string; updatedAt: string; user: { displayName: string; handle: string; instance: string | null } };
+export type BookReviews = { average: number | null; count: number; reviews: Review[]; remote: RemoteReview[] };
 export type RecentReview = Review & { book: BookBrief; commentCount: number };
 
 // Getter, damit die Texte beim Sprachwechsel neu ausgewertet werden
@@ -114,15 +115,15 @@ export type Copy = {
 };
 
 export type Loan = {
-  id: number; copyId: number; lentAt: string; dueAt: string | null; returnedAt: string | null; overdue: boolean; note: string | null;
-  lender: { id: number; displayName: string }; borrower: { id: number | null; displayName: string } | null; mine: boolean;
-  copy: { format: Format; binding: Binding | null }; book: BookBrief;
+  id: number; copyId: number | null; remoteLoanId?: number; lentAt: string; dueAt: string | null; returnedAt: string | null; overdue: boolean; note: string | null;
+  lender: { id: number | null; displayName: string }; borrower: { id: number | null; displayName: string } | null; mine: boolean;
+  copy: { format: Format; binding: Binding | null }; book: Omit<BookBrief, 'id'> & { id: number | null };
 };
 export type Loans = { lent: Loan[]; borrowed: Loan[]; history: Loan[] };
 
 export type NotificationItem = {
   id: number; type: 'loan_new' | 'loan_returned' | 'comment' | 'invite_accepted'; refId: number | null; createdAt: string; read: boolean;
-  actor: { id: number; displayName: string; avatarUrl: string | null } | null; book: BookBrief | null;
+  actor: { id: number | null; displayName: string; avatarUrl: string | null } | null; book: BookBrief | null;
 };
 export type FeedItem = {
   type: 'started' | 'finished' | 'reviewed'; ts: string; rating: number | null; reviewId: number | null; text: string | null; spoiler: boolean;

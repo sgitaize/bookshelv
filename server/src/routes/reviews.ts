@@ -9,6 +9,8 @@ import { router, body, str, oneOf, idParam, notFound } from '../util.ts';
 import { getBook, bookBrief } from './books.ts';
 import { notify } from '../notify.ts';
 import { avatarUrl } from './social.ts';
+import { enqueue, handleOf } from '../federation.ts';
+import { reviewMessage } from './federation.ts';
 
 export const reviewRoutes = router();
 
@@ -62,11 +64,23 @@ export function bookReviews(bookId: number, me: User) {
     WHERE r.book_id = ? AND ${VISIBLE} ORDER BY r.user_id = ? DESC, r.updated_at DESC
   `).all(bookId, me.id, me.id) as ReviewRow[];
   const comments = commentsFor(rows.map(r => r.id));
-  const rated = rows.filter(r => r.rating !== null);
+  // Reviews von gekoppelten Instanzen zum selben Buch (per ISBN)
+  const isbn = (db.prepare('SELECT isbn13 FROM books WHERE id = ?').get(bookId) as { isbn13: string | null } | undefined)?.isbn13;
+  const remote = isbn ? (db.prepare(`
+    SELECT rr.id, rr.rating, rr.text, rr.spoiler, rr.created_at AS createdAt, rr.updated_at AS updatedAt,
+           ra.username, ra.display_name AS displayName, i.url, i.name AS instanceName
+    FROM remote_reviews rr JOIN remote_actors ra ON ra.id = rr.actor_id JOIN instances i ON i.id = rr.instance_id
+    WHERE rr.isbn13 = ? AND i.status = 'linked' ORDER BY rr.updated_at DESC
+  `).all(isbn) as Array<Record<string, any>>).map(r => ({
+    id: -r.id, rating: r.rating, text: r.text, spoiler: !!r.spoiler, createdAt: r.createdAt, updatedAt: r.updatedAt,
+    user: { displayName: r.displayName, handle: handleOf(r.username, r.url), instance: r.instanceName }
+  })) : [];
+  const ratings = [...rows.map(r => r.rating), ...remote.map(r => r.rating)].filter((r): r is number => r !== null);
   return {
-    average: rated.length ? Math.round((rated.reduce((a, r) => a + r.rating!, 0) / rated.length) * 100) / 100 : null,
-    count: rated.length,
-    reviews: rows.map(r => reviewJson(r, me, comments.get(r.id)))
+    average: ratings.length ? Math.round((ratings.reduce((a, r) => a + r, 0) / ratings.length) * 100) / 100 : null,
+    count: ratings.length,
+    reviews: rows.map(r => reviewJson(r, me, comments.get(r.id))),
+    remote
   };
 }
 
@@ -78,15 +92,36 @@ reviewRoutes.get('/books/:id/reviews', c => {
 });
 
 /** Eigene Review anlegen/ändern; ohne Sterne und Text wird sie gelöscht */
+/** Föderierte Reviews an gekoppelte Instanzen verteilen bzw. dort zurückziehen */
+function federate(bookId: number, userId: number, prevId: number | null) {
+  const row = db.prepare(`
+    SELECT r.*, u.username, u.display_name, b.isbn13 FROM reviews r JOIN users u ON u.id = r.user_id JOIN books b ON b.id = r.book_id
+    WHERE r.book_id = ? AND r.user_id = ?
+  `).get(bookId, userId) as Record<string, any> | undefined;
+  if (row && row.visibility === 'federated' && row.isbn13) enqueue(reviewMessage(row));
+  else if (prevId) enqueue({ type: 'ReviewDelete', id: prevId });
+}
+
+const prevReview = (bookId: number, userId: number) =>
+  (db.prepare(`SELECT id FROM reviews WHERE book_id = ? AND user_id = ? AND visibility = 'federated'`).get(bookId, userId) as { id: number } | undefined)?.id ?? null;
+
+/** Beim Löschen eines Kontos: föderierte Reviews auf den anderen Instanzen zurückziehen */
+export function retractFederatedReviews(userId: number) {
+  for (const r of db.prepare(`SELECT id FROM reviews WHERE user_id = ? AND visibility = 'federated'`).all(userId) as { id: number }[])
+    enqueue({ type: 'ReviewDelete', id: r.id });
+}
+
 reviewRoutes.put('/books/:id/review', async c => {
   const u = requireUser(c);
   const id = idParam(c);
   if (!getBook(id)) throw notFound('Buch');
+  const prev = prevReview(id, u.id);
   const b = await body(c);
   const r = rating(b.rating);
   const text = str(b.text, 10000);
   if (r === null && !text) {
     db.prepare('DELETE FROM reviews WHERE book_id = ? AND user_id = ?').run(id, u.id);
+    federate(id, u.id, prev);
     return c.json(bookReviews(id, u));
   }
   // "federated" wird gespeichert, wirkt aber erst mit der Föderation (bis dahin wie "instance")
@@ -96,13 +131,16 @@ reviewRoutes.put('/books/:id/review', async c => {
     ON CONFLICT (book_id, user_id) DO UPDATE SET rating = excluded.rating, text = excluded.text,
       visibility = excluded.visibility, spoiler = excluded.spoiler, updated_at = datetime('now')
   `).run(id, u.id, r, text, visibility, b.spoiler ? 1 : 0);
+  federate(id, u.id, prev);
   return c.json(bookReviews(id, u));
 });
 
 reviewRoutes.delete('/books/:id/review', c => {
   const u = requireUser(c);
   const id = idParam(c);
+  const prev = prevReview(id, u.id);
   db.prepare('DELETE FROM reviews WHERE book_id = ? AND user_id = ?').run(id, u.id);
+  federate(id, u.id, prev);
   return c.json(bookReviews(id, u));
 });
 

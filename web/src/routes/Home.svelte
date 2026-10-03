@@ -83,7 +83,7 @@
       </div>
       <div class="book-row">
         {#each loans.borrowed as l (l.id)}
-          <a href="/book/{l.book.id}" class="borrowed">
+          <a href={l.book.id ? `/book/${l.book.id}` : '/loans?tab=borrowed'} class="borrowed">
             <Cover url={l.book.coverUrl} title={l.book.title} authors={l.book.authors} />
             <span class="from" class:late={l.overdue}>{t('loan.from', { name: l.lender.displayName })}</span>
           </a>

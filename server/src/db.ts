@@ -149,6 +149,67 @@ const migrations: string[] = [
   );
   CREATE INDEX notifications_user ON notifications(user_id, read_at);
   CREATE INDEX user_books_finished ON user_books(finished_at);
+  `,
+  // 5: Föderation – gekoppelte Instanzen, entfernte Personen, föderierte Reviews und Verleihe, Zustellwarteschlange
+  `
+  CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+  CREATE TABLE instances (
+    id INTEGER PRIMARY KEY,
+    url TEXT NOT NULL UNIQUE,
+    name TEXT,
+    public_key TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('pending_out', 'pending_in', 'linked')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    linked_at TEXT
+  );
+  CREATE TABLE remote_actors (
+    id INTEGER PRIMARY KEY,
+    instance_id INTEGER NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
+    remote_id INTEGER NOT NULL,
+    username TEXT NOT NULL,
+    display_name TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (instance_id, remote_id)
+  );
+  CREATE TABLE remote_reviews (
+    id INTEGER PRIMARY KEY,
+    instance_id INTEGER NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
+    remote_id INTEGER NOT NULL,
+    actor_id INTEGER NOT NULL REFERENCES remote_actors(id) ON DELETE CASCADE,
+    isbn13 TEXT NOT NULL,
+    rating REAL,
+    text TEXT,
+    spoiler INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE (instance_id, remote_id)
+  );
+  CREATE INDEX remote_reviews_isbn ON remote_reviews(isbn13);
+  CREATE TABLE remote_loans (
+    id INTEGER PRIMARY KEY,
+    instance_id INTEGER NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
+    remote_id INTEGER NOT NULL,
+    lender_actor_id INTEGER NOT NULL REFERENCES remote_actors(id) ON DELETE CASCADE,
+    borrower_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    isbn13 TEXT,
+    title TEXT NOT NULL,
+    authors TEXT NOT NULL DEFAULT '[]',
+    lent_at TEXT NOT NULL,
+    due_at TEXT,
+    returned_at TEXT,
+    note TEXT,
+    UNIQUE (instance_id, remote_id)
+  );
+  ALTER TABLE loans ADD COLUMN borrower_remote_id INTEGER REFERENCES remote_actors(id) ON DELETE SET NULL;
+  ALTER TABLE notifications ADD COLUMN actor_label TEXT;
+  CREATE TABLE outbox (
+    id INTEGER PRIMARY KEY,
+    instance_id INTEGER NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
+    body TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    next_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
   `
 ];
 

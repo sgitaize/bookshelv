@@ -21,10 +21,16 @@ const EVENTS_SQL = `
   UNION ALL SELECT CASE ub.status WHEN 'dnf' THEN 'dnf' ELSE 'finished' END, ub.finished_at, ub.book_id, NULL, NULL, NULL
     FROM user_books ub WHERE ub.user_id = :u AND ub.finished_at IS NOT NULL AND ub.status IN ('read', 'dnf')
   UNION ALL SELECT 'reviewed', substr(r.created_at, 1, 10), r.book_id, NULL, r.rating, NULL FROM reviews r WHERE r.user_id = :u
-  UNION ALL SELECT 'lent', l.lent_at, c.book_id, COALESCE(bo.display_name, l.borrower_name), NULL, l.due_at
-    FROM loans l JOIN copies c ON c.id = l.copy_id LEFT JOIN users bo ON bo.id = l.borrower_id WHERE l.lender_id = :u
-  UNION ALL SELECT 'got_back', l.returned_at, c.book_id, COALESCE(bo.display_name, l.borrower_name), NULL, NULL
-    FROM loans l JOIN copies c ON c.id = l.copy_id LEFT JOIN users bo ON bo.id = l.borrower_id WHERE l.lender_id = :u AND l.returned_at IS NOT NULL
+  UNION ALL SELECT 'lent', l.lent_at, c.book_id, COALESCE(bo.display_name, ra.display_name, l.borrower_name), NULL, l.due_at
+    FROM loans l JOIN copies c ON c.id = l.copy_id LEFT JOIN users bo ON bo.id = l.borrower_id
+    LEFT JOIN remote_actors ra ON ra.id = l.borrower_remote_id WHERE l.lender_id = :u
+  UNION ALL SELECT 'got_back', l.returned_at, c.book_id, COALESCE(bo.display_name, ra.display_name, l.borrower_name), NULL, NULL
+    FROM loans l JOIN copies c ON c.id = l.copy_id LEFT JOIN users bo ON bo.id = l.borrower_id
+    LEFT JOIN remote_actors ra ON ra.id = l.borrower_remote_id WHERE l.lender_id = :u AND l.returned_at IS NOT NULL
+  UNION ALL SELECT 'borrowed', rl.lent_at, b.id, ra.display_name, NULL, rl.due_at
+    FROM remote_loans rl JOIN remote_actors ra ON ra.id = rl.lender_actor_id JOIN books b ON b.isbn13 = rl.isbn13 WHERE rl.borrower_id = :u
+  UNION ALL SELECT 'gave_back', rl.returned_at, b.id, ra.display_name, NULL, NULL
+    FROM remote_loans rl JOIN remote_actors ra ON ra.id = rl.lender_actor_id JOIN books b ON b.isbn13 = rl.isbn13 WHERE rl.borrower_id = :u AND rl.returned_at IS NOT NULL
   UNION ALL SELECT 'borrowed', l.lent_at, c.book_id, le.display_name, NULL, l.due_at
     FROM loans l JOIN copies c ON c.id = l.copy_id JOIN users le ON le.id = l.lender_id WHERE l.borrower_id = :u
   UNION ALL SELECT 'gave_back', l.returned_at, c.book_id, le.display_name, NULL, NULL

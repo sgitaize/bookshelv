@@ -41,6 +41,13 @@ const EN: Record<string, string> = {
   'Name fehlt': 'Name is missing',
   'Bild fehlt oder hat ein ungültiges Format': 'Image is missing or has an invalid format',
   'Bild ist zu groß': 'Image is too large',
+  'Ungültige Adresse – Format @name@instanz': 'Invalid address – format @name@instance',
+  'Diese Instanz ist nicht gekoppelt': 'This instance is not linked',
+  'Ungültige Adresse': 'Invalid address',
+  'Eigene Adresse ist nicht bekannt': 'This instance does not know its own address yet',
+  'Das ist diese Instanz': 'That is this instance',
+  'Dort läuft keine erreichbare bookshelv-Instanz': 'No reachable bookshelv instance at that address',
+  'Die andere Instanz hat die Anfrage abgelehnt': 'The other instance rejected the request',
   'Zu viele Fehlversuche – bitte in ein paar Minuten erneut versuchen': 'Too many failed attempts – please try again in a few minutes'
 };
 

@@ -19,7 +19,7 @@
 
   async function giveBack(l: Loan) {
     try {
-      await api.post(`/loans/${l.id}/return`, {});
+      await api.post(l.remoteLoanId ? `/remote-loans/${l.remoteLoanId}/return` : `/loans/${l.id}/return`, {});
       toast(t('loan.returned'));
       await load();
     } catch (e) { toastError(e); }
@@ -56,9 +56,9 @@
     <div class="list">
       {#each list as l (l.id)}
         <article class="card loan" class:overdue={l.overdue}>
-          <a href="/book/{l.book.id}" class="cv"><Cover url={l.book.coverUrl} title={l.book.title} authors={l.book.authors} size="sm" /></a>
+          <a href={l.book.id ? `/book/${l.book.id}` : undefined} class="cv"><Cover url={l.book.coverUrl} title={l.book.title} authors={l.book.authors} size="sm" /></a>
           <div class="body">
-            <a href="/book/{l.book.id}" class="title">{l.book.title}</a>
+            <a href={l.book.id ? `/book/${l.book.id}` : undefined} class="title">{l.book.title}</a>
             <p class="who">
               {#if l.mine}{t('loan.toName', { name: !l.borrower || l.borrower.displayName === '–' ? t('loan.deletedAccount') : l.borrower.displayName })}{:else}{t('loan.from', { name: l.lender.displayName })}{/if}
               · {t('loan.since', { d: fmtDate(l.lentAt) })}

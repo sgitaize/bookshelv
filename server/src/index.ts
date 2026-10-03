@@ -5,11 +5,14 @@ import { config } from './config.ts';
 import { ensureSetupToken } from './routes/auth.ts';
 import { purgeExpiredSessions } from './auth.ts';
 import { prunePreviews } from './catalog.ts';
+import { deliver } from './federation.ts';
 
 ensureSetupToken();
 purgeExpiredSessions();
 prunePreviews();
 setInterval(() => { purgeExpiredSessions(); prunePreviews(); }, 6 * 3600_000).unref();
+// Föderation: Warteschlange regelmäßig abarbeiten
+setInterval(() => { deliver().catch(() => {}); }, 60_000).unref();
 
 const server = http.createServer(getRequestListener(app.fetch));
 

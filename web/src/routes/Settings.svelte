@@ -127,6 +127,11 @@
     <h2>{t('settings.about')}</h2>
     <p class="muted small">{t('settings.signedInAs', { u: session.me?.username ?? '' })}</p>
     <label class="field"><span>{t('auth.displayName')}</span><input bind:value={displayName} maxlength="60" required /></label>
+    <div class="handle">
+      <span class="muted small">{t('fed.myHandle')}</span>
+      <code>@{session.me?.username}@{location.host}</code>
+      <span class="muted small">{t('fed.myHandleInfo')}</span>
+    </div>
     <label class="row check"><input type="checkbox" bind:checked={shelfVisible} /> {t('settings.shelfVisible')}</label>
     <button class="primary">{t('common.save')}</button>
   </form>
@@ -214,6 +219,8 @@
   .del { margin-top: 0.8rem; }
   .segmented { align-self: start; }
   .avrow { gap: 1rem; }
+  .handle { display: grid; gap: 0.2rem; }
+  .handle code { font-size: 0.95rem; background: var(--surface-2); padding: 0.4rem 0.6rem; border-radius: 8px; justify-self: start; user-select: all; overflow-wrap: anywhere; }
   label.btn { cursor: pointer; }
   label.btn.disabled { opacity: 0.5; pointer-events: none; }
   .about { text-align: center; margin-top: 1rem; }

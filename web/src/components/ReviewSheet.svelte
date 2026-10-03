@@ -61,7 +61,7 @@
       <select bind:value={visibility}>
         <option value="instance">{visibilityLabel.instance}</option>
         <option value="private">{visibilityLabel.private}</option>
-        <option value="federated">{visibilityLabel.federated} {t('review.soon')}</option>
+        <option value="federated">{visibilityLabel.federated}</option>
       </select>
     </label>
     <div class="row">

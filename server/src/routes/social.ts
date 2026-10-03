@@ -96,7 +96,7 @@ socialRoutes.get('/notifications/count', c => c.json({ unread: unread(requireUse
 socialRoutes.get('/notifications', c => {
   const u = requireUser(c);
   const rows = db.prepare(`
-    SELECT n.id, n.type, n.ref_id AS refId, n.created_at AS createdAt, n.read_at AS readAt,
+    SELECT n.id, n.type, n.ref_id AS refId, n.created_at AS createdAt, n.read_at AS readAt, n.actor_label AS actorLabel,
            a.id AS actorId, a.display_name AS actorName, a.avatar AS actorAvatar,
            b.id AS bookId, b.title, b.subtitle, b.authors, b.year, b.pages, b.cover
     FROM notifications n LEFT JOIN users a ON a.id = n.actor_id LEFT JOIN books b ON b.id = n.book_id
@@ -106,7 +106,8 @@ socialRoutes.get('/notifications', c => {
     unread: unread(u.id),
     items: rows.map(r => ({
       id: r.id, type: r.type, refId: r.refId, createdAt: r.createdAt, read: !!r.readAt,
-      actor: r.actorId ? { id: r.actorId, displayName: r.actorName, avatarUrl: avatarUrl(r.actorAvatar) } : null,
+      actor: r.actorId ? { id: r.actorId, displayName: r.actorName, avatarUrl: avatarUrl(r.actorAvatar) }
+        : r.actorLabel ? { id: null, displayName: r.actorLabel, avatarUrl: null } : null,
       book: r.bookId ? bookBrief(r) : null
     }))
   });

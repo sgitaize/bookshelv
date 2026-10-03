@@ -63,7 +63,26 @@
     {#each others as r (r.id)}
       {@render reviewCard(r)}
     {/each}
-    {#if !others.length}<p class="muted small">{t('review.none')}</p>{/if}
+    {#each data.remote as r (r.id)}
+      <article class="card review">
+        <header>
+          <Avatar name={r.user.displayName} size={36} />
+          <div class="who">
+            <strong>{r.user.displayName}</strong>
+            <span class="muted small">{r.user.handle} · {ago(r.updatedAt)}{#if r.user.instance} · {t('review.remoteFrom', { instance: r.user.instance })}{/if}</span>
+          </div>
+          {#if r.rating}<span class="rating"><Stars value={r.rating} size={15} /> {fmtRating(r.rating)}</span>{/if}
+        </header>
+        {#if r.text}
+          {#if r.spoiler && !revealed.has(r.id)}
+            <button class="spoiler" onclick={() => (revealed = toggle(revealed, r.id))}>{t('review.reveal')}</button>
+          {:else}
+            <p class="text">{r.text}</p>
+          {/if}
+        {/if}
+      </article>
+    {/each}
+    {#if !others.length && !data.remote.length}<p class="muted small">{t('review.none')}</p>{/if}
   {/if}
 </section>
 

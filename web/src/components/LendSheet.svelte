@@ -9,6 +9,8 @@
 
   type Person = { id: number; displayName: string; username: string };
   let people = $state<Person[]>([]);
+  let instances = $state<{ id: number; url: string; name: string | null }[]>([]);
+  let handle = $state('');
   let borrower = $state<string>('');          // Nutzer-ID oder 'other'
   let name = $state('');
   let due = $state('');
@@ -17,8 +19,9 @@
 
   $effect(() => {
     if (copyId === null) return;
-    borrower = ''; name = ''; due = ''; note = '';
+    borrower = ''; name = ''; due = ''; note = ''; handle = '';
     api.get<Person[]>('/users').then(r => (people = r.filter(p => p.id !== session.me?.id))).catch(toastError);
+    api.get<typeof instances>('/federation/instances').then(r => (instances = r)).catch(() => {});
   });
 
   function inDays(days: number) {
@@ -33,13 +36,15 @@
     busy = true;
     try {
       const other = borrower === 'other';
+      const remote = borrower === 'remote';
       await api.post(`/copies/${copyId}/loans`, {
-        borrowerId: other ? null : Number(borrower) || null,
+        borrowerId: other || remote ? null : Number(borrower) || null,
         borrowerName: other ? name : null,
+        borrowerHandle: remote ? handle : null,
         dueAt: due || null,
         note: note || null
       });
-      const who = other ? name : people.find(p => String(p.id) === borrower)?.displayName ?? '';
+      const who = other ? name : remote ? handle : people.find(p => String(p.id) === borrower)?.displayName ?? '';
       toast(t('loan.lent', { title, name: who }));
       onsaved();
       onclose();
@@ -56,6 +61,7 @@
         <option value="" disabled>{t('loan.pick')}</option>
         {#each people as p (p.id)}<option value={String(p.id)}>{p.displayName} (@{p.username})</option>{/each}
         <option value="other">{t('loan.other')}</option>
+        {#if instances.length}<option value="remote">{t('loan.remote')}</option>{/if}
       </select>
     </label>
     {#if borrower === 'other'}
@@ -64,6 +70,13 @@
         <!-- svelte-ignore a11y_autofocus -->
         <input bind:value={name} required maxlength="80" placeholder={t('loan.namePh')} autofocus />
         <small>{t('loan.nameHint')}</small>
+      </label>
+    {/if}
+    {#if borrower === 'remote'}
+      <label class="field">
+        <span>{t('loan.handle')}</span>
+        <input bind:value={handle} required placeholder={t('loan.handlePh')} autocapitalize="off" spellcheck="false" />
+        <small>{t('loan.handleHint', { list: instances.map(i => i.name ?? new URL(i.url).host).join(', ') })}</small>
       </label>
     {/if}
     <div class="field">

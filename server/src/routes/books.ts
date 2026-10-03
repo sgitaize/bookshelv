@@ -35,7 +35,7 @@ const getBookByIsbn = (isbn: string) => db.prepare('SELECT * FROM books WHERE is
 /** Parallele Anfragen zur gleichen ISBN (Doppelscan) nur einmal ausführen */
 const pending = new Map<string, Promise<BookRow | null>>();
 
-async function importIsbn(isbn: string, userId: number): Promise<BookRow | null> {
+export async function importIsbn(isbn: string, userId: number): Promise<BookRow | null> {
   const existing = getBookByIsbn(isbn);
   if (existing) return existing;
   if (!pending.has(isbn)) {
@@ -153,7 +153,9 @@ bookRoutes.get('/books/:id', c => {
       const loan = openLoanFor(cp.id as number);
       const borrowerName = loan?.borrower_id
         ? (db.prepare('SELECT display_name AS n FROM users WHERE id = ?').get(loan.borrower_id) as { n: string } | undefined)?.n ?? null
-        : null;
+        : loan?.borrower_remote_id
+          ? (db.prepare(`SELECT ra.display_name || ' (@' || ra.username || ')' AS n FROM remote_actors ra WHERE ra.id = ?`).get(loan.borrower_remote_id) as { n: string } | undefined)?.n ?? null
+          : null;
       return {
         ...cp, sprayedEdges: !!cp.sprayedEdges, mine, notes: mine ? cp.notes : null,
         // Verleih: Verleiher sieht alles, andere nur registrierte Entleiher (keine Freitext-Namen Dritter)
