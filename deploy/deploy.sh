@@ -23,6 +23,13 @@ COPYFILE_DISABLE=1 tar --no-xattrs -C dist -czf - server.js package.json public 
   set -e
   mkdir -p ~/$DEPLOY_APP_DIR/data ~/$DEPLOY_APP_DIR/tmp
   cd ~/$DEPLOY_APP_DIR
+  # Sicherung der Datenbank vor jedem Update (Migrationen!), die letzten 10 bleiben
+  if [ -f data/bookshelv.db ]; then
+    B=data/backups/\$(date +%Y%m%d-%H%M%S); mkdir -p \$B
+    cp data/bookshelv.db* \$B/
+    ls -1d data/backups/*/ | head -n -10 | xargs -r rm -rf
+    echo \"  DB-Sicherung: \$B\"
+  fi
   rm -rf public.new && mkdir public.new
   tar -xzf - -C public.new
   mv public.new/server.js public.new/package.json .

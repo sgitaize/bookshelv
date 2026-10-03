@@ -93,15 +93,17 @@ readingRoutes.get('/home', c => {
   const u = requireUser(c);
   const year = String(new Date().getFullYear());
   const mine = shelf(u.id);
-  const toRead = mine.filter(it => it.readStatus === 'unread');
+  // pro Buch nur einmal (gedruckt + E-Book desselben Titels zählen als ein Buch)
+  const uniq = <T extends { book: { id: number } }>(list: T[]) => list.filter((it, i) => list.findIndex(x => x.book.id === it.book.id) === i);
+  const toRead = uniq(mine.filter(it => it.readStatus === 'unread'));
   return c.json({
     reading: readingList(u.id, "ub.status = 'reading'", 'ub.updated_at DESC'),
     recentlyRead: readingList(u.id, "ub.status = 'read'", 'ub.finished_at DESC, ub.updated_at DESC', 12),
     toRead: toRead.slice(0, 12),
     toReadCount: toRead.length,
-    recentlyAdded: mine.slice(0, 12),
+    recentlyAdded: uniq(mine).slice(0, 12),
     counts: {
-      books: mine.length,
+      books: uniq(mine).length,
       read: (db.prepare("SELECT COUNT(*) AS n FROM user_books WHERE user_id = ? AND status = 'read'").get(u.id) as { n: number }).n,
       readThisYear: (db.prepare("SELECT COUNT(*) AS n FROM user_books WHERE user_id = ? AND status = 'read' AND finished_at LIKE ?").get(u.id, `${year}%`) as { n: number }).n
     }
@@ -114,7 +116,7 @@ readingRoutes.get('/users', c => {
   requireUser(c);
   return c.json(db.prepare(`
     SELECT u.id, u.display_name AS displayName, u.username, u.shelf_visible AS shelfVisible,
-           (SELECT COUNT(*) FROM copies WHERE owner_id = u.id) AS copies
+           (SELECT COUNT(DISTINCT book_id) FROM copies WHERE owner_id = u.id AND removed_at IS NULL) AS copies
     FROM users u WHERE u.disabled = 0 ORDER BY u.display_name COLLATE NOCASE
   `).all().map(r => ({ ...r, shelfVisible: !!r.shelfVisible, copies: r.shelfVisible ? r.copies : null })));
 });
@@ -141,7 +143,7 @@ readingRoutes.get('/users/:id/profile', c => {
   return c.json({
     id: p.id, username: p.username, displayName: p.displayName, createdAt: p.createdAt, shelfVisible: p.visible,
     counts: {
-      books: n('SELECT COUNT(*) AS n FROM copies WHERE owner_id = ?', p.id),
+      books: n('SELECT COUNT(DISTINCT book_id) AS n FROM copies WHERE owner_id = ? AND removed_at IS NULL', p.id),
       read: n("SELECT COUNT(*) AS n FROM user_books WHERE user_id = ? AND status = 'read'", p.id),
       readThisYear: n("SELECT COUNT(*) AS n FROM user_books WHERE user_id = ? AND status = 'read' AND finished_at LIKE ?", p.id, `${year}%`),
       reviews: n("SELECT COUNT(*) AS n FROM reviews WHERE user_id = ? AND (user_id = ? OR visibility != 'private')", p.id, u.id)

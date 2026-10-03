@@ -7,10 +7,12 @@ export class ApiError extends Error {
 }
 
 async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
+  // Schreibende Anfragen immer als JSON – sonst lehnt der CSRF-Schutz sie ab (z. B. DELETE ohne Inhalt)
+  const json = method !== 'GET';
   const res = await fetch(`/api${url}`, {
     method,
-    headers: { 'x-lang': i18n.lang, ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    headers: { 'x-lang': i18n.lang, ...(json ? { 'Content-Type': 'application/json' } : {}) },
+    body: json ? JSON.stringify(body ?? {}) : undefined,
     credentials: 'same-origin'
   });
   const data = res.headers.get('content-type')?.includes('json') ? await res.json() : null;
@@ -39,16 +41,22 @@ export type Format = 'print' | 'ebook';
 export type Binding = 'paperback' | 'hardcover';
 export type ReadStatus = 'unread' | 'reading' | 'read' | 'dnf';
 
-export type CopyValues = { format: Format; binding: Binding | null; sprayedEdges: boolean; readStatus: ReadStatus; notes: string };
-export const emptyCopy = (): CopyValues => ({ format: 'print', binding: null, sprayedEdges: false, readStatus: 'unread', notes: '' });
+export type CopyValues = { format: Format; binding: Binding | null; sprayedEdges: boolean; readStatus: ReadStatus; notes: string; storeId: number | null };
+export const emptyCopy = (): CopyValues => ({ format: 'print', binding: null, sprayedEdges: false, readStatus: 'unread', notes: '', storeId: null });
+export type Store = { id: number; name: string };
 
 export type BookBrief = Pick<Book, 'id' | 'title' | 'subtitle' | 'authors' | 'year' | 'pages' | 'coverUrl'>;
 
 export type ShelfItem = {
   id: number; format: Format; binding: Binding | null; sprayedEdges: boolean; readStatus: ReadStatus;
   progress: number | null; favorite: boolean; createdAt: string; lent: boolean;
+  store?: string | null; storeId?: number | null;
+  removedAt?: string | null; removedReason?: RemoveReason | null;
   book: BookBrief;
 };
+
+export type RemoveReason = 'sold' | 'given_away' | 'lost' | 'other';
+export type ArchivedCopy = { id: number; format: Format; binding: Binding | null; removedAt: string; removedReason: RemoveReason | null };
 
 export type Reading = { status: ReadStatus; progress: number | null; startedAt: string | null; finishedAt: string | null; favorite: boolean };
 export type ReadingItem = { book: BookBrief; status: ReadStatus; progress: number | null; startedAt: string | null; finishedAt: string | null };
@@ -101,6 +109,7 @@ export type CopyLoan = { id: number | null; borrowerId: number | null; borrowerN
 export type Copy = {
   id: number; format: Format; binding: Binding | null; sprayedEdges: boolean; readStatus: ReadStatus;
   notes: string | null; createdAt: string; ownerId: number; ownerName: string; mine: boolean;
+  store: string | null; storeId: number | null;
   loan: CopyLoan | null;
 };
 
@@ -110,6 +119,11 @@ export type Loan = {
   copy: { format: Format; binding: Binding | null }; book: BookBrief;
 };
 export type Loans = { lent: Loan[]; borrowed: Loan[]; history: Loan[] };
+
+export type HistoryType = 'added' | 'removed' | 'started' | 'finished' | 'dnf' | 'reviewed' | 'lent' | 'got_back' | 'borrowed' | 'gave_back';
+export const HISTORY_TYPES: HistoryType[] = ['added', 'started', 'finished', 'dnf', 'reviewed', 'lent', 'got_back', 'borrowed', 'gave_back', 'removed'];
+export const LOAN_TYPES: HistoryType[] = ['lent', 'got_back', 'borrowed', 'gave_back'];
+export type HistoryEvent = { type: HistoryType; date: string; person: string | null; rating: number | null; dueAt: string | null; reason?: RemoveReason | null; book: BookBrief };
 
 export type SearchHit = {
   isbn13: string; title: string; subtitle: string | null; authors: string[]; publisher: string | null;

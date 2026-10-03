@@ -3,9 +3,12 @@
   import ProgressSheet from '../components/ProgressSheet.svelte';
   import Reviews from '../components/Reviews.svelte';
   import LendSheet from '../components/LendSheet.svelte';
+  import Timeline from '../components/Timeline.svelte';
+  import RemoveSheet from '../components/RemoveSheet.svelte';
+  import type { HistoryEvent, ArchivedCopy } from '../lib/api.ts';
   import { toast, toastError } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
-  import { t, tn, i18n, fmtDate as fmtD } from '../lib/i18n.svelte.ts';
+  import { t, tn, i18n, fmtDate as fmtD, type Key } from '../lib/i18n.svelte.ts';
   import Cover from '../components/Cover.svelte';
   import CopyForm from '../components/CopyForm.svelte';
   import Sheet from '../components/Sheet.svelte';
@@ -13,7 +16,8 @@
 
   let { id }: { id: number } = $props();
 
-  let data = $state<{ book: Book; copies: Copy[]; canEdit: boolean; reading: Reading } | null>(null);
+  let data = $state<{ book: Book; copies: Copy[]; canEdit: boolean; reading: Reading; archived: ArchivedCopy[] } | null>(null);
+  let removing = $state<{ id: number; archived: boolean } | null>(null);
   let progressOpen = $state(false);
   let askReview = $state(false);
   let lendCopy = $state<number | null>(null);
@@ -29,7 +33,11 @@
   let editBook = $state<{ title: string; subtitle: string; authors: string; publisher: string; year: string; pages: string } | null>(null);
   let busy = $state(false);
 
-  const load = () => api.get<typeof data>(`/books/${id}`).then(r => (data = r)).catch(toastError);
+  let history = $state<HistoryEvent[]>([]);
+  const load = () => Promise.all([
+    api.get<typeof data>(`/books/${id}`).then(r => (data = r)),
+    api.get<{ events: HistoryEvent[] }>(`/history?book=${id}`).then(r => (history = r.events))
+  ]).catch(toastError);
   $effect(() => { load(); });
 
   // Schlagworte entdoppeln ("Fiction" vs. "Fiction, science fiction, general") und auf wenige kürzen
@@ -57,7 +65,7 @@
   const fmtDate = (d: string | null) => fmtD(d);
 
   function describe(c: Copy) {
-    return [labels.format[c.format], c.binding && labels.binding[c.binding]].filter(Boolean).join(' · ');
+    return [labels.format[c.format], c.binding && labels.binding[c.binding], c.store].filter(Boolean).join(' · ');
   }
 
   async function saveCopy() {
@@ -72,14 +80,16 @@
     } catch (e) { toastError(e); } finally { busy = false; }
   }
 
-  async function removeCopy(c: Copy) {
-    if (!confirm(t('book.removeCopyQ'))) return;
+  function removeCopy(c: { id: number }, archived = false) {
+    editing = null;
+    removing = { id: c.id, archived };
+  }
+
+  async function restore(id: number) {
     try {
-      await api.del(`/copies/${c.id}`);
-      toast(t('common.removed'));
-      editing = null;
+      await api.post(`/copies/${id}/restore`);
+      toast(t('rm.restored'));
       await load();
-      if (!mine.length && !others.length) router.go('/', true);
     } catch (e) { toastError(e); }
   }
 
@@ -183,11 +193,14 @@
               <a class="small" href="/loans">{t('loan.all')}</a>
             </div>
           {:else}
-            <button class="small lendbtn" onclick={() => (lendCopy = c.id)}><Icon name="users" size={14} /> {t('loan.lend')}</button>
+            <div class="row loanacts">
+              <button class="small lendbtn" onclick={() => (lendCopy = c.id)}><Icon name="users" size={14} /> {t('loan.lend')}</button>
+              <button class="small ghost danger" onclick={() => removeCopy(c)}><Icon name="trash" size={14} /> {t('copy.removeFromShelf')}</button>
+            </div>
           {/if}
         </div>
         <button class="icon ghost" aria-label={t('common.edit')}
-          onclick={() => (editing = { copyId: c.id, values: { format: c.format, binding: c.binding, sprayedEdges: c.sprayedEdges, readStatus: c.readStatus, notes: c.notes ?? '' } })}>
+          onclick={() => (editing = { copyId: c.id, values: { format: c.format, binding: c.binding, sprayedEdges: c.sprayedEdges, readStatus: c.readStatus, notes: c.notes ?? '', storeId: c.storeId } })}>
           <Icon name="edit" size={18} />
         </button>
       </div>
@@ -207,12 +220,41 @@
       {/each}
     {/if}
   </section>
+
+  {#if data.archived.length}
+    <section class="stack archived">
+      <h2>{t('rm.archivedTitle')}</h2>
+      {#each data.archived as a (a.id)}
+        <div class="card copy">
+          <span class="fmt"><Icon name="trash" /></span>
+          <div class="grow">
+            <strong>{describe({ format: a.format, binding: a.binding, store: null } as Copy)}</strong>
+            <p class="muted small note">{t('rm.archivedOn', { reason: t(`rm.${a.removedReason ?? 'other'}` as Key), d: fmtDate(a.removedAt) })}</p>
+            <div class="row loanacts">
+              <button class="small" onclick={() => restore(a.id)}>{t('rm.restore')}</button>
+              <button class="small ghost danger" onclick={() => removeCopy(a, true)}>{t('rm.purge')}</button>
+            </div>
+          </div>
+        </div>
+      {/each}
+    </section>
+  {/if}
+
+  {#if history.length}
+    <section class="hist">
+      <h2>{t('hist.book')}</h2>
+      <Timeline events={history} compact />
+    </section>
+  {/if}
 {/if}
 
 {#if data}
   <ProgressSheet item={progressOpen ? { book: data.book, progress: data.reading.progress, status: data.reading.status } : null}
     onclose={() => (progressOpen = false)} onsaved={load} />
 {/if}
+
+<RemoveSheet copyId={removing?.id ?? null} archivedOnly={removing?.archived ?? false} title={data?.book.title ?? ''}
+  onclose={() => (removing = null)} onsaved={load} />
 
 <LendSheet copyId={lendCopy} title={data?.book.title ?? ''} onclose={() => (lendCopy = null)} onsaved={load} />
 
@@ -288,7 +330,9 @@
   .loanacts { margin-top: 0.4rem; gap: 0.6rem; }
   button.small { padding: 0.35em 0.75em; font-size: 0.82rem; }
   a.small { font-size: 0.82rem; }
-  .lendbtn { margin-top: 0.5rem; }
+  .lendbtn { margin: 0; }
+  .hist, .archived { margin-top: 2rem; }
+  .hist h2 { margin-bottom: 1rem; }
   .avatar {
     width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0;
     background: var(--surface-3); font-weight: 700; color: var(--accent);

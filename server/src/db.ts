@@ -117,6 +117,22 @@ const migrations: string[] = [
   CREATE INDEX reviews_book ON reviews(book_id);
   CREATE INDEX reviews_updated ON reviews(updated_at);
   CREATE INDEX comments_review ON comments(review_id);
+  `,
+  // 3: Exemplare nur noch als entfernt markieren, damit Verleih- und Buch-Historie erhalten bleiben
+  `
+  ALTER TABLE copies ADD COLUMN removed_at TEXT;
+  ALTER TABLE copies ADD COLUMN removed_reason TEXT CHECK (removed_reason IN ('sold', 'given_away', 'lost', 'other'));
+  CREATE INDEX loans_lender ON loans(lender_id);
+  -- E-Book-Shops/Plattformen: gemeinsame Liste, Nutzer können neue anlegen
+  CREATE TABLE stores (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  INSERT INTO stores (name) VALUES ('tolino'), ('Hugendubel'), ('Thalia'), ('Kindle (Amazon)'), ('Apple Books'),
+    ('Google Play Books'), ('Kobo'), ('Weltbild'), ('ebook.de'), ('Onleihe'), ('Bücher.de');
+  ALTER TABLE copies ADD COLUMN store_id INTEGER REFERENCES stores(id) ON DELETE SET NULL;
   `
 ];
 

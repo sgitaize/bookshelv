@@ -45,7 +45,7 @@
   <div class="segmented tabs">
     <button class:active={tab === 'lent'} onclick={() => (tab = 'lent')}>{t('loan.tabLent', { n: data?.lent.length ?? 0 })}</button>
     <button class:active={tab === 'borrowed'} onclick={() => (tab = 'borrowed')}>{t('loan.tabBorrowed', { n: data?.borrowed.length ?? 0 })}</button>
-    <button class:active={tab === 'history'} onclick={() => (tab = 'history')}>{t('loan.tabHistory')}</button>
+    <button onclick={() => router.go('/history?types=lent,got_back,borrowed,gave_back')}>{t('loan.tabHistory')} →</button>
   </div>
 
   {#if !data}

@@ -20,7 +20,7 @@ adminRoutes.get('/stats', c => {
   return c.json({
     users: count('SELECT COUNT(*) AS n FROM users'),
     books: count('SELECT COUNT(*) AS n FROM books'),
-    copies: count('SELECT COUNT(*) AS n FROM copies'),
+    copies: count('SELECT COUNT(*) AS n FROM copies WHERE removed_at IS NULL'),
     reviews: count('SELECT COUNT(*) AS n FROM reviews'),
     openLoans: count('SELECT COUNT(*) AS n FROM loans WHERE returned_at IS NULL'),
     orphanBooks: count('SELECT COUNT(*) AS n FROM books b WHERE NOT EXISTS (SELECT 1 FROM copies WHERE book_id = b.id) AND NOT EXISTS (SELECT 1 FROM reviews WHERE book_id = b.id)'),
@@ -36,7 +36,7 @@ adminRoutes.get('/users', c => {
   return c.json(db.prepare(`
     SELECT u.id, u.username, u.display_name AS displayName, u.is_admin AS isAdmin, u.disabled, u.created_at AS createdAt,
            inv.display_name AS invitedBy,
-           (SELECT COUNT(*) FROM copies WHERE owner_id = u.id) AS copies,
+           (SELECT COUNT(*) FROM copies WHERE owner_id = u.id AND removed_at IS NULL) AS copies,
            (SELECT MAX(created_at) FROM sessions WHERE user_id = u.id) AS lastLogin
     FROM users u LEFT JOIN users inv ON inv.id = u.invited_by ORDER BY u.id
   `).all().map(r => ({ ...r, isAdmin: !!r.isAdmin, disabled: !!r.disabled })));
@@ -84,6 +84,12 @@ adminRoutes.get('/invites', c => {
     FROM invites i JOIN users cr ON cr.id = i.created_by LEFT JOIN users us ON us.id = i.used_by
     ORDER BY i.id DESC LIMIT 200
   `).all());
+});
+
+adminRoutes.delete('/stores/:id', c => {
+  requireAdmin(c);
+  if (!db.prepare('DELETE FROM stores WHERE id = ?').run(idParam(c)).changes) throw notFound('Eintrag');
+  return c.json({ ok: true });
 });
 
 /** Aufräumen: Katalogeinträge ohne Exemplar/Review, abgelaufene Einladungen, alte Vorschaubilder */

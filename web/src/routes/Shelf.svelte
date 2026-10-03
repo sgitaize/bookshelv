@@ -2,7 +2,7 @@
   import { api, labels, type ShelfItem } from '../lib/api.ts';
   import { session, toastError } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
-  import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
+  import { t, tn, i18n, fmtDate, type Key } from '../lib/i18n.svelte.ts';
   import Cover from '../components/Cover.svelte';
   import Icon from '../components/Icon.svelte';
 
@@ -12,7 +12,8 @@
   let items = $state<ShelfItem[] | null>(null);
   let ownerName = $state('');
   let q = $state('');
-  type Filter = 'all' | 'print' | 'ebook' | 'unread' | 'reading' | 'read' | 'lent' | 'edges' | 'favorite';
+  type Filter = 'all' | 'print' | 'ebook' | 'unread' | 'reading' | 'read' | 'lent' | 'edges' | 'favorite' | 'archive' | 'sold';
+  let archived = $state<ShelfItem[] | null>(null);
   let filter = $state<Filter>((router.query.get('filter') as Filter) ?? 'all');
   let sort = $state<'added' | 'title' | 'author'>('added');
 
@@ -31,10 +32,25 @@
 
   const filters = $derived([
     ['all', t('filter.all')], ['print', t('filter.print')], ['ebook', t('filter.ebook')], ['unread', t('read.unread')], ['reading', t('read.reading')],
-    ['read', t('read.read')], ['favorite', t('filter.favorites')], ...(own ? [['lent', t('filter.lent')]] : []), ['edges', t('copy.edges')]
+    ['read', t('read.read')], ['favorite', t('filter.favorites')], ...(own ? [['lent', t('filter.lent')]] : []), ['edges', t('copy.edges')],
+    ...(own ? [['archive', t('filter.archive')], ['sold', t('filter.sold')]] : [])
   ] as [Filter, string][]);
 
+  // Archiv wird erst geladen, wenn der Filter gewählt wird
+  $effect(() => {
+    if ((filter === 'archive' || filter === 'sold') && own && archived === null)
+      api.get<ShelfItem[]>('/copies?archived=1').then(r => (archived = r)).catch(toastError);
+  });
+
+  const bookCount = $derived(new Set((items ?? []).map(i => i.book.id)).size);
+
   const shown = $derived.by(() => {
+    if (filter === 'archive' || filter === 'sold') {
+      const needle = q.trim().toLowerCase();
+      return (archived ?? []).filter(it => (filter === 'archive' || it.removedReason === 'sold')
+        && (!needle || `${it.book.title} ${it.book.authors.join(' ')}`.toLowerCase().includes(needle)))
+        .map(it => ({ ...it, formats: new Set<string>([it.format]) }));
+    }
     if (!items) return [];
     const needle = q.trim().toLowerCase();
     const list = items.filter(it => {
@@ -49,7 +65,15 @@
       }
     });
     const key = (it: ShelfItem) => sort === 'title' ? it.book.title : (it.book.authors[0]?.split(' ').pop() ?? '');
-    return sort === 'added' ? list : [...list].sort((a, b) => key(a).localeCompare(key(b), i18n.lang));
+    const sorted = sort === 'added' ? list : [...list].sort((a, b) => key(a).localeCompare(key(b), i18n.lang));
+    // gleiche Titel (z. B. gedruckt + E-Book) zu einer Kachel zusammenführen
+    const byBook = new Map<number, ShelfItem & { formats: Set<string> }>();
+    for (const it of sorted) {
+      const g = byBook.get(it.book.id);
+      if (!g) byBook.set(it.book.id, { ...it, formats: new Set([it.format]) });
+      else { g.formats.add(it.format); g.lent ||= it.lent; g.sprayedEdges ||= it.sprayedEdges; }
+    }
+    return [...byBook.values()];
   });
 </script>
 
@@ -57,11 +81,12 @@
   <div class="spread head">
     <div>
       <h1>{own ? t('shelf.mine') : t('shelf.of', { name: ownerName })}</h1>
-      {#if items}<p class="muted">{tn('n.books', items.length)}{#if shown.length !== items.length} · {t('shelf.shown', { n: shown.length })}{/if}</p>{/if}
+      {#if own}<a href="/history" class="histlink small">{t('hist.title')} →</a>{/if}
+      {#if items}<p class="muted">{tn('n.books', bookCount)}{#if shown.length !== bookCount} · {t('shelf.shown', { n: shown.length })}{/if}</p>{/if}
     </div>
   </div>
 
-  {#if items && items.length}
+  {#if items && (items.length || own)}
     <div class="tools">
       <div class="searchbox">
         <Icon name="search" size={18} />
@@ -82,7 +107,7 @@
 
   {#if items === null}
     <div class="grid">{#each Array(8) as _}<div class="skeleton"></div>{/each}</div>
-  {:else if items.length === 0}
+  {:else if items.length === 0 && filter !== 'archive' && filter !== 'sold'}
     <div class="empty">
       <h2>{own ? t('shelf.empty') : t('shelf.noBooks')}</h2>
       {#if own}
@@ -94,11 +119,12 @@
     <div class="grid">
       {#each shown as it (it.id)}
         <a class="item" href="/book/{it.book.id}">
-          <div class="cv">
+          <div class="cv" class:gone={!!it.removedAt}>
             <Cover url={it.book.coverUrl} title={it.book.title} authors={it.book.authors} />
             <div class="badges">
               {#if it.lent}<span class="chip accent">{t('shelf.lent')}</span>{/if}
-              {#if it.format === 'ebook'}<span class="chip">{t('format.ebook')}</span>{/if}
+              {#if it.removedAt}<span class="chip accent">{t(`rm.${it.removedReason ?? 'other'}` as Key)}</span>{/if}
+              {#if it.formats.has('ebook')}<span class="chip">{it.formats.has('print') ? t('shelf.plusEbook') : t('format.ebook')}</span>{/if}
               {#if it.sprayedEdges}<span class="chip edge">{t('copy.edges')}</span>{/if}
             </div>
             {#if it.readStatus !== 'unread'}<span class="status {it.readStatus}" title={labels.read[it.readStatus]}></span>{/if}
@@ -115,6 +141,7 @@
 <style>
   .head { margin-bottom: 1rem; align-items: flex-end; }
   .head p { margin: 0; }
+  .histlink { float: right; margin-top: 0.4rem; }
   .tools { display: flex; gap: 0.6rem; margin-bottom: 0.7rem; }
   .tools select { width: auto; }
   .searchbox { position: relative; flex: 1; display: flex; align-items: center; }
@@ -134,6 +161,7 @@
   .item:hover { text-decoration: none; }
   .cv { position: relative; transition: transform 0.25s cubic-bezier(.2,.8,.3,1.2); }
   .item:hover .cv { transform: translateY(-4px); }
+  .gone :global(img) { filter: grayscale(0.85); opacity: 0.7; }
   .badges { position: absolute; left: 8px; right: 6px; bottom: 6px; display: flex; flex-wrap: wrap; gap: 3px; z-index: 1; }
   .badges .chip { box-shadow: 0 1px 4px rgb(0 0 0 / 0.4); }
   .badges .chip:not(.edge):not(.accent) { background: rgb(20 15 10 / 0.8); color: #eee; }

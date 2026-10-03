@@ -8,3 +8,4 @@ data/
 # interne Notizen aus dem Claude-Workspace (nie ins Repo)
 INTERN.md
 LOG.md
+tests/node_modules/

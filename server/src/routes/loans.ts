@@ -70,7 +70,7 @@ loanRoutes.get('/loans', c => {
 
 loanRoutes.post('/copies/:id/loans', async c => {
   const u = requireUser(c);
-  const copy = db.prepare('SELECT id FROM copies WHERE id = ? AND owner_id = ?').get(idParam(c), u.id) as { id: number } | undefined;
+  const copy = db.prepare('SELECT id FROM copies WHERE id = ? AND owner_id = ? AND removed_at IS NULL').get(idParam(c), u.id) as { id: number } | undefined;
   if (!copy) throw notFound('Exemplar');
   if (openLoanFor(copy.id)) throw new HTTPException(409, { message: 'Dieses Exemplar ist schon verliehen' });
   const b = await body(c);

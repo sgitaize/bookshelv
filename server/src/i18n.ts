@@ -37,6 +37,8 @@ const EN: Record<string, string> = {
   'An wen? Person auswählen oder Namen eingeben': 'To whom? Pick a person or enter a name',
   'An dich selbst kannst du nicht verleihen': 'You cannot lend a book to yourself',
   'Rückgabe kann nicht vor dem Verleihdatum liegen': 'The return date cannot be before the lending date',
+  'Dieses Exemplar ist gerade verliehen – erst als zurückbekommen markieren': 'This copy is currently lent out – mark it as returned first',
+  'Name fehlt': 'Name is missing',
   'Zu viele Fehlversuche – bitte in ein paar Minuten erneut versuchen': 'Too many failed attempts – please try again in a few minutes'
 };
 

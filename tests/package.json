@@ -1,0 +1,7 @@
+{
+  "name": "bookshelv-tests",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end-Tests gegen eine frische lokale Instanz (nicht Teil der npm-Workspaces)",
+  "devDependencies": { "puppeteer-core": "^24.0.0" }
+}
