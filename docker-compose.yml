@@ -1,0 +1,14 @@
+# bookshelv auf dem Homeserver: `docker compose up -d`, dann http://<server>:8080
+# Für die Kamera (ISBN-Scan) braucht der Browser HTTPS → Reverse Proxy davor (Caddy, Traefik, nginx …), siehe README.
+services:
+  bookshelv:
+    build: .
+    container_name: bookshelv
+    restart: unless-stopped
+    ports:
+      - "8080:3000"
+    volumes:
+      - ./data:/data
+    environment:
+      # Nur für Tests ohne HTTPS im LAN auf 1 setzen – sonst funktioniert der Login über http:// nicht
+      BOOKSHELV_INSECURE_COOKIES: "0"

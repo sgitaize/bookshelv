@@ -1,0 +1,13 @@
+{
+  "name": "bookshelv",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Selbst gehostete Bibliothek für den Freundeskreis: Bücher, Reviews, Verleih",
+  "workspaces": ["server", "web"],
+  "scripts": {
+    "dev": "npm run dev -w server & npm run dev -w web",
+    "build": "npm run build -w web && npm run build -w server",
+    "deploy": "npm run build && ./deploy/deploy.sh"
+  },
+  "license": "MIT"
+}
