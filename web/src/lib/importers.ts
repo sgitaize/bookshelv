@@ -7,10 +7,11 @@ export type ImportItem = {
   isbn?: string; title?: string; authors?: string[]; status: 'read' | 'reading' | 'unread' | 'dnf' | 'want';
   rating?: number | null; review?: string | null; spoiler?: boolean; finishedAt?: string | null; addedAt?: string | null;
   owned?: boolean; format?: 'print' | 'ebook'; binding?: 'paperback' | 'hardcover' | null; startedAt?: string | null;
-  lists?: string[]; resolve?: string[];
+  lists?: (string | ListRef)[]; resolve?: string[]; favorite?: boolean; wishlist?: boolean; dateUnknown?: boolean;
 };
+export type ListRef = { name: string; createdAt?: string | null; addedAt?: string | null };
 
-export type ImportSource = 'goodreads' | 'storygraph' | 'bookshelv' | 'generic';
+export type ImportSource = 'goodreads' | 'storygraph' | 'booky' | 'bookshelv' | 'generic';
 
 /** RFC-4180-CSV: Anführungszeichen, verdoppelte "" und Zeilenumbrüche in Feldern */
 export function parseCsv(text: string): string[][] {
@@ -63,6 +64,7 @@ export function detect(header: string[]): ImportSource {
   const h = header.map(x => x.trim().toLowerCase());
   if (h.includes('exclusive shelf')) return 'goodreads';
   if (h.includes('read status') && h.includes('star rating')) return 'storygraph';
+  if (['isbn', 'title', 'contributors', 'list_name', 'is_default', 'entry_created_at'].every(x => h.includes(x))) return 'booky';
   if (['title', 'isbn13', 'status', 'rating', 'owned', 'wishlist', 'lists'].every(x => h.includes(x))) return 'bookshelv';
   return 'generic';
 }
@@ -71,6 +73,7 @@ export function convert(rows: string[][]): { source: ImportSource; items: Import
   const [header, ...data] = rows;
   if (!header) return { source: 'generic', items: [] };
   const source = detect(header);
+  if (source === 'booky') return { source, items: fromBooky(header, data) };
   const idx = Object.fromEntries(header.map((h, i) => [h.trim().toLowerCase(), i]));
   const get = (r: string[], name: string) => (idx[name] !== undefined ? r[idx[name]]?.trim() : undefined);
   const mapping = guessMapping(header);
@@ -211,3 +214,62 @@ export function convertMapped(rows: string[][], m: Mapping): ImportItem[] {
   const scale = ratingScale(data, m.rating);
   return data.map(r => fromMapping(r, m, scale)).filter((x): x is ImportItem => !!x);
 }
+
+// ---------- Booky ----------
+
+/** Booky-Standardlisten → bookshelv. Alles andere sind eigene Listen und werden Leselisten. */
+export const BOOKY_DEFAULTS: Record<string, string> = {
+  finished: 'read', currently_reading: 'reading', did_not_finish: 'dnf',
+  want_to_read: 'want_to_read', wishlist: 'wishlist', favorite: 'favorite'
+};
+/** Booky trägt „Datum unbekannt“ als 2000-01-01 ein */
+const bookyDate = (v: string | undefined) => (v && !v.startsWith('2000-01-01') ? v.slice(0, 19) : null);
+
+/**
+ * Booky exportiert eine Zeile je Buch und Liste (isbn, title, contributors, list_name, is_default,
+ * list_created_at, entry_created_at). Hier wird daraus ein Eintrag je Buch.
+ * entry_created_at der Liste „finished“ = gelesen am, bei „currently_reading“ = begonnen am.
+ */
+export function fromBooky(header: string[], data: string[][]): ImportItem[] {
+  const i = Object.fromEntries(header.map((h, n) => [h.trim().toLowerCase(), n]));
+  const byBook = new Map<string, ImportItem & { owned: boolean }>();
+  for (const r of data) {
+    const isbn = isbnOf(r[i.isbn]);
+    const title = (r[i.title] ?? '').trim();
+    if (!isbn && !title) continue;
+    const key = isbn ?? title.toLowerCase();
+    const it = byBook.get(key) ?? { isbn, title, authors: authorsOf(r[i.contributors]), status: 'unread', owned: false, format: 'print', lists: [] };
+    byBook.set(key, it);
+    const list = (r[i.list_name] ?? '').trim();
+    const isDefault = (r[i.is_default] ?? '').toLowerCase() === 'true';
+    const entry = bookyDate(r[i.entry_created_at]);
+    const kind = isDefault ? BOOKY_DEFAULTS[list] : undefined;
+    if (kind === 'read' || kind === 'dnf') {
+      // gelesen schlägt alles andere; mehrfach gelesen → letztes Datum
+      if (it.status !== 'read' || kind === 'read') it.status = kind;
+      const d = entry?.slice(0, 10) ?? null;
+      if (d && (!it.finishedAt || d > it.finishedAt)) it.finishedAt = d;
+      if (!d && !it.finishedAt) it.dateUnknown = true;
+      if (d) it.dateUnknown = false;
+    } else if (kind === 'reading') {
+      if (it.status !== 'read' && it.status !== 'dnf') it.status = 'reading';
+      it.startedAt = entry?.slice(0, 10) ?? null;
+    } else if (kind === 'wishlist') {
+      it.wishlist = true;
+    } else if (kind === 'favorite') {
+      it.favorite = true;
+    } else if (list) {
+      // want_to_read wird zur Leseliste „Will ich lesen“, eigene Listen behalten ihren Namen
+      const name = kind === 'want_to_read' ? 'Will ich lesen' : list;
+      it.lists!.push({ name, createdAt: bookyDate(r[i.list_created_at]), addedAt: entry });
+    }
+    if (entry && (!it.addedAt || entry.slice(0, 10) < it.addedAt)) it.addedAt = entry.slice(0, 10);
+  }
+  // nur auf der Wunschliste → status want (kein Exemplar)
+  for (const it of byBook.values()) if (it.wishlist && it.status === 'unread' && !it.lists!.length) it.status = 'want';
+  return [...byBook.values()];
+}
+
+/** Listen-/Regalnamen eines Imports (für die Auswahl „steht in meinem Regal“) */
+export const listNames = (items: ImportItem[]) =>
+  [...new Set(items.flatMap(it => (it.lists ?? []).map(l => (typeof l === 'string' ? l : l.name))))];

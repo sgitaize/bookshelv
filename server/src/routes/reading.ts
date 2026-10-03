@@ -27,7 +27,7 @@ export const readingJson = (r: ReadingRow | undefined) => ({
   favorite: !!r?.favorite
 });
 
-const today = () => new Date().toISOString().slice(0, 10);
+export const today = () => new Date().toISOString().slice(0, 10);
 const isDate = (v: unknown) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
 
 type Patch = { status?: Status; progress?: number | null; favorite?: boolean; startedAt?: string | null; finishedAt?: string | null };
@@ -45,8 +45,9 @@ export function setReading(userId: number, bookId: number, p: Patch) {
   if (p.progress && !p.status && status === 'unread') status = 'reading';
   if (pages && progress !== null && progress >= pages && !p.status && status === 'reading') status = 'read';
 
-  if (status === 'reading') { started ??= today(); finished = p.finishedAt ?? null; }
-  if (status === 'read') { finished ??= today(); if (pages) progress = pages; }
+  // Datum nur vorbelegen, wenn keins mitgeschickt wurde – null heißt bewusst „unbekannt“ (z. B. aus einem Import)
+  if (status === 'reading') { if (p.startedAt === undefined) started ??= today(); finished = p.finishedAt ?? null; }
+  if (status === 'read') { if (p.finishedAt === undefined && cur?.status !== 'read') finished ??= today(); if (pages) progress = pages; }
   if (status === 'unread') { progress = null; started = null; finished = null; }
 
   db.prepare(`
@@ -68,12 +69,14 @@ readingRoutes.put('/books/:id/reading', async c => {
     if (!isDate(v)) throw new HTTPException(400, { message: 'Datum im Format JJJJ-MM-TT' });
     return v as string;
   };
+  const startedAt = date(b.startedAt), finishedAt = date(b.finishedAt);
+  if (startedAt && finishedAt && finishedAt < startedAt) throw new HTTPException(400, { message: 'Das Ende liegt vor dem Beginn' });
+  if ((startedAt && startedAt > today()) || (finishedAt && finishedAt > today())) throw new HTTPException(400, { message: 'Datum liegt in der Zukunft' });
   setReading(u.id, id, {
     status: b.status === undefined ? undefined : oneOf(b.status, READ_STATUS, 'unread'),
     progress: b.progress === undefined ? undefined : int(b.progress, 0, 100000),
     favorite: typeof b.favorite === 'boolean' ? b.favorite : undefined,
-    startedAt: date(b.startedAt),
-    finishedAt: date(b.finishedAt)
+    startedAt, finishedAt
   });
   const row = db.prepare('SELECT * FROM user_books WHERE user_id = ? AND book_id = ?').get(u.id, id) as ReadingRow;
   return c.json(readingJson(row));

@@ -14,12 +14,15 @@
   import Sheet from '../components/Sheet.svelte';
   import Icon from '../components/Icon.svelte';
   import ListSheet from '../components/ListSheet.svelte';
+  import DatesSheet from '../components/DatesSheet.svelte';
   import FeedList from '../components/FeedList.svelte';
   import type { FeedItem } from '../lib/api.ts';
 
   let { id }: { id: number } = $props();
 
   let listOpen = $state(false);
+  let datesOpen = $state(false);
+  let datesJust = $state(false);
   let bookFeed = $state<FeedItem[]>([]);
   $effect(() => { api.get<{ items: FeedItem[] }>(`/feed?book=${id}&limit=20`).then(r => (bookFeed = r.items)).catch(() => {}); });
   let data = $state<{ book: Book; copies: Copy[]; canEdit: boolean; wishlisted: boolean; reading: Reading; archived: ArchivedCopy[] } | null>(null);
@@ -63,8 +66,8 @@
     try {
       const before = data!.reading.status;
       data!.reading = await api.put<Reading>(`/books/${id}/reading`, patch);
-      // gerade fertig gelesen → direkt zum Bewerten einladen
-      if (patch.status === 'read' && before !== 'read') askReview = true;
+      // gerade fertig gelesen/abgebrochen → erst fragen, wann (vorbelegt mit heute), danach zum Bewerten einladen
+      if ((patch.status === 'read' || patch.status === 'dnf') && before !== patch.status) { datesJust = true; datesOpen = true; }
     } catch (e) { toastError(e); }
   }
 
@@ -204,10 +207,13 @@
         <span class="pct">{pct}%{#if r.progress && b.pages} · {t('book.pageOf', { p: r.progress, n: b.pages })}{/if} – {t('book.tapUpdate')}</span>
       </button>
     {/if}
-    {#if r.startedAt || r.finishedAt}
-      <p class="muted small dates">
-        {#if r.startedAt}{t('book.started', { d: fmtDate(r.startedAt) })}{/if}{#if r.startedAt && r.finishedAt} · {/if}{#if r.finishedAt}{r.status === 'dnf' ? t('book.dnfOn', { d: fmtDate(r.finishedAt) }) : t('book.finishedOn', { d: fmtDate(r.finishedAt) })}{/if}
-      </p>
+    {#if r.status !== 'unread'}
+      <button class="ghost small dates" onclick={() => { datesJust = false; datesOpen = true; }}>
+        <span>
+          {#if r.startedAt}{t('book.started', { d: fmtDate(r.startedAt) })}{/if}{#if r.startedAt && (r.finishedAt || r.status === 'read' || r.status === 'dnf')} · {/if}{#if r.finishedAt}{r.status === 'dnf' ? t('book.dnfOn', { d: fmtDate(r.finishedAt) }) : t('book.finishedOn', { d: fmtDate(r.finishedAt) })}{:else if r.status === 'read' || r.status === 'dnf'}{t('dates.noDate')}{/if}{#if !r.startedAt && r.status === 'reading'}{t('dates.noStart')}{/if}
+        </span>
+        <Icon name="edit" size={14} />
+      </button>
     {/if}
   </section>
 
@@ -298,7 +304,12 @@
 {/if}
 
 {#if data}
-  <ListSheet bookId={id} open={listOpen} onclose={() => (listOpen = false)} />
+  {#if data}
+  <DatesSheet bookId={id} reading={data.reading} open={datesOpen} just={datesJust}
+    onclose={() => { datesOpen = false; if (datesJust && data?.reading.status === 'read') askReview = true; datesJust = false; }}
+    onsaved={r => { data!.reading = r; datesOpen = false; if (datesJust && r.status === 'read') askReview = true; datesJust = false; }} />
+{/if}
+<ListSheet bookId={id} open={listOpen} onclose={() => (listOpen = false)} />
 <ProgressSheet item={progressOpen ? { book: data.book, progress: data.reading.progress, status: data.reading.status } : null}
     onclose={() => (progressOpen = false)} onsaved={load} />
 {/if}
@@ -358,7 +369,7 @@
   }
   .fill { position: absolute; inset: 0 auto 0 0; background: var(--progress); }
   .pct { position: relative; font-size: 0.8rem; font-weight: 500; padding-left: 10px; line-height: 30px; display: block; text-align: left; }
-  .dates { margin: 0; }
+  .dates { margin: 0; justify-self: start; justify-content: flex-start; gap: 0.4rem; color: var(--muted); padding: 0.3rem 0.5rem; white-space: normal; text-align: left; }
   .subtitle { font-size: 1.15rem; color: var(--muted); margin-top: -0.3rem; }
   .authors { font-weight: 600; color: var(--accent); }
   .subtitle { color: var(--muted); }

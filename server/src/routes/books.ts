@@ -4,7 +4,7 @@ import { db } from '../db.ts';
 import { requireUser, type User } from '../auth.ts';
 import { lookupIsbn, normalizeIsbn, searchCatalog, fetchCover, previewCover, deleteCoverFile, type BookData } from '../catalog.ts';
 import { router, body, str, int, oneOf, idParam, notFound } from '../util.ts';
-import { setReading, readingJson, READ_STATUS, type ReadingRow } from './reading.ts';
+import { setReading, readingJson, READ_STATUS, today, type ReadingRow } from './reading.ts';
 import { openLoanFor } from './loans.ts';
 
 export const bookRoutes = router();
@@ -30,7 +30,7 @@ export const bookBrief = (r: Record<string, unknown>) => ({
 });
 
 export const getBook = (id: number) => db.prepare('SELECT * FROM books WHERE id = ?').get(id) as BookRow | undefined;
-const getBookByIsbn = (isbn: string) => db.prepare('SELECT * FROM books WHERE isbn13 = ?').get(isbn) as BookRow | undefined;
+export const getBookByIsbn = (isbn: string) => db.prepare('SELECT * FROM books WHERE isbn13 = ?').get(isbn) as BookRow | undefined;
 
 /** Parallele Anfragen zur gleichen ISBN (Doppelscan) nur einmal ausführen */
 const pending = new Map<string, Promise<BookRow | null>>();
@@ -273,7 +273,9 @@ bookRoutes.post('/copies', async c => {
   const id = Number(db.prepare(`INSERT INTO copies (book_id, owner_id, format, binding, sprayed_edges, notes, store_id) VALUES (?, ?, ?, ?, ?, ?, ?)`)
     .run(bookId, u.id, f.format, f.binding, f.sprayed, f.notes, f.storeId).lastInsertRowid);
   // Lesestatus gleich mit setzen (gehört zur Person, nicht zum Exemplar)
-  if (b.readStatus !== undefined) setReading(u.id, bookId, { status: oneOf(b.readStatus, READ_STATUS, 'unread') });
+  // optional mit Datum („gelesen am …“ schon beim Eintragen)
+  const day = (v: unknown) => (v === '' ? null : typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && v <= today() ? v : undefined);
+  if (b.readStatus !== undefined) setReading(u.id, bookId, { status: oneOf(b.readStatus, READ_STATUS, 'unread'), startedAt: day(b.startedAt), finishedAt: day(b.finishedAt) });
   // jetzt im Regal → nicht mehr auf der Wunschliste
   db.prepare('DELETE FROM wishlist WHERE user_id = ? AND book_id = ?').run(u.id, bookId);
   return c.json({ id });

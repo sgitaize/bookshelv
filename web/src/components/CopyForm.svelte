@@ -88,6 +88,13 @@
       {/each}
     </div>
   </div>
+  {#if value.readStatus === 'read'}
+    <!-- „gelesen am“ gleich beim Eintragen; leer = Datum unbekannt -->
+    <label class="field readon"><span>{t('dates.finishedOn')}</span>
+      <input type="date" value={value.finishedAt ?? new Date().toISOString().slice(0, 10)} max={new Date().toISOString().slice(0, 10)}
+        oninput={e => (value.finishedAt = (e.target as HTMLInputElement).value || '')} />
+    </label>
+  {/if}
   {/if}
 
   <label class="field">

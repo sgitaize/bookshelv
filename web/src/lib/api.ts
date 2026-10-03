@@ -41,7 +41,7 @@ export type Format = 'print' | 'ebook';
 export type Binding = 'paperback' | 'hardcover';
 export type ReadStatus = 'unread' | 'reading' | 'read' | 'dnf';
 
-export type CopyValues = { format: Format; binding: Binding | null; sprayedEdges: boolean; readStatus: ReadStatus; notes: string; storeId: number | null };
+export type CopyValues = { format: Format; binding: Binding | null; sprayedEdges: boolean; readStatus: ReadStatus; notes: string; storeId: number | null; finishedAt?: string };
 export const emptyCopy = (): CopyValues => ({ format: 'print', binding: null, sprayedEdges: false, readStatus: 'unread', notes: '', storeId: null });
 export type Store = { id: number; name: string };
 
