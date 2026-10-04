@@ -12,7 +12,7 @@
   let items = $state<ShelfItem[] | null>(null);
   let ownerName = $state('');
   let q = $state('');
-  type Filter = 'all' | 'print' | 'ebook' | 'unread' | 'reading' | 'read' | 'lent' | 'edges' | 'favorite' | 'archive' | 'sold';
+  type Filter = 'all' | 'print' | 'ebook' | 'audio' | 'unread' | 'reading' | 'read' | 'lent' | 'edges' | 'favorite' | 'archive' | 'sold';
   let archived = $state<ShelfItem[] | null>(null);
   let filter = $state<Filter>((router.query.get('filter') as Filter) ?? 'all');
   let sort = $state<'added' | 'title' | 'author'>('added');
@@ -31,7 +31,7 @@
   });
 
   const filters = $derived([
-    ['all', t('filter.all')], ['print', t('filter.print')], ['ebook', t('filter.ebook')], ['unread', t('read.unread')], ['reading', t('read.reading')],
+    ['all', t('filter.all')], ['print', t('filter.print')], ['ebook', t('filter.ebook')], ['audio', t('filter.audio')], ['unread', t('read.unread')], ['reading', t('read.reading')],
     ['read', t('read.read')], ['favorite', t('filter.favorites')], ...(own ? [['lent', t('filter.lent')]] : []), ['edges', t('copy.edges')],
     ...(own ? [['archive', t('filter.archive')], ['sold', t('filter.sold')]] : [])
   ] as [Filter, string][]);
@@ -56,7 +56,7 @@
     const list = items.filter(it => {
       if (needle && !`${it.book.title} ${it.book.subtitle ?? ''} ${it.book.authors.join(' ')}`.toLowerCase().includes(needle)) return false;
       switch (filter) {
-        case 'print': case 'ebook': return it.format === filter;
+        case 'print': case 'ebook': case 'audio': return it.format === filter;
         case 'unread': case 'reading': case 'read': return it.readStatus === filter;
         case 'lent': return it.lent;
         case 'edges': return it.sprayedEdges;
@@ -128,6 +128,7 @@
               {#if it.lent}<span class="chip accent">{t('shelf.lent')}</span>{/if}
               {#if it.removedAt}<span class="chip accent">{t(`rm.${it.removedReason ?? 'other'}` as Key)}</span>{/if}
               {#if it.formats.has('ebook')}<span class="chip">{it.formats.has('print') ? t('shelf.plusEbook') : t('format.ebook')}</span>{/if}
+              {#if it.formats.has('audio')}<span class="chip">{t('format.audio')}</span>{/if}
               {#if it.sprayedEdges}<span class="chip edge">{t('copy.edges')}</span>{/if}
             </div>
             {#if it.readStatus !== 'unread'}<span class="status {it.readStatus}" title={labels.read[it.readStatus]}></span>{/if}

@@ -70,11 +70,11 @@ export type Series = { name: string; books: SeriesBook[]; next: SeriesBook | nul
 export type MySeries = { name: string; total: number; read: number; owned: number; next: SeriesBook | null; covers: { id: number; title: string; coverUrl: string | null; status: ReadStatus }[] };
 export const seriesHref = (name: string) => `/series?name=${encodeURIComponent(name)}`;
 
-export type Format = 'print' | 'ebook';
+export type Format = 'print' | 'ebook' | 'audio';
 export type Binding = 'paperback' | 'hardcover';
 export type ReadStatus = 'unread' | 'reading' | 'read' | 'dnf';
 
-export type CopyValues = { format: Format; binding: Binding | null; sprayedEdges: boolean; readStatus: ReadStatus; notes: string; storeId: number | null; finishedAt?: string };
+export type CopyValues = { format: Format; binding: Binding | null; sprayedEdges: boolean; readStatus: ReadStatus; notes: string; storeId: number | null; finishedAt?: string; durationMin?: number | null };
 export const emptyCopy = (): CopyValues => ({ format: 'print', binding: null, sprayedEdges: false, readStatus: 'unread', notes: '', storeId: null });
 export type Store = { id: number; name: string };
 
@@ -154,6 +154,7 @@ export type Copy = {
   loan: CopyLoan | null;
   /** meine offene Leihanfrage an dieses Exemplar */
   requestId?: number | null;
+  durationMin?: number | null;
 };
 
 export type Loan = {
@@ -198,7 +199,7 @@ export type Invite = { id: number; token: string; note: string | null; createdAt
 
 // Getter: Texte folgen der aktuellen Sprache
 export const labels = {
-  get format(): Record<Format, string> { return { print: t('format.print'), ebook: t('format.ebook') }; },
+  get format(): Record<Format, string> { return { print: t('format.print'), ebook: t('format.ebook'), audio: t('format.audio') }; },
   get binding(): Record<Binding, string> { return { paperback: t('binding.paperback'), hardcover: t('binding.hardcover') }; },
   get read(): Record<ReadStatus, string> { return { unread: t('read.unread'), reading: t('read.reading'), read: t('read.read'), dnf: t('read.dnf') }; }
 };
@@ -212,10 +213,10 @@ export const inviteUrl = (token: string) => `${location.origin}/invite/${token}`
 export type StatGroup<N extends string = string> = { name: N; n: number; ids: number[] };
 export type Stats = {
   years: string[]; year: string | null; user: { displayName: string; username: string };
-  totals: { books: number; pages: number; avgPages: number | null; avgRating: number | null; avgDays: number | null; rated: number; withMood: number; dnf: number };
+  totals: { books: number; pages: number; minutes?: number; avgPages: number | null; avgRating: number | null; avgDays: number | null; rated: number; withMood: number; dnf: number };
   perMonth: { month: number; books: number; pages: number; ids: number[]; mood: number | null }[]; perYear: StatGroup[];
   ratings: { rating: number; n: number; ids: number[] }[]; genres: StatGroup[]; authors: StatGroup[];
-  formats: StatGroup<'print' | 'ebook' | 'none'>[]; languages: StatGroup[]; pageBuckets: StatGroup[];
+  formats: StatGroup<'print' | 'ebook' | 'audio' | 'none'>[]; languages: StatGroup[]; pageBuckets: StatGroup[];
   moods: StatGroup<Mood>[]; paces: StatGroup<Pace>[]; books: Record<number, BookBrief>;
   highlights: { first: BookBrief | null; last: BookBrief | null; longest: BookBrief | null; shortest: BookBrief | null; fiveStars: BookBrief[] };
 };

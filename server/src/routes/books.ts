@@ -150,7 +150,7 @@ bookRoutes.get('/books/:id', c => {
   if (!book) throw notFound('Buch');
   // Exemplare: eigene immer, fremde nur bei sichtbarem Regal
   const copies = db.prepare(`
-    SELECT c.id, c.format, c.binding, c.sprayed_edges AS sprayedEdges, c.notes, c.created_at AS createdAt,
+    SELECT c.id, c.format, c.binding, c.sprayed_edges AS sprayedEdges, c.notes, c.created_at AS createdAt, c.duration_min AS durationMin,
            c.store_id AS storeId, (SELECT name FROM stores WHERE id = c.store_id) AS store,
            u.id AS ownerId, u.display_name AS ownerName, COALESCE(ub.status, 'unread') AS readStatus
     FROM copies c JOIN users u ON u.id = c.owner_id
@@ -213,7 +213,7 @@ bookRoutes.patch('/books/:id', async c => {
 
 // ---------- Exemplare (das eigene Regal) ----------
 
-const FORMATS = ['print', 'ebook'] as const;
+const FORMATS = ['print', 'ebook', 'audio'] as const;
 const BINDINGS = ['paperback', 'hardcover'] as const;
 
 export function shelf(ownerId: number) {
@@ -269,10 +269,12 @@ function copyFields(b: Record<string, unknown>, current?: Record<string, unknown
     : b.binding === null ? null : oneOf(b.binding, BINDINGS, 'paperback');
   const sprayed = !print ? 0 : b.sprayedEdges === undefined ? Number(current?.sprayed_edges ?? 0) : b.sprayedEdges ? 1 : 0;
   const notes = b.notes === undefined ? (current?.notes as string | null ?? null) : str(b.notes, 2000);
-  // Shop/Plattform nur bei E-Books
+  // Länge nur bei Hörbüchern (Minuten)
+  const durationMin = format !== 'audio' ? null : b.durationMin === undefined ? (current?.duration_min as number | null ?? null) : int(b.durationMin, 1, 10000);
+  // Shop/Plattform bei E-Books und Hörbüchern
   let storeId = print ? null : b.storeId === undefined ? (current?.store_id as number | null ?? null) : int(b.storeId, 1, Number.MAX_SAFE_INTEGER);
   if (storeId && !db.prepare('SELECT 1 FROM stores WHERE id = ?').get(storeId)) storeId = null;
-  return { format, binding, sprayed, notes, storeId };
+  return { format, binding, sprayed, notes, storeId, durationMin };
 }
 
 bookRoutes.post('/copies', async c => {
@@ -281,8 +283,8 @@ bookRoutes.post('/copies', async c => {
   const bookId = int(b.bookId, 1, Number.MAX_SAFE_INTEGER);
   if (!bookId || !getBook(bookId)) throw notFound('Buch');
   const f = copyFields(b);
-  const id = Number(db.prepare(`INSERT INTO copies (book_id, owner_id, format, binding, sprayed_edges, notes, store_id) VALUES (?, ?, ?, ?, ?, ?, ?)`)
-    .run(bookId, u.id, f.format, f.binding, f.sprayed, f.notes, f.storeId).lastInsertRowid);
+  const id = Number(db.prepare(`INSERT INTO copies (book_id, owner_id, format, binding, sprayed_edges, notes, store_id, duration_min) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(bookId, u.id, f.format, f.binding, f.sprayed, f.notes, f.storeId, f.durationMin).lastInsertRowid);
   // Lesestatus gleich mit setzen (gehört zur Person, nicht zum Exemplar)
   // optional mit Datum („gelesen am …“ schon beim Eintragen)
   const day = (v: unknown) => (v === '' ? null : typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && v <= today() ? v : undefined);
@@ -302,8 +304,8 @@ bookRoutes.patch('/copies/:id', async c => {
   const current = ownCopy(u, idParam(c));
   const b = await body(c);
   const f = copyFields(b, current);
-  db.prepare('UPDATE copies SET format = ?, binding = ?, sprayed_edges = ?, notes = ?, store_id = ? WHERE id = ?')
-    .run(f.format, f.binding, f.sprayed, f.notes, f.storeId, current.id as number);
+  db.prepare('UPDATE copies SET format = ?, binding = ?, sprayed_edges = ?, notes = ?, store_id = ?, duration_min = ? WHERE id = ?')
+    .run(f.format, f.binding, f.sprayed, f.notes, f.storeId, f.durationMin, current.id as number);
   if (b.readStatus !== undefined) setReading(u.id, current.book_id as number, { status: oneOf(b.readStatus, READ_STATUS, 'unread') });
   return c.json({ ok: true });
 });

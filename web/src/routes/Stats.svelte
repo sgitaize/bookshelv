@@ -62,6 +62,7 @@
     <div class="tiles">
       <div class="tile"><b>{nf(s.totals.books)}</b><span>{t('stats.books')}</span>{#if s.totals.dnf}<small>{t('stats.dnf', { n: s.totals.dnf })}</small>{/if}</div>
       <div class="tile"><b>{nf(s.totals.pages)}</b><span>{t('stats.pages')}</span>{#if s.totals.avgPages}<small>{t('stats.avgPages', { n: nf(s.totals.avgPages) })}</small>{/if}</div>
+      {#if s.totals.minutes}<div class="tile"><b>{nf(s.totals.minutes)}</b><span>{t('stats.minutes')}</span><small>{t('stats.hours', { n: nf(Math.round(s.totals.minutes / 60)) })}</small></div>{/if}
       <div class="tile"><b>{s.totals.avgRating ? s.totals.avgRating.toLocaleString(i18n.locale, { maximumFractionDigits: 2 }) : '–'}</b><span>{t('stats.avgRating')}</span>
         <small>{s.totals.rated ? t('stats.ofRated', { n: s.totals.rated }) : t('stats.noRating')}</small></div>
       <div class="tile"><b>{s.totals.avgDays ?? '–'}</b><span>{t('stats.avgDays')}</span></div>

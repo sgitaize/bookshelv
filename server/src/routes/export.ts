@@ -12,7 +12,7 @@ export const exportRoutes = router();
 type Row = {
   id: number; isbn13: string | null; title: string; authors: string; publisher: string | null; year: number | null; pages: number | null;
   status: string | null; started_at: string | null; finished_at: string | null; rating: number | null; text: string | null; spoiler: number | null;
-  owned_print: number; owned_ebook: number; binding: string | null; added_at: string | null; wish: number; lists: string | null;
+  owned_print: number; owned_ebook: number; owned_audio: number; binding: string | null; added_at: string | null; wish: number; lists: string | null;
 };
 
 /** Alle Bücher, mit denen ich etwas zu tun habe: Exemplar, Lesestand, Review, Wunschliste oder Leseliste */
@@ -22,6 +22,7 @@ function rowsOf(userId: number): Row[] {
       ub.status, ub.started_at, ub.finished_at, r.rating, r.text, r.spoiler,
       (SELECT COUNT(*) FROM copies WHERE book_id = b.id AND owner_id = :u AND removed_at IS NULL AND format = 'print') AS owned_print,
       (SELECT COUNT(*) FROM copies WHERE book_id = b.id AND owner_id = :u AND removed_at IS NULL AND format = 'ebook') AS owned_ebook,
+      (SELECT COUNT(*) FROM copies WHERE book_id = b.id AND owner_id = :u AND removed_at IS NULL AND format = 'audio') AS owned_audio,
       (SELECT binding FROM copies WHERE book_id = b.id AND owner_id = :u AND removed_at IS NULL AND binding IS NOT NULL LIMIT 1) AS binding,
       (SELECT MIN(created_at) FROM copies WHERE book_id = b.id AND owner_id = :u) AS added_at,
       EXISTS (SELECT 1 FROM wishlist WHERE book_id = b.id AND user_id = :u) AS wish,
@@ -58,11 +59,11 @@ function goodreads(rows: Row[]) {
     const lf = parts.length > 1 ? `${parts.at(-1)}, ${parts.slice(0, -1).join(' ')}` : first ?? '';
     const shelf = r.status === 'read' ? 'read' : r.status === 'reading' ? 'currently-reading' : r.status === 'dnf' ? 'did-not-finish' : 'to-read';
     const isbn10 = r.isbn13?.startsWith('978') ? isbn13to10(r.isbn13) : '';
-    const binding = r.owned_print ? (r.binding === 'hardcover' ? 'Hardcover' : r.binding === 'paperback' ? 'Paperback' : '') : r.owned_ebook ? 'Kindle Edition' : '';
+    const binding = r.owned_print ? (r.binding === 'hardcover' ? 'Hardcover' : r.binding === 'paperback' ? 'Paperback' : '') : r.owned_ebook ? 'Kindle Edition' : r.owned_audio ? 'Audiobook' : '';
     return [r.id, r.title, first ?? '', lf, more.join(', '), isbn10 ? `="${isbn10}"` : '', r.isbn13 ? `="${r.isbn13}"` : '',
       r.rating ? Math.round(r.rating) : 0, '', r.publisher ?? '', binding, r.pages ?? '', r.year ?? '', r.year ?? '',
       ymd(r.finished_at, '/'), ymd(r.added_at, '/'), listsOf(r).map(slug).join(', '), '', shelf,
-      r.text ?? '', r.spoiler ? 'true' : '', '', r.status === 'read' ? 1 : 0, r.owned_print + r.owned_ebook];
+      r.text ?? '', r.spoiler ? 'true' : '', '', r.status === 'read' ? 1 : 0, r.owned_print + r.owned_ebook + r.owned_audio];
   }));
 }
 
@@ -72,10 +73,10 @@ function storygraph(rows: Row[]) {
     'Diverse Characters?', 'Flawed Characters?', 'Star Rating', 'Review', 'Content Warnings', 'Content Warning Description', 'Tags', 'Owned?'];
   return csv(header, rows.map(r => {
     const status = r.status === 'read' ? 'read' : r.status === 'reading' ? 'currently-reading' : r.status === 'dnf' ? 'did-not-finish' : 'to-read';
-    const format = r.owned_print ? (r.binding ?? 'paperback') : r.owned_ebook ? 'digital' : '';
+    const format = r.owned_print ? (r.binding ?? 'paperback') : r.owned_ebook ? 'digital' : r.owned_audio ? 'audio' : '';
     const dates = r.started_at && r.finished_at ? `${ymd(r.started_at, '/')}-${ymd(r.finished_at, '/')}` : '';
     return [r.title, authorsOf(r).join(', '), '', r.isbn13 ?? '', format, status, ymd(r.added_at, '/'), ymd(r.finished_at, '/'), dates,
-      r.status === 'read' ? 1 : 0, '', '', '', '', '', '', '', r.rating ?? '', r.text ?? '', '', '', listsOf(r).join(', '), r.owned_print || r.owned_ebook ? 'Yes' : 'No'];
+      r.status === 'read' ? 1 : 0, '', '', '', '', '', '', '', r.rating ?? '', r.text ?? '', '', '', listsOf(r).join(', '), r.owned_print || r.owned_ebook || r.owned_audio ? 'Yes' : 'No'];
   }));
 }
 
@@ -85,7 +86,7 @@ function simple(rows: Row[]) {
     'owned', 'format', 'binding', 'added', 'wishlist', 'lists'];
   return csv(header, rows.map(r => [r.title, authorsOf(r).join(', '), r.isbn13 ?? '', r.publisher ?? '', r.year ?? '', r.pages ?? '',
     r.status ?? (r.wish ? 'want' : 'unread'), r.started_at ?? '', r.finished_at ?? '', r.rating ?? '', r.text ?? '',
-    r.owned_print || r.owned_ebook ? 'yes' : 'no', r.owned_print && r.owned_ebook ? 'print+ebook' : r.owned_ebook ? 'ebook' : r.owned_print ? 'print' : '',
+    r.owned_print || r.owned_ebook || r.owned_audio ? 'yes' : 'no', [r.owned_print && 'print', r.owned_ebook && 'ebook', r.owned_audio && 'audio'].filter(Boolean).join('+'),
     r.binding ?? '', ymd(r.added_at, '-'), r.wish ? 'yes' : 'no', listsOf(r).join('; ')]));
 }
 

@@ -910,4 +910,12 @@ export default {
   "authors.noReleases": "No new books since last year (checked {d}).",
   "authors.upcoming": "out in {y}",
   "authors.inLibrary": "in the library",
+  "format.audio": "Audiobook",
+  "filter.audio": "Audiobooks",
+  "stats.fmt.audio": "Audiobook",
+  "copy.duration": "Length",
+  "copy.hours": "hrs",
+  "copy.minutes": "min",
+  "stats.minutes": "Minutes listened",
+  "stats.hours": "≈ {n} hours",
 } satisfies Record<keyof typeof import('./de.ts').default, string>;

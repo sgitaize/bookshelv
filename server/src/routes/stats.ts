@@ -16,7 +16,7 @@ const GENERIC = /^(belletristik|fiction|fiktionale darstellung|roman|novel|liter
 type Row = {
   bookId: number; title: string; subtitle: string | null; authors: string; year: number | null; pages: number | null; cover: string | null;
   isbn13: string | null; subjects: string; language: string | null; started_at: string | null; finished_at: string; rating: number | null;
-  formats: string | null; moods: string | null; pace: string | null;
+  formats: string | null; moods: string | null; pace: string | null; minutes: number | null;
 };
 
 /** DNB liefert ISO 639-2/B („ger“), Open Library oft nichts – dann Sprachraum aus der ISBN-Gruppe schätzen */
@@ -46,7 +46,8 @@ function statsFor(userId: number, year: string | null) {
   const rows = db.prepare(`
     SELECT b.id AS bookId, b.title, b.subtitle, b.authors, b.year, b.pages, b.cover, b.isbn13, b.subjects, b.language,
            ub.started_at, ub.finished_at, rv.rating, rv.moods, rv.pace,
-           (SELECT group_concat(DISTINCT format) FROM copies WHERE book_id = b.id AND owner_id = ub.user_id) AS formats
+           (SELECT group_concat(DISTINCT format) FROM copies WHERE book_id = b.id AND owner_id = ub.user_id) AS formats,
+           (SELECT MAX(duration_min) FROM copies WHERE book_id = b.id AND owner_id = ub.user_id AND format = 'audio') AS minutes
     FROM user_books ub JOIN books b ON b.id = ub.book_id
     LEFT JOIN reviews rv ON rv.book_id = b.id AND rv.user_id = ub.user_id
     WHERE ub.user_id = ? AND ub.status = 'read' AND ub.finished_at IS NOT NULL ${year ? 'AND ub.finished_at LIKE ?' : ''}
@@ -61,7 +62,11 @@ function statsFor(userId: number, year: string | null) {
   };
   const each = <T,>(f: (r: Row) => T[]): [T, number][] => rows.flatMap(r => f(r).map(v => [v, r.bookId] as [T, number]));
 
-  const pages = rows.reduce((a, r) => a + (r.pages ?? 0), 0);
+  // nur gehört (kein Druck/E-Book) → zählt als Minuten, nicht als Seiten (wie StoryGraph)
+  const audioOnly = (r: Row) => r.formats === 'audio';
+  const pagesOf = (r: Row) => (audioOnly(r) ? 0 : r.pages ?? 0);
+  const pages = rows.reduce((a, r) => a + pagesOf(r), 0);
+  const minutes = rows.reduce((a, r) => a + (audioOnly(r) ? r.minutes ?? 0 : 0), 0);
   const rated = rows.filter(r => r.rating !== null);
   const days = rows
     .filter(r => r.started_at)
@@ -69,13 +74,13 @@ function statsFor(userId: number, year: string | null) {
     .filter(d => d >= 0 && d < 3650);
   const moodsOf = (r: Row) => parseMoods(r.moods ?? undefined);
 
-  const perMonth = Array.from({ length: 12 }, (_, i) => ({ month: i + 1, books: 0, pages: 0, ids: [] as number[], mood: null as number | null }));
+  const perMonth = Array.from({ length: 12 }, (_, i) => ({ month: i + 1, books: 0, pages: 0, minutes: 0, ids: [] as number[], mood: null as number | null }));
   if (year) {
     const score = Array.from({ length: 12 }, () => [] as number[]);
     for (const r of rows) {
       const m = Number(r.finished_at.slice(5, 7)) - 1;
       if (m < 0 || m > 11) continue;
-      perMonth[m].books++; perMonth[m].pages += r.pages ?? 0; perMonth[m].ids.push(r.bookId);
+      perMonth[m].books++; perMonth[m].pages += pagesOf(r); perMonth[m].minutes += audioOnly(r) ? r.minutes ?? 0 : 0; perMonth[m].ids.push(r.bookId);
       const md = moodsOf(r);
       if (md.length) score[m].push(md.reduce((a, x) => a + (LIGHT.includes(x) ? 1 : DARK.includes(x) ? -1 : 0), 0) / md.length);
     }
@@ -106,6 +111,7 @@ function statsFor(userId: number, year: string | null) {
     totals: {
       books: rows.length,
       pages,
+      minutes,
       avgPages: withPages.length ? Math.round(withPages.reduce((a, r) => a + r.pages!, 0) / withPages.length) : null,
       avgRating: rated.length ? Math.round((rated.reduce((a, r) => a + r.rating!, 0) / rated.length) * 100) / 100 : null,
       avgDays: days.length ? Math.round(days.reduce((a, d) => a + d, 0) / days.length) : null,
@@ -119,8 +125,8 @@ function statsFor(userId: number, year: string | null) {
     ratings,
     genres: group(each(r => (JSON.parse(r.subjects) as string[]).map(s => s.trim()).filter(s => s && !GENERIC.test(s)).slice(0, 3))).slice(0, 10),
     authors: group(each(r => (JSON.parse(r.authors) as string[]).slice(0, 1))).slice(0, 10),
-    // Format: E-Book nur, wenn kein gedrucktes Exemplar da ist; ohne Exemplar = geliehen/sonstiges
-    formats: group(rows.map(r => [!r.formats ? 'none' : r.formats.includes('print') ? 'print' : 'ebook', r.bookId])),
+    // Format: Druck vor E-Book vor Hörbuch (ein Buch zählt einmal); ohne Exemplar = geliehen/sonstiges
+    formats: group(rows.map(r => [!r.formats ? 'none' : r.formats.includes('print') ? 'print' : r.formats.includes('ebook') ? 'ebook' : 'audio', r.bookId])),
     languages: group(rows.map(r => [languageOf(r), r.bookId])),
     pageBuckets,
     moods: group(each(moodsOf)),

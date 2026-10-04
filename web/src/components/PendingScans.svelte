@@ -38,7 +38,7 @@
   async function accept(r: Row) {
     if (!r.book) return;
     if (r.target === 'wishlist') await api.put(`/books/${r.book.id}/wishlist`, {});
-    else await api.post('/copies', { bookId: r.book.id, format: r.format ?? 'print', binding: r.format === 'ebook' ? null : r.binding ?? null, sprayedEdges: false, notes: '', storeId: null });
+    else await api.post('/copies', { bookId: r.book.id, format: r.format ?? 'print', binding: r.format !== 'print' ? null : r.binding ?? null, sprayedEdges: false, notes: '', storeId: null });
     dropScan(r.isbn, r.target);
   }
 

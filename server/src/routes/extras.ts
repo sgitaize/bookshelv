@@ -320,7 +320,7 @@ async function importItems(u: User, items: ImportItem[], o: ImportOptions, imp: 
       const ub = { user_id: u.id, book_id: book.id };
       // Exemplar
       const wantCopy = status !== 'want' && (copies === 'all' || (copies === 'owned' && it.owned));
-      const format = it.format === 'ebook' ? 'ebook' : 'print';
+      const format = it.format === 'ebook' || it.format === 'audio' ? it.format : 'print';
       if (wantCopy && !db.prepare('SELECT 1 FROM copies WHERE book_id = ? AND owner_id = ? AND format = ? AND removed_at IS NULL').get(book.id, u.id, format)) {
         const binding = format === 'print' && (it.binding === 'paperback' || it.binding === 'hardcover') ? it.binding : null;
         const added = isDate(it.addedAt) ? `${it.addedAt} 12:00:00` : null;

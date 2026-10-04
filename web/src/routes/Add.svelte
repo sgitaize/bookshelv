@@ -240,6 +240,7 @@
           <div class="segmented">
             <button class:active={copy.format === 'print'} onclick={() => (copy.format = 'print')}>{t('format.print')}</button>
             <button class:active={copy.format === 'ebook'} onclick={() => { copy.format = 'ebook'; copy.binding = null; }}>{t('format.ebook')}</button>
+            <button class:active={copy.format === 'audio'} onclick={() => { copy.format = 'audio'; copy.binding = null; }}>{t('format.audio')}</button>
           </div>
           {#if copy.format === 'print'}
             <div class="segmented">

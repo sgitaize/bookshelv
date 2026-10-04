@@ -21,6 +21,7 @@ node requests.mjs
 node reads.mjs
 node series.mjs
 node authors.mjs
+node audio.mjs
 node social.mjs
 node extras.mjs
 node stats.mjs

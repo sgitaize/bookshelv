@@ -100,7 +100,8 @@
   const fmtDate = (d: string | null) => fmtD(d);
 
   function describe(c: Copy) {
-    return [labels.format[c.format], c.binding && labels.binding[c.binding], c.store].filter(Boolean).join(' · ');
+    const dur = c.durationMin ? `${Math.floor(c.durationMin / 60)}:${String(c.durationMin % 60).padStart(2, '0')} h` : null;
+    return [labels.format[c.format], c.binding && labels.binding[c.binding], dur, c.store].filter(Boolean).join(' · ');
   }
 
   async function saveCopy() {
@@ -254,7 +255,7 @@
     {#if !mine.length}<p class="muted">{t('book.notOwned')}</p>{/if}
     {#each mine as c (c.id)}
       <div class="card copy">
-        <span class="fmt"><Icon name={c.format === 'ebook' ? 'tablet' : 'book'} /></span>
+        <span class="fmt"><Icon name={c.format === 'ebook' ? 'tablet' : c.format === 'audio' ? 'headphones' : 'book'} /></span>
         <div class="grow">
           <strong>{describe(c)}</strong>
           {#if c.sprayedEdges}<div class="row tags"><span class="chip edge">{t('copy.edges')}</span></div>{/if}
@@ -275,7 +276,7 @@
           {/if}
         </div>
         <button class="icon ghost" aria-label={t('common.edit')}
-          onclick={() => (editing = { copyId: c.id, values: { format: c.format, binding: c.binding, sprayedEdges: c.sprayedEdges, readStatus: c.readStatus, notes: c.notes ?? '', storeId: c.storeId } })}>
+          onclick={() => (editing = { copyId: c.id, values: { format: c.format, binding: c.binding, sprayedEdges: c.sprayedEdges, readStatus: c.readStatus, notes: c.notes ?? '', storeId: c.storeId, durationMin: c.durationMin ?? null } })}>
           <Icon name="edit" size={18} />
         </button>
       </div>

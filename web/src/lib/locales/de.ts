@@ -910,4 +910,12 @@ export default {
   "authors.noReleases": "Keine Neuerscheinungen seit letztem Jahr (geprüft {d}).",
   "authors.upcoming": "erscheint {y}",
   "authors.inLibrary": "in der Bibliothek",
+  "format.audio": "Hörbuch",
+  "filter.audio": "Hörbücher",
+  "stats.fmt.audio": "Hörbuch",
+  "copy.duration": "Länge",
+  "copy.hours": "Std.",
+  "copy.minutes": "Min.",
+  "stats.minutes": "Minuten gehört",
+  "stats.hours": "≈ {n} Stunden",
 } as const;

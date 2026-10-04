@@ -6,7 +6,7 @@
 export type ImportItem = {
   isbn?: string; title?: string; authors?: string[]; status: 'read' | 'reading' | 'unread' | 'dnf' | 'want';
   rating?: number | null; review?: string | null; spoiler?: boolean; finishedAt?: string | null; addedAt?: string | null;
-  owned?: boolean; format?: 'print' | 'ebook'; binding?: 'paperback' | 'hardcover' | null; startedAt?: string | null;
+  owned?: boolean; format?: 'print' | 'ebook' | 'audio'; binding?: 'paperback' | 'hardcover' | null; startedAt?: string | null;
   lists?: (string | ListRef)[]; resolve?: string[]; favorite?: boolean; wishlist?: boolean; dateUnknown?: boolean;
   /** nur Booky, nur im Browser: alle Listen des Buchs (für die Auswahl je Liste), wird vor dem Hochladen entfernt */
   booky?: { key: string; refs: (ListRef & { std?: string })[] };
@@ -86,6 +86,7 @@ export function convert(rows: string[][]): { source: ImportSource; items: Import
       const shelf = get(r, 'exclusive shelf');
       const binding = (get(r, 'binding') ?? '').toLowerCase();
       const ebook = /kindle|ebook|e-book|digital/.test(binding);
+      const audio = /audio|hörbuch|mp3/.test(binding);
       return {
         isbn: isbnOf(get(r, 'isbn13')) ?? isbnOf(get(r, 'isbn')),
         // Reihenangabe "(Dune, #1)" am Ende entfernen
@@ -100,8 +101,8 @@ export function convert(rows: string[][]): { source: ImportSource; items: Import
         finishedAt: dateOf(get(r, 'date read')),
         addedAt: dateOf(get(r, 'date added')),
         owned: Number(get(r, 'owned copies')) > 0,
-        format: ebook ? 'ebook' : 'print',
-        binding: ebook ? null : binding.includes('hardcover') ? 'hardcover' : binding.includes('paperback') ? 'paperback' : null
+        format: audio ? 'audio' : ebook ? 'ebook' : 'print',
+        binding: ebook || audio ? null : binding.includes('hardcover') ? 'hardcover' : binding.includes('paperback') ? 'paperback' : null
       };
     }
     if (source === 'storygraph') {
@@ -117,7 +118,7 @@ export function convert(rows: string[][]): { source: ImportSource; items: Import
         finishedAt: dateOf(get(r, 'last date read')),
         addedAt: dateOf(get(r, 'date added')),
         owned: (get(r, 'owned?') ?? '').toLowerCase() === 'yes',
-        format: format === 'digital' ? 'ebook' : 'print',
+        format: format === 'digital' ? 'ebook' : format === 'audio' ? 'audio' : 'print',
         binding: format === 'hardcover' ? 'hardcover' : format === 'paperback' ? 'paperback' : null
       };
     }
@@ -194,6 +195,7 @@ export function fromMapping(r: string[], m: Mapping, scale = 5): ImportItem | nu
   const rating = stars || (num ? Math.round((num / scale) * 5 * 2) / 2 : 0);
   const fmt = g('format').toLowerCase();
   const ebook = /e-?book|kindle|digital|epub|tolino|kobo/.test(fmt);
+  const audio = /audio|hörbuch|audible|mp3|cd/.test(fmt);
   const status = statusOf(g('status')) === 'unread' && g('finished') ? 'read' : statusOf(g('status'));
   return {
     isbn, title, authors: authorsOf(g('authors').replace(/;| & | und | and /g, ',')),
@@ -204,8 +206,8 @@ export function fromMapping(r: string[], m: Mapping, scale = 5): ImportItem | nu
     startedAt: dateOf(g('started')),
     addedAt: dateOf(g('added')),
     owned: m.owned >= 0 ? yes(g('owned')) : true,
-    format: ebook ? 'ebook' : 'print',
-    binding: ebook ? null : /hard|gebunden|hc/.test(fmt) ? 'hardcover' : /paper|taschen|tb|softcover|broschiert/.test(fmt) ? 'paperback' : null,
+    format: audio ? 'audio' : ebook ? 'ebook' : 'print',
+    binding: ebook || audio ? null : /hard|gebunden|hc/.test(fmt) ? 'hardcover' : /paper|taschen|tb|softcover|broschiert/.test(fmt) ? 'paperback' : null,
     lists: g('lists').split(g('lists').includes(';') ? ';' : /[,|]/).map(x => x.trim()).filter(Boolean)
   };
 }

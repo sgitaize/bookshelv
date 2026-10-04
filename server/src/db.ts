@@ -372,21 +372,58 @@ const migrations: string[] = [
     first_seen TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE (author, norm_title)
   );
+  `,
+  // 17: Hörbücher – format 'audio' + Länge in Minuten. CHECK lässt sich nur per Neuaufbau ändern (SQLite-12-Schritte-Verfahren);
+  // migrate() schaltet dafür die Fremdschlüssel aus, sonst würde DROP TABLE die Verleihe/Anfragen per CASCADE löschen
+  `
+  CREATE TABLE copies_new (
+    id INTEGER PRIMARY KEY,
+    book_id INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    format TEXT NOT NULL CHECK (format IN ('print', 'ebook', 'audio')),
+    binding TEXT CHECK (binding IN ('paperback', 'hardcover')),
+    sprayed_edges INTEGER NOT NULL DEFAULT 0,
+    notes TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    removed_at TEXT,
+    removed_reason TEXT CHECK (removed_reason IN ('sold', 'given_away', 'lost', 'other')),
+    store_id INTEGER REFERENCES stores(id) ON DELETE SET NULL,
+    quiet INTEGER NOT NULL DEFAULT 0,
+    duration_min INTEGER
+  );
+  INSERT INTO copies_new (id, book_id, owner_id, format, binding, sprayed_edges, notes, created_at, removed_at, removed_reason, store_id, quiet)
+    SELECT id, book_id, owner_id, format, binding, sprayed_edges, notes, created_at, removed_at, removed_reason, store_id, quiet FROM copies;
+  DROP TABLE copies;
+  ALTER TABLE copies_new RENAME TO copies;
+  CREATE INDEX copies_owner ON copies(owner_id);
+  CREATE INDEX copies_book ON copies(book_id);
+  CREATE INDEX copies_created ON copies(created_at);
+  INSERT INTO stores (name) SELECT n FROM (SELECT 'Audible' AS n UNION ALL SELECT 'BookBeat' UNION ALL SELECT 'Spotify' UNION ALL SELECT 'Nextory' UNION ALL SELECT 'Hörbuch-CD')
+    WHERE NOT EXISTS (SELECT 1 FROM stores s WHERE lower(s.name) = lower(n));
   `
 ];
 
 function migrate() {
+  // Fremdschlüssel aus (geht nur außerhalb einer Transaktion): Tabellen-Neuaufbau (Migration 17) darf nichts kaskadieren
+  db.exec('PRAGMA foreign_keys = OFF');
   // IMMEDIATE sperrt sofort, damit parallel startende Prozesse nicht doppelt migrieren
   db.exec('BEGIN IMMEDIATE');
+  let ran = false;
   try {
     const current = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version;
-    for (let v = current; v < migrations.length; v++) db.exec(migrations[v]);
+    for (let v = current; v < migrations.length; v++) { db.exec(migrations[v]); ran = true; }
     // nie zurückstufen: läuft ein älterer Stand gegen eine neuere DB, bleibt die Version stehen
     if (current < migrations.length) db.exec(`PRAGMA user_version = ${migrations.length}`);
     db.exec('COMMIT');
   } catch (e) {
     db.exec('ROLLBACK');
+    db.exec('PRAGMA foreign_keys = ON');
     throw e;
+  }
+  db.exec('PRAGMA foreign_keys = ON');
+  if (ran) {
+    const broken = db.prepare('PRAGMA foreign_key_check').all();
+    if (broken.length) console.error('Migration: Fremdschlüssel verletzt', JSON.stringify(broken.slice(0, 20)));
   }
 }
 migrate();

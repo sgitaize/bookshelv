@@ -10,7 +10,7 @@ addEventListener('offline', () => (net.online = false));
 export const isNetworkError = (e: unknown) => e instanceof TypeError || (e instanceof DOMException && e.name === 'AbortError');
 
 export type ScanTarget = 'wishlist' | 'shelf';
-export type PendingScan = { isbn: string; target: ScanTarget; at: string; format?: 'print' | 'ebook'; binding?: 'paperback' | 'hardcover' | null };
+export type PendingScan = { isbn: string; target: ScanTarget; at: string; format?: 'print' | 'ebook' | 'audio'; binding?: 'paperback' | 'hardcover' | null };
 
 const key = (userId: number) => `bookshelv-scans-${userId}`;
 export const pending = $state<{ userId: number | null; items: PendingScan[] }>({ userId: null, items: [] });
