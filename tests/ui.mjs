@@ -51,6 +51,13 @@ check('accepted via UI → loan', !!ln);
 if (ln) await page.evaluate(id => fetch(`/api/loans/${id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: '{}' }), ln.id);
 await ctxA.close();
 
+// Leserunde (aus reads.mjs): Simon sieht verdeckte Beiträge ohne Text
+const rid = (await page.evaluate(() => fetch('/api/reads').then(r => r.json())))[0]?.id;
+await page.goto(base + `/reads/${rid}`, { waitUntil: 'networkidle0' });
+const rd = await page.evaluate(() => ({ locked: document.querySelectorAll('.post.locked').length, txt: document.body.innerText }));
+check('buddy read shows locked posts', rd.locked >= 1 && !rd.txt.includes('Das Ende hat mich umgehauen'), JSON.stringify(rd.locked));
+if (process.env.SHOTDIR) await page.screenshot({ path: `${process.env.SHOTDIR}/ui-read.png`, fullPage: true });
+
 await browser.close();
 console.log(`UI-Test: ${ok} ok, ${fail} fehlgeschlagen`);
 process.exit(fail ? 1 : 0);

@@ -163,7 +163,7 @@ export type LoanRequest = {
 export type Loans = { lent: Loan[]; borrowed: Loan[]; history: Loan[]; requests: { incoming: LoanRequest[]; outgoing: LoanRequest[] } };
 
 export type NotificationItem = {
-  id: number; type: 'loan_new' | 'loan_returned' | 'comment' | 'invite_accepted' | 'loan_due' | 'loan_overdue' | 'wish_available' | 'import_done' | 'list_shared' | 'loan_request' | 'loan_declined'; refId: number | null; createdAt: string; read: boolean;
+  id: number; type: 'loan_new' | 'loan_returned' | 'comment' | 'invite_accepted' | 'loan_due' | 'loan_overdue' | 'wish_available' | 'import_done' | 'list_shared' | 'loan_request' | 'loan_declined' | 'buddy_invite' | 'buddy_post'; refId: number | null; createdAt: string; read: boolean;
   actor: { id: number | null; displayName: string; avatarUrl: string | null } | null; book: BookBrief | null; list: { id: number; name: string } | null;
 };
 export type FeedItem = {
@@ -214,6 +214,16 @@ export type ListVisibility = 'private' | 'instance';
 export type ReadingListSummary = { id: number; name: string; description: string | null; visibility: ListVisibility; updatedAt: string; count: number; preview: BookBrief[];
   shared: boolean; owner: { id: number; displayName: string } | null };
 export type ListMember = { id: number; displayName: string; username: string; avatarUrl: string | null };
+
+export type BuddyMember = { id: number; displayName: string; avatarUrl: string | null; owner: boolean; position: number };
+export type BuddyRead = {
+  id: number; note: string | null; endsAt: string | null; createdAt: string; mine: boolean; book: BookBrief;
+  members: BuddyMember[]; myPosition: number; posts?: number; unseen?: number;
+};
+export type BuddyPost = {
+  id: number; position: number; page: number | null; createdAt: string; locked: boolean; text: string | null; mine: boolean;
+  user: { id: number; displayName: string; avatarUrl: string | null };
+};
 export type ReadingList = {
   id: number; name: string; description: string | null; visibility: ListVisibility; createdAt: string; updatedAt: string; mine: boolean;
   canEdit: boolean; owner: { id: number; displayName: string; username: string; avatarUrl: string | null }; members: ListMember[];

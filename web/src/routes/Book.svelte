@@ -1,6 +1,6 @@
 <script lang="ts">
   import { QueuedError } from '../lib/offline.svelte.ts';
-  import { api, labels, emptyCopy, percent, type Book, type Copy, type CopyValues, type Reading, type ReadStatus } from '../lib/api.ts';
+  import { api, labels, emptyCopy, percent, type Book, type Copy, type CopyValues, type Reading, type ReadStatus, type BuddyRead } from '../lib/api.ts';
   import ProgressSheet from '../components/ProgressSheet.svelte';
   import Reviews from '../components/Reviews.svelte';
   import LendSheet from '../components/LendSheet.svelte';
@@ -15,6 +15,8 @@
   import Sheet from '../components/Sheet.svelte';
   import Icon from '../components/Icon.svelte';
   import ListSheet from '../components/ListSheet.svelte';
+  import ReadSheet from '../components/ReadSheet.svelte';
+  import Avatar from '../components/Avatar.svelte';
   import DatesSheet from '../components/DatesSheet.svelte';
   import FeedList from '../components/FeedList.svelte';
   import type { FeedItem } from '../lib/api.ts';
@@ -61,8 +63,11 @@
   let history = $state<HistoryEvent[]>([]);
   const load = () => Promise.all([
     api.get<typeof data>(`/books/${id}`).then(r => (data = r)),
-    api.get<{ events: HistoryEvent[] }>(`/history?book=${id}`).then(r => (history = r.events))
+    api.get<{ events: HistoryEvent[] }>(`/history?book=${id}`).then(r => (history = r.events)),
+    api.get<BuddyRead[]>(`/reads?book=${id}`).then(r => (reads = r)).catch(() => {})
   ]).catch(toastError);
+  let reads = $state<BuddyRead[]>([]);
+  let startRead = $state(false);
   $effect(() => { load(); });
 
   // Schlagworte entdoppeln ("Fiction" vs. "Fiction, science fiction, general") und auf wenige kürzen
@@ -306,6 +311,18 @@
     {/if}
   </section>
 
+  <section class="stack reads">
+    <h2>{t('reads.title')}</h2>
+    {#each reads as r (r.id)}
+      <a class="card readrow" href="/reads/{r.id}">
+        <span class="faces">{#each r.members.slice(0, 5) as m (m.id)}<Avatar name={m.displayName} url={m.avatarUrl} size={24} />{/each}</span>
+        <span class="grow small">{tn('reads.nPeople', r.members.length)} · {tn('reads.nPosts', r.posts ?? 0)}{#if r.unseen}{' · '}<b class="new">{t('reads.new', { n: r.unseen })}</b>{/if}</span>
+        <Icon name="arrow" size={16} />
+      </a>
+    {/each}
+    <button class="lendbtn small readbtn" onclick={() => (startRead = true)}><Icon name="message" size={14} /> {t('reads.start')}</button>
+  </section>
+
   {#if data.archived.length}
     <section class="stack archived">
       <h2>{t('rm.archivedTitle')}</h2>
@@ -354,6 +371,7 @@
 <RemoveSheet copyId={removing?.id ?? null} archivedOnly={removing?.archived ?? false} title={data?.book.title ?? ''}
   onclose={() => (removing = null)} onsaved={load} />
 
+<ReadSheet bookId={id} open={startRead} onclose={() => (startRead = false)} />
 <LendSheet copyId={lendCopy} title={data?.book.title ?? ''} onclose={() => (lendCopy = null)} onsaved={load} />
 
 <Sheet open={!!editing} onclose={() => (editing = null)} title={editing?.copyId ? t('book.editCopy') : t('book.addCopy')}>
@@ -417,6 +435,13 @@
     .detail { grid-template-columns: auto 1fr; text-align: left; justify-items: start; align-items: start; gap: 2.5rem; }
   }
   .copies { margin-top: 2rem; }
+  .reads { margin-top: 2rem; }
+  .reads h2 { margin: 0.6rem 0 0; }
+  .readrow { display: flex; align-items: center; gap: 0.7rem; padding: 0.7rem 0.9rem; color: var(--text); }
+  .readrow:hover { text-decoration: none; }
+  .faces { display: flex; gap: 0.1rem; }
+  .new { color: var(--accent); }
+  .readbtn { justify-self: start; align-self: flex-start; }
   .copies h2 { margin: 0.6rem 0 0; }
   .copy { display: flex; align-items: center; gap: 0.9rem; padding: 0.9rem 1rem; color: var(--text); }
   .copy a.avatar:hover, .copy a.owner:hover { text-decoration: none; }

@@ -10,7 +10,7 @@ await page.goto(base, { waitUntil: 'networkidle0' });
 const inputs = await page.$$('input');
 await inputs[0].type('simon'); await inputs[1].type('geheim1234');
 await page.click('button.primary'); await page.waitForNetworkIdle();
-const pages = ['/', '/library', '/book/1', '/loans?tab=requests', '/add?tab=scan', '/add?tab=search&q=dune', '/add?tab=manual', '/people', '/people/2', '/people/2/shelf', '/me', '/settings', '/settings?s=profile', '/settings?s=privacy', '/settings?s=appearance', '/settings?s=invites', '/settings?s=data', '/settings?s=account', '/admin', '/loans', '/history', '/notifications', '/feed', '/wishlist', '/import', '/stats', '/stats?year=2024', '/wrapup?year=2024', '/lists', '/lists/1', '/feed?scope=me', '/feed?user=1', '/imports', '/legal'];
+const pages = ['/', '/library', '/book/1', '/loans?tab=requests', '/reads', '/reads/1', '/add?tab=scan', '/add?tab=search&q=dune', '/add?tab=manual', '/people', '/people/2', '/people/2/shelf', '/me', '/settings', '/settings?s=profile', '/settings?s=privacy', '/settings?s=appearance', '/settings?s=invites', '/settings?s=data', '/settings?s=account', '/admin', '/loans', '/history', '/notifications', '/feed', '/wishlist', '/import', '/stats', '/stats?year=2024', '/wrapup?year=2024', '/lists', '/lists/1', '/feed?scope=me', '/feed?user=1', '/imports', '/legal'];
 // ONLY=/settings,/stats → nur diese Seiten (schneller Check nach kleinen Änderungen)
 const only = (process.env.ONLY ?? '').split(',').filter(Boolean);
 const todo = only.length ? pages.filter(p => only.some(o => p === o || p.startsWith(o + '?') || p.startsWith(o + '/'))) : pages;

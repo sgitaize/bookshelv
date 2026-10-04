@@ -315,6 +315,35 @@ const migrations: string[] = [
   );
   CREATE UNIQUE INDEX loan_requests_open ON loan_requests(copy_id, requester_id) WHERE status = 'pending';
   CREATE INDEX loan_requests_requester ON loan_requests(requester_id);
+  `,
+  // 14: Leserunden (gemeinsam lesen): ein Buch, mehrere Personen, Beiträge mit Position (%) – Spoilerschutz nach Lesefortschritt
+  `
+  CREATE TABLE buddy_reads (
+    id INTEGER PRIMARY KEY,
+    book_id INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    note TEXT,
+    ends_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE TABLE buddy_members (
+    read_id INTEGER NOT NULL REFERENCES buddy_reads(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    joined_at TEXT NOT NULL DEFAULT (datetime('now')),
+    seen_at TEXT,
+    PRIMARY KEY (read_id, user_id)
+  );
+  CREATE INDEX buddy_members_user ON buddy_members(user_id);
+  CREATE TABLE buddy_posts (
+    id INTEGER PRIMARY KEY,
+    read_id INTEGER NOT NULL REFERENCES buddy_reads(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL CHECK (position BETWEEN 0 AND 100),
+    page INTEGER,
+    text TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX buddy_posts_read ON buddy_posts(read_id, position);
   `
 ];
 

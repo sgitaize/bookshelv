@@ -8,8 +8,9 @@ import { db } from './db.ts';
  *        loan_due / loan_overdue (Erinnerung an beide Seiten, je Verleih einmal), wish_available (jemand hat ein Buch von deiner Wunschliste),
  *        list_shared (du wurdest zu einer gemeinsamen Liste hinzugefügt, ref_id = lists.id),
  *        loan_request (jemand möchte ein Exemplar von dir leihen), loan_declined (deine Anfrage wurde abgelehnt); ref_id = loan_requests.id
+ *        buddy_invite (du wurdest zu einer Leserunde eingeladen), buddy_post (neuer Beitrag, den du schon lesen darfst); ref_id = buddy_reads.id
  */
-export type NotificationType = 'loan_new' | 'loan_returned' | 'comment' | 'invite_accepted' | 'loan_due' | 'loan_overdue' | 'wish_available' | 'import_done' | 'list_shared' | 'loan_request' | 'loan_declined';
+export type NotificationType = 'loan_new' | 'loan_returned' | 'comment' | 'invite_accepted' | 'loan_due' | 'loan_overdue' | 'wish_available' | 'import_done' | 'list_shared' | 'loan_request' | 'loan_declined' | 'buddy_invite' | 'buddy_post';
 
 export function notify(userId: number | null | undefined, type: NotificationType, actorId: number, bookId: number | null = null, refId: number | null = null) {
   if (!userId || userId === actorId) return;
