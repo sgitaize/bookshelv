@@ -1,3 +1,4 @@
+import './crashlog.ts';
 import http from 'node:http';
 import { getRequestListener } from '@hono/node-server';
 import { app } from './app.ts';
