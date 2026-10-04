@@ -212,13 +212,13 @@ export const inviteUrl = (token: string) => `${location.origin}/invite/${token}`
 
 export type StatGroup<N extends string = string> = { name: N; n: number; ids: number[] };
 export type Stats = {
-  years: string[]; year: string | null; user: { displayName: string; username: string };
+  years: string[]; months?: string[]; year: string | null; period?: string | null; order?: number[]; user: { displayName: string; username: string };
   totals: { books: number; pages: number; minutes?: number; avgPages: number | null; avgRating: number | null; avgDays: number | null; rated: number; withMood: number; dnf: number };
   perMonth: { month: number; books: number; pages: number; ids: number[]; mood: number | null }[]; perYear: StatGroup[];
   ratings: { rating: number; n: number; ids: number[] }[]; genres: StatGroup[]; authors: StatGroup[];
   formats: StatGroup<'print' | 'ebook' | 'audio' | 'none'>[]; languages: StatGroup[]; pageBuckets: StatGroup[];
   moods: StatGroup<Mood>[]; paces: StatGroup<Pace>[]; books: Record<number, BookBrief>;
-  highlights: { first: BookBrief | null; last: BookBrief | null; longest: BookBrief | null; shortest: BookBrief | null; fiveStars: BookBrief[] };
+  highlights: { first: BookBrief | null; last: BookBrief | null; longest: BookBrief | null; shortest: BookBrief | null; fiveStars: BookBrief[]; top?: BookBrief | null; topRating?: number | null };
 };
 
 export type ListVisibility = 'private' | 'instance';

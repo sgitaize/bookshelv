@@ -25,6 +25,7 @@ node audio.mjs
 node social.mjs
 node extras.mjs
 node stats.mjs
+node share.mjs
 node lists.mjs
 node booky.mjs
 node jobs.mjs

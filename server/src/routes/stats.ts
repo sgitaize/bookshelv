@@ -42,7 +42,29 @@ function languageOf(r: Row): string {
 
 const PAGE_BUCKETS = [[0, 200, '<200'], [200, 300, '200–299'], [300, 400, '300–399'], [400, 500, '400–499'], [500, Infinity, '500+']] as const;
 
-function statsFor(userId: number, year: string | null) {
+/**
+ * Zeitraum: „2026“ (Jahr), „2026-Q3“ (Quartal), „2026-09“ (Monat) → [von, bis) als Datumsgrenzen.
+ * Monatsverlauf (perMonth) gibt es nur für ganze Jahre.
+ */
+export function periodRange(period: string): { from: string; to: string; year: string } | null {
+  let m = period.match(/^(\d{4})$/);
+  if (m) return { from: `${m[1]}-01-01`, to: `${Number(m[1]) + 1}-01-01`, year: m[1] };
+  m = period.match(/^(\d{4})-Q([1-4])$/);
+  if (m) {
+    const q = Number(m[2]), y = Number(m[1]);
+    return { from: `${y}-${String(q * 3 - 2).padStart(2, '0')}-01`, to: q === 4 ? `${y + 1}-01-01` : `${y}-${String(q * 3 + 1).padStart(2, '0')}-01`, year: m[1] };
+  }
+  m = period.match(/^(\d{4})-(0[1-9]|1[0-2])$/);
+  if (m) {
+    const y = Number(m[1]), mo = Number(m[2]);
+    return { from: `${m[1]}-${m[2]}-01`, to: mo === 12 ? `${y + 1}-01-01` : `${y}-${String(mo + 1).padStart(2, '0')}-01`, year: m[1] };
+  }
+  return null;
+}
+
+function statsFor(userId: number, period: string | null) {
+  const range = period ? periodRange(period) : null;
+  const year = period && /^\d{4}$/.test(period) ? period : null;
   const rows = db.prepare(`
     SELECT b.id AS bookId, b.title, b.subtitle, b.authors, b.year, b.pages, b.cover, b.isbn13, b.subjects, b.language,
            ub.started_at, ub.finished_at, rv.rating, rv.moods, rv.pace,
@@ -50,9 +72,9 @@ function statsFor(userId: number, year: string | null) {
            (SELECT MAX(duration_min) FROM copies WHERE book_id = b.id AND owner_id = ub.user_id AND format = 'audio') AS minutes
     FROM user_books ub JOIN books b ON b.id = ub.book_id
     LEFT JOIN reviews rv ON rv.book_id = b.id AND rv.user_id = ub.user_id
-    WHERE ub.user_id = ? AND ub.status = 'read' AND ub.finished_at IS NOT NULL ${year ? 'AND ub.finished_at LIKE ?' : ''}
+    WHERE ub.user_id = ? AND ub.status = 'read' AND ub.finished_at IS NOT NULL ${range ? 'AND ub.finished_at >= ? AND ub.finished_at < ?' : ''}
     ORDER BY ub.finished_at
-  `).all(...(year ? [userId, `${year}%`] : [userId])) as Row[];
+  `).all(...(range ? [userId, range.from, range.to] : [userId])) as Row[];
 
   /** Gruppen mit Anzahl und Buch-IDs (Antippen im Diagramm zeigt die Bücher) */
   const group = (pairs: [string, number][]) => {
@@ -108,6 +130,7 @@ function statsFor(userId: number, year: string | null) {
 
   return {
     year,
+    period,
     totals: {
       books: rows.length,
       pages,
@@ -117,8 +140,8 @@ function statsFor(userId: number, year: string | null) {
       avgDays: days.length ? Math.round(days.reduce((a, d) => a + d, 0) / days.length) : null,
       rated: rated.length,
       withMood: rows.filter(r => moodsOf(r).length).length,
-      dnf: (db.prepare(`SELECT COUNT(*) AS n FROM user_books WHERE user_id = ? AND status = 'dnf' ${year ? 'AND finished_at LIKE ?' : ''}`)
-        .get(...(year ? [userId, `${year}%`] : [userId])) as { n: number }).n
+      dnf: (db.prepare(`SELECT COUNT(*) AS n FROM user_books WHERE user_id = ? AND status = 'dnf' ${range ? 'AND finished_at >= ? AND finished_at < ?' : ''}`)
+        .get(...(range ? [userId, range.from, range.to] : [userId])) as { n: number }).n
     },
     perMonth,
     perYear,
@@ -137,10 +160,20 @@ function statsFor(userId: number, year: string | null) {
       last: brief(rows.at(-1)),
       longest: brief([...withPages].sort((a, b) => b.pages! - a.pages!)[0]),
       shortest: brief([...withPages].sort((a, b) => a.pages! - b.pages!)[0]),
-      fiveStars: rows.filter(r => r.rating === 5).slice(0, 6).map(r => brief(r)!)
-    }
+      fiveStars: rows.filter(r => r.rating === 5).slice(0, 6).map(r => brief(r)!),
+      // bestes Buch des Zeitraums: höchste Bewertung, bei Gleichstand das zuletzt gelesene
+      top: brief([...rows].filter(r => r.rating !== null).sort((a, b) => b.rating! - a.rating! || b.finished_at.localeCompare(a.finished_at))[0]),
+      topRating: [...rows].filter(r => r.rating !== null).sort((a, b) => b.rating! - a.rating!)[0]?.rating ?? null
+    },
+    // Reihenfolge des Fertiglesens (Cover-Wand im Teilen-Bild)
+    order: rows.map(r => r.bookId)
   };
 }
+
+/** Monate mit gelesenen Büchern (Auswahl im Teilen-Bild) */
+const monthsOf = (userId: number) => (db.prepare(`
+  SELECT DISTINCT substr(finished_at, 1, 7) AS m FROM user_books WHERE user_id = ? AND status = 'read' AND finished_at IS NOT NULL ORDER BY m DESC
+`).all(userId) as { m: string }[]).map(r => r.m);
 
 const yearsOf = (userId: number) => (db.prepare(`
   SELECT DISTINCT substr(finished_at, 1, 4) AS y FROM user_books WHERE user_id = ? AND status = 'read' AND finished_at IS NOT NULL ORDER BY y DESC
@@ -148,9 +181,10 @@ const yearsOf = (userId: number) => (db.prepare(`
 
 statsRoutes.get('/stats', c => {
   const u = requireUser(c);
-  const y = c.req.query('year');
-  if (y && !/^\d{4}$/.test(y)) throw new HTTPException(400, { message: 'Ungültige Zahl' });
-  return c.json({ years: yearsOf(u.id), ...statsFor(u.id, y ?? null), user: { displayName: u.display_name, username: u.username } });
+  // ?period=2026|2026-Q3|2026-09 (Teilen-Bild), ?year=2026 wie bisher
+  const y = c.req.query('period') ?? c.req.query('year');
+  if (y && !periodRange(y)) throw new HTTPException(400, { message: 'Ungültige Zahl' });
+  return c.json({ years: yearsOf(u.id), months: monthsOf(u.id), ...statsFor(u.id, y ?? null), user: { displayName: u.display_name, username: u.username } });
 });
 
 /** Statistik von Freunden (für den Vergleich/Jahresrückblick), nur bei sichtbarem Regal */
@@ -161,7 +195,8 @@ statsRoutes.get('/users/:id/stats', c => {
     { display_name: string; username: string; shelf_visible: number } | undefined;
   if (!owner) throw new HTTPException(404, { message: 'Konto nicht gefunden' });
   if (!owner.shelf_visible && id !== u.id) throw new HTTPException(403, { message: 'Dieses Regal ist privat' });
-  const y = c.req.query('year');
-  if (y && !/^\d{4}$/.test(y)) throw new HTTPException(400, { message: 'Ungültige Zahl' });
+  // ?period=2026|2026-Q3|2026-09 (Teilen-Bild), ?year=2026 wie bisher
+  const y = c.req.query('period') ?? c.req.query('year');
+  if (y && !periodRange(y)) throw new HTTPException(400, { message: 'Ungültige Zahl' });
   return c.json({ years: yearsOf(id), ...statsFor(id, y ?? null), user: { displayName: owner.display_name, username: owner.username } });
 });

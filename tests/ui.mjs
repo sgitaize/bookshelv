@@ -58,6 +58,29 @@ const rd = await page.evaluate(() => ({ locked: document.querySelectorAll('.post
 check('buddy read shows locked posts', rd.locked >= 1 && !rd.txt.includes('Das Ende hat mich umgehauen'), JSON.stringify(rd.locked));
 if (process.env.SHOTDIR) await page.screenshot({ path: `${process.env.SHOTDIR}/ui-read.png`, fullPage: true });
 
+// Teilen-Bild: jede Vorlage und jedes Format zeichnet ohne Fehler etwas aufs Canvas
+const errs = [];
+page.on('pageerror', e => errs.push(e.message));
+const per = (await page.evaluate(() => fetch('/api/stats').then(r => r.json()))).years.at(-1);
+await page.goto(base + `/share?period=${per}`, { waitUntil: 'networkidle0' });
+const drawn = async () => { await new Promise(r => setTimeout(r, 900)); return page.evaluate(() => { const c = document.querySelector('canvas'); if (!c) return { w: 0, h: 0, body: location.pathname + ' ' + document.body.innerText.slice(0, 300) }; const d = c.getContext('2d').getImageData(c.width / 2, c.height / 2, 1, 1).data; return { w: c.width, h: c.height, px: [...d] }; }); };
+for (const tpl of ['Cover-Wand', 'Highlight', 'Zahlen', 'Mix', 'Cover wall', 'Numbers']) {
+  const b = await page.evaluateHandle(name => [...document.querySelectorAll('.chips button')].find(x => x.textContent.trim() === name), tpl);
+  if (!(await b.evaluate(x => !!x))) continue;
+  await b.evaluate(x => x.click()); // per Skript: die Tabbar liegt sonst über dem Knopf
+  const d = await drawn();
+  check(`share ${tpl} drawn`, d.w === 1080 && d.h === 1920, JSON.stringify(d) + ' ' + errs.join(' | '));
+  if (!d.w) break;
+  if (process.env.SHOTDIR) await (await page.$('canvas')).screenshot({ path: `${process.env.SHOTDIR}/share-${tpl.replace(/\W/g, '')}.png` });
+}
+for (const [f, h] of [['Post', 1350], ['Quadrat', 1080], ['Square', 1080]]) {
+  const b = await page.evaluateHandle(name => [...document.querySelectorAll('.segmented button')].find(x => x.textContent.trim().startsWith(name)), f);
+  if (!(await b.evaluate(x => !!x))) continue;
+  await b.evaluate(x => x.click()); // per Skript: die Tabbar liegt sonst über dem Knopf
+  check(`share format ${f}`, (await drawn()).h === h);
+}
+check('share no page errors', errs.length === 0, errs.join(' | '));
+
 await browser.close();
 console.log(`UI-Test: ${ok} ok, ${fail} fehlgeschlagen`);
 process.exit(fail ? 1 : 0);

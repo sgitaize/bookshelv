@@ -48,7 +48,8 @@
 <section class="stack">
   <div class="spread">
     <h1>{t('stats.title')}</h1>
-    {#if year && s?.totals.books}<a class="btn primary" href="/wrapup?year={year}"><Icon name="sparkle" size={16} /> {t('stats.wrapup', { y: year })}</a>{/if}
+    <a class="btn primary" href="/share{year ? `?period=${year}` : ''}"><Icon name="image" size={16} /> {t('share.button')}</a>
+    {#if year && s?.totals.books}<a class="btn" href="/wrapup?year={year}"><Icon name="sparkle" size={16} /> {t('stats.wrapup', { y: year })}</a>{/if}
   </div>
 
   <div class="chips">
