@@ -93,7 +93,19 @@ bookRoutes.get('/catalog/search', async c => {
   if (q.length < 2) return c.json([]);
   // ISBN direkt eingegeben? Dann nicht suchen, sondern nachschlagen
   const isbn = normalizeIsbn(q);
-  const hits = isbn ? [] : await searchCatalog(q);
+  // ISBN: genau dieses Buch (aus dem Bestand oder nachgeschlagen, ohne es anzulegen)
+  if (isbn) {
+    const local = getBookByIsbn(isbn);
+    const d = local ? null : await lookupIsbn(isbn);
+    if (!local && !d) return c.json([]);
+    return c.json([{
+      isbn13: isbn, title: local?.title ?? d!.title, subtitle: local?.subtitle ?? d!.subtitle, authors: local ? JSON.parse(local.authors) : d!.authors,
+      publisher: local?.publisher ?? d!.publisher, year: local?.year ?? d!.year, bookId: local?.id ?? null,
+      owners: local ? ownersOf(local.id, u.id) : [],
+      coverUrl: local?.cover ? `/covers/${local.cover}` : `/api/catalog/cover?isbn=${isbn}`
+    }]);
+  }
+  const hits = await searchCatalog(q);
   return c.json(hits.map(h => {
     const local = h.isbn13 ? getBookByIsbn(h.isbn13) : undefined;
     // Buch im Bestand ohne Cover, die Suche kennt aber eins → im Hintergrund übernehmen

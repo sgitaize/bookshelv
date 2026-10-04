@@ -969,4 +969,9 @@ export default {
   "share.factDnf": "Did not finish",
   "share.days.one": "{n} day",
   "share.days.other": "{n} days",
+  "picker.searchAllPh": "Title, author or ISBN …",
+  "picker.mine": "Your books",
+  "picker.catalog": "From the catalogue",
+  "picker.typeMore": "Type at least 3 characters to search the catalogue too.",
+  "picker.adding": "adding …",
 } satisfies Record<keyof typeof import('./de.ts').default, string>;

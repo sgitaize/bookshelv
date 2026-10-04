@@ -58,6 +58,19 @@ const rd = await page.evaluate(() => ({ locked: document.querySelectorAll('.post
 check('buddy read shows locked posts', rd.locked >= 1 && !rd.txt.includes('Das Ende hat mich umgehauen'), JSON.stringify(rd.locked));
 if (process.env.SHOTDIR) await page.screenshot({ path: `${process.env.SHOTDIR}/ui-read.png`, fullPage: true });
 
+// Liste: Buch aus dem Katalog hinzufügen (nicht im eigenen Bestand)
+const lid = (await page.evaluate(() => fetch('/api/lists', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Katalog-Test', visibility: 'private' }) }).then(r => r.json()))).id;
+await page.goto(base + `/lists/${lid}`, { waitUntil: 'networkidle0' });
+await page.evaluate(() => document.querySelector('.addbtn').click());
+await page.waitForSelector('input[type=search]');
+await page.type('.sheet input[type=search]', '9783751208802');
+await page.waitForFunction(() => [...document.querySelectorAll('.sheet .hit')].some(h => !h.disabled && /Katalog|catalogue/i.test(h.closest('.hits')?.textContent ?? '')), { timeout: 20000 }).catch(() => {});
+const picked = await page.evaluate(() => { const hs = [...document.querySelectorAll('.sheet .hit')]; const h = hs.at(-1); if (!h || h.disabled) return null; const title = h.querySelector('strong').textContent; h.click(); return title; });
+await new Promise(r => setTimeout(r, 4000));
+const items = (await page.evaluate(id => fetch(`/api/lists/${id}`).then(r => r.json()), lid)).items ?? [];
+check('catalog book added to list', !!picked && items.some(i => i.book.title === picked), `${picked} → ${JSON.stringify(items.map(i => i.book.title))}`);
+await page.evaluate(id => fetch(`/api/lists/${id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: '{}' }), lid);
+
 // Teilen-Bild: jede Vorlage und jedes Format zeichnet ohne Fehler etwas aufs Canvas
 const errs = [];
 page.on('pageerror', e => errs.push(e.message));

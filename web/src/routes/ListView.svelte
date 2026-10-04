@@ -175,7 +175,7 @@
 
   <Sheet open={adding} onclose={() => (adding = false)} title={t('list.addBooks')}>
     <p class="muted small">{t('list.addHint')}</p>
-    <BookPicker exclude={l.items.map(x => x.book.id)} onpick={b => add(b.id)} />
+    <BookPicker catalog exclude={l.items.map(x => x.book.id)} onpick={b => add(b.id)} />
   </Sheet>
 {/if}
 

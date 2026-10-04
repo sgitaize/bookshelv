@@ -969,4 +969,9 @@ export default {
   "share.factDnf": "Abgebrochen",
   "share.days.one": "{n} Tag",
   "share.days.other": "{n} Tage",
+  "picker.searchAllPh": "Titel, Autor*in oder ISBN …",
+  "picker.mine": "Deine Bücher",
+  "picker.catalog": "Aus dem Katalog",
+  "picker.typeMore": "Mindestens 3 Zeichen eingeben, um auch im Katalog zu suchen.",
+  "picker.adding": "wird übernommen …",
 } as const;

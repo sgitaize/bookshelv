@@ -22,7 +22,7 @@ const books = [];
 for (const isbn of ['9783453317178', '9783257236965', '9783442476336', '9783423143592']) {
   // Katalogdienste haben gelegentlich Aussetzer → einmal wiederholen
   let r = await simon('POST', '/catalog/isbn', { isbn });
-  if (!r.data?.book) { await new Promise(res => setTimeout(res, 2000)); r = await simon('POST', '/catalog/isbn', { isbn }); }
+  for (let i = 0; i < 3 && !r.data?.book; i++) { await new Promise(res => setTimeout(res, 3000)); r = await simon('POST', '/catalog/isbn', { isbn }); }
   books.push(r.data.book);
   await simon('POST', '/copies', { bookId: r.data.book.id, format: 'print', binding: 'hardcover' });
 }
