@@ -17,6 +17,7 @@
   import ListSheet from '../components/ListSheet.svelte';
   import ReadSheet from '../components/ReadSheet.svelte';
   import SeriesLine from '../components/SeriesLine.svelte';
+  import FollowAuthors from '../components/FollowAuthors.svelte';
   import Avatar from '../components/Avatar.svelte';
   import DatesSheet from '../components/DatesSheet.svelte';
   import FeedList from '../components/FeedList.svelte';
@@ -189,7 +190,7 @@
     <div class="meta">
       <h1>{b.title}</h1>
       {#if b.subtitle}<p class="subtitle">{b.subtitle}</p>{/if}
-      <p class="authors">{b.authors.join(', ') || t('book.unknownAuthor')}</p>
+      <FollowAuthors authors={b.authors} />
       <SeriesLine book={b} onchange={nb => (data!.book = nb)} />
       <dl>
         {#if b.publisher}<dt>{t('book.publisher')}</dt><dd>{b.publisher}</dd>{/if}
@@ -428,7 +429,6 @@
   .pct { position: relative; font-size: 0.8rem; font-weight: 500; padding-left: 10px; line-height: 30px; display: block; text-align: left; }
   .dates { margin: 0; justify-self: start; justify-content: flex-start; gap: 0.4rem; color: var(--muted); padding: 0.3rem 0.5rem; white-space: normal; text-align: left; }
   .subtitle { font-size: 1.15rem; color: var(--muted); margin-top: -0.3rem; }
-  .authors { font-weight: 600; color: var(--accent); }
   .subtitle { color: var(--muted); }
   dl { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 1rem; margin: 1rem 0; text-align: left; font-size: 0.92rem; }
   dt { color: var(--muted); }

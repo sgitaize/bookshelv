@@ -103,7 +103,7 @@ function parseDnbRecord(rec: string): BookData | null {
   };
 }
 
-async function dnbQuery(query: string, max: number): Promise<BookData[]> {
+export async function dnbQuery(query: string, max: number): Promise<BookData[]> {
   const url = `https://services.dnb.de/sru/dnb?version=1.1&operation=searchRetrieve&recordSchema=oai_dc`
     + `&maximumRecords=${max}&query=${encodeURIComponent(query)}`;
   const res = await get(url);

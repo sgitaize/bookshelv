@@ -169,9 +169,13 @@ export type LoanRequest = {
 export type Loans = { lent: Loan[]; borrowed: Loan[]; history: Loan[]; requests: { incoming: LoanRequest[]; outgoing: LoanRequest[] } };
 
 export type NotificationItem = {
-  id: number; type: 'loan_new' | 'loan_returned' | 'comment' | 'invite_accepted' | 'loan_due' | 'loan_overdue' | 'wish_available' | 'import_done' | 'list_shared' | 'loan_request' | 'loan_declined' | 'buddy_invite' | 'buddy_post'; refId: number | null; createdAt: string; read: boolean;
+  id: number; type: 'loan_new' | 'loan_returned' | 'comment' | 'invite_accepted' | 'loan_due' | 'loan_overdue' | 'wish_available' | 'import_done' | 'list_shared' | 'loan_request' | 'loan_declined' | 'buddy_invite' | 'buddy_post' | 'author_new'; refId: number | null; createdAt: string; read: boolean;
   actor: { id: number | null; displayName: string; avatarUrl: string | null } | null; book: BookBrief | null; list: { id: number; name: string } | null;
+  release?: { title: string; isbn13: string | null } | null;
 };
+
+export type AuthorRelease = { id: number; title: string; isbn13: string | null; year: number; firstSeen: string; upcoming: boolean; bookId: number | null; coverUrl: string | null };
+export type AuthorsPage = { follows: { name: string; checkedAt: string | null; releases: AuthorRelease[] }[]; suggestions: { name: string; n: number }[] };
 export type FeedItem = {
   type: 'added' | 'started' | 'finished' | 'dnf' | 'reviewed' | 'listed'; ts: string; rating: number | null; reviewId: number | null; text: string | null; spoiler: boolean;
   list: { id: number; name: string } | null; format: Format | null;

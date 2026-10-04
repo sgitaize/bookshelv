@@ -64,8 +64,10 @@
 {/if}
 
 <style>
-  .line { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin: 0.3rem 0; }
+  .line { margin: 0.3rem 0; line-height: 1.8; }
+  .line :global(svg), .line button { vertical-align: middle; }
   .line a { font-weight: 600; overflow-wrap: anywhere; }
+  .line .muted { white-space: nowrap; }
   .tiny { padding: 0.2rem; }
   .edit { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0.4rem 0; }
   .edit input { flex: 1 1 12rem; min-width: 0; }

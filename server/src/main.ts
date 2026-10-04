@@ -10,6 +10,7 @@ import { db } from './db.ts';
 import { fetchCover, deleteCoverFile, dnbMarc, olSeries } from './catalog.ts';
 import { kickImports } from './routes/extras.ts';
 import { canonicalSeries } from './routes/books.ts';
+import { checkAuthors } from './routes/authors.ts';
 
 ensureSetupToken();
 purgeExpiredSessions();
@@ -52,6 +53,11 @@ async function backfillSeries() {
     await new Promise(r => setTimeout(r, 400));
   }
   mark.run(key, 'done');
+}
+// Neuerscheinungen gefolgter Autor*innen: kurz nach dem Start und alle 6 Stunden (je Person höchstens täglich)
+if (!process.env.BOOKSHELV_NO_BACKFILL) {
+  setTimeout(() => { checkAuthors().catch(() => {}); }, 60_000).unref();
+  setInterval(() => { checkAuthors().catch(() => {}); }, 6 * 3600_000).unref();
 }
 if (!process.env.BOOKSHELV_NO_BACKFILL) setTimeout(() => { backfillSeries().catch(e => console.error('Reihen-Nachladen:', e)); }, 15000).unref();
 

@@ -104,9 +104,11 @@ socialRoutes.get('/notifications', c => {
   const rows = db.prepare(`
     SELECT n.id, n.type, n.ref_id AS refId, n.created_at AS createdAt, n.read_at AS readAt, n.actor_label AS actorLabel,
            a.id AS actorId, a.display_name AS actorName, a.avatar AS actorAvatar,
-           b.id AS bookId, b.title, b.subtitle, b.authors, b.year, b.pages, b.cover, ls.name AS listName
+           b.id AS bookId, b.title, b.subtitle, b.authors, b.year, b.pages, b.cover, ls.name AS listName,
+           ar.title AS releaseTitle, ar.isbn13 AS releaseIsbn
     FROM notifications n LEFT JOIN users a ON a.id = n.actor_id LEFT JOIN books b ON b.id = n.book_id
     LEFT JOIN lists ls ON n.type = 'list_shared' AND ls.id = n.ref_id
+    LEFT JOIN author_releases ar ON n.type = 'author_new' AND ar.id = n.ref_id
     WHERE n.user_id = ? ORDER BY n.id DESC LIMIT 60
   `).all(u.id) as Array<Record<string, unknown>>;
   return c.json({
@@ -116,7 +118,8 @@ socialRoutes.get('/notifications', c => {
       actor: r.actorId ? { id: r.actorId, displayName: r.actorName, avatarUrl: avatarUrl(r.actorAvatar) }
         : r.actorLabel ? { id: null, displayName: r.actorLabel, avatarUrl: null } : null,
       book: r.bookId ? bookBrief(r) : null,
-      list: r.listName ? { id: r.refId, name: r.listName } : null
+      list: r.listName ? { id: r.refId, name: r.listName } : null,
+      release: r.releaseTitle ? { title: r.releaseTitle, isbn13: r.releaseIsbn } : null
     }))
   });
 });

@@ -350,6 +350,28 @@ const migrations: string[] = [
   ALTER TABLE books ADD COLUMN series TEXT;
   ALTER TABLE books ADD COLUMN series_index REAL;
   CREATE INDEX books_series ON books(series, series_index);
+  `,
+  // 16: Autor*innen folgen + Neuerscheinungen (DNB). is_new = 0: Neuauflage/Ausgabe eines älteren Titels (nur gemerkt, nie gemeldet)
+  `
+  CREATE TABLE author_follows (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    author TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, author)
+  );
+  CREATE INDEX author_follows_author ON author_follows(author);
+  CREATE TABLE author_checks (author TEXT PRIMARY KEY, checked_at TEXT, seeded INTEGER NOT NULL DEFAULT 0);
+  CREATE TABLE author_releases (
+    id INTEGER PRIMARY KEY,
+    author TEXT NOT NULL,
+    norm_title TEXT NOT NULL,
+    title TEXT NOT NULL,
+    isbn13 TEXT,
+    year INTEGER,
+    is_new INTEGER NOT NULL DEFAULT 0,
+    first_seen TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (author, norm_title)
+  );
   `
 ];
 

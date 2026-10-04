@@ -20,8 +20,8 @@
   });
 
   const href = (n: NotificationItem) =>
-    n.type === 'import_done' ? '/imports' : n.type === 'list_shared' ? `/lists/${n.refId}` : n.type === 'invite_accepted' ? `/people/${n.actor?.id}` : n.type === 'loan_request' ? '/loans?tab=requests' : n.type.startsWith('buddy') ? `/reads/${n.refId}` : n.type === 'loan_declined' && n.book ? `/book/${n.book.id}` : n.type.startsWith('loan') ? '/loans' : n.type === 'wish_available' && n.book ? `/book/${n.book.id}` : n.book ? `/book/${n.book.id}` : '/';
-  const text = (n: NotificationItem) => t(`notif.${n.type}` as Key, { name: n.actor?.displayName ?? '–', title: n.book?.title ?? n.list?.name ?? '' });
+    n.type === 'import_done' ? '/imports' : n.type === 'list_shared' ? `/lists/${n.refId}` : n.type === 'invite_accepted' ? `/people/${n.actor?.id}` : n.type === 'loan_request' ? '/loans?tab=requests' : n.type.startsWith('buddy') ? `/reads/${n.refId}` : n.type === 'author_new' ? (n.book ? `/book/${n.book.id}` : n.release?.isbn13 ? `/add?tab=search&q=${n.release.isbn13}` : '/authors') : n.type === 'loan_declined' && n.book ? `/book/${n.book.id}` : n.type.startsWith('loan') ? '/loans' : n.type === 'wish_available' && n.book ? `/book/${n.book.id}` : n.book ? `/book/${n.book.id}` : '/';
+  const text = (n: NotificationItem) => t(`notif.${n.type}` as Key, { name: n.actor?.displayName ?? '–', title: n.book?.title ?? n.list?.name ?? n.release?.title ?? '' });
 </script>
 
 <section class="stack">

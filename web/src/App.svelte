@@ -26,6 +26,7 @@
   import ListView from './routes/ListView.svelte';
   import Reads from './routes/Reads.svelte';
   import SeriesView from './routes/SeriesView.svelte';
+  import Authors from './routes/Authors.svelte';
   import ReadView from './routes/ReadView.svelte';
   import Stats from './routes/Stats.svelte';
   import Wrapup from './routes/Wrapup.svelte';
@@ -103,6 +104,7 @@
         {:else if listView}<ListView id={Number(listView.id)} />
         {:else if router.path === '/reads'}<Reads />
         {:else if router.path === '/series'}<SeriesView />
+        {:else if router.path === '/authors'}<Authors />
         {:else if readView}{#key readView.id}<ReadView id={Number(readView.id)} />{/key}
         {:else if router.path === '/stats'}<Stats />
         {:else if router.path === '/wrapup'}<Wrapup />
