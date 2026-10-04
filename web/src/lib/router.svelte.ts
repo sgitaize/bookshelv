@@ -5,7 +5,10 @@ class Router {
   query = $state(new URLSearchParams(location.search));
 
   constructor() {
-    addEventListener('popstate', () => this.sync());
+    // Scrollposition je Verlaufseintrag selbst merken: Seiten laden ihre Daten erst nach dem Wechsel,
+    // die automatische Wiederherstellung des Browsers käme zu früh (Seite noch zu kurz)
+    history.scrollRestoration = 'manual';
+    addEventListener('popstate', e => { this.sync(); this.restore(e.state?.y ?? 0); });
     // interne Links abfangen, damit kein Seiten-Reload passiert
     document.addEventListener('click', e => {
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -28,9 +31,27 @@ class Router {
       if (hash) { history.replaceState({}, '', to); document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth' }); }
       return;
     }
+    if (!replace) history.replaceState({ ...history.state, y: scrollY }, '');
     history[replace ? 'replaceState' : 'pushState']({}, '', to);
     this.sync();
     scrollTo({ top: 0 });
+  }
+
+  /** Scrollt zurück, sobald die Seite hoch genug ist (max. 4 s); eigenes Scrollen bricht ab. */
+  private restore(y: number) {
+    const stop = () => { done = true; };
+    let done = false;
+    const opts = { once: true, passive: true } as const;
+    addEventListener('wheel', stop, opts); addEventListener('touchstart', stop, opts); addEventListener('keydown', stop, opts);
+    const t0 = performance.now();
+    const tick = () => {
+      if (done) return;
+      const max = document.documentElement.scrollHeight - innerHeight;
+      scrollTo({ top: Math.min(y, Math.max(0, max)) });
+      if (max >= y || performance.now() - t0 > 4000) done = true;
+      else requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
   }
 
   back(fallback = '/') {

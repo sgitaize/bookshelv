@@ -35,7 +35,7 @@ for i in $(seq 1 50); do curl -sf localhost:3997/api/status >/dev/null && curl -
 node federation.mjs "$FA" "$FB"
 
 # Offline-Modus im Browser (auch einzeln: tests/run.sh --offline)
-if [ "${1:-}" = "--ui" ] || [ "${1:-}" = "--offline" ]; then node offline.mjs; fi
+if [ "${1:-}" = "--ui" ] || [ "${1:-}" = "--offline" ]; then node offline.mjs; node ui.mjs; fi
 if [ "${1:-}" = "--ui" ]; then
   # DE und EN parallel (eigene Browser); ONLY=/settings,/stats prüft nur diese Seiten
   node overflow.mjs "$T" "${SHOTS:-}" & OD=$!
