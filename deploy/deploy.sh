@@ -49,4 +49,17 @@ COPYFILE_DISABLE=1 tar --no-xattrs -C dist -czf - server.js package.json public 
   touch tmp/restart.txt
   if [ -f data/setup-token.txt ]; then echo \"  Setup-Token: \$(cat data/setup-token.txt)\"; fi
 "
-echo "✓ Deployt ($COMMIT). Passenger startet die App beim nächsten Aufruf neu."
+# Gesundheitscheck: Passenger startet beim ersten Aufruf neu – bis zu 60 s auf /api/status warten.
+# Startfehler zeigt Passenger nur als 500-Seite; die App schreibt sie nach data/crash.log.
+URL="${DEPLOY_URL:-https://${DEPLOY_APP_DIR%%/*}}"
+for i in $(seq 1 20); do
+  CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$URL/api/status" || true)
+  [ "$CODE" = 200 ] && break
+  sleep 3
+done
+if [ "$CODE" != 200 ]; then
+  echo "✗ $URL/api/status antwortet mit $CODE (Commit $COMMIT ist hochgeladen). Absturzprotokoll:"
+  "${SSH[@]}" "tail -n 40 ~/$DEPLOY_APP_DIR/data/crash.log 2>/dev/null || echo '  (kein data/crash.log – App startet gar nicht? Plesk → Node.js prüfen)'"
+  exit 1
+fi
+echo "✓ Deployt ($COMMIT), $URL antwortet."
