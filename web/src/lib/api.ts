@@ -146,6 +146,8 @@ export type Copy = {
   notes: string | null; createdAt: string; ownerId: number; ownerName: string; mine: boolean;
   store: string | null; storeId: number | null;
   loan: CopyLoan | null;
+  /** meine offene Leihanfrage an dieses Exemplar */
+  requestId?: number | null;
 };
 
 export type Loan = {
@@ -153,10 +155,15 @@ export type Loan = {
   lender: { id: number | null; displayName: string }; borrower: { id: number | null; displayName: string } | null; mine: boolean;
   copy: { format: Format; binding: Binding | null }; book: Omit<BookBrief, 'id'> & { id: number | null };
 };
-export type Loans = { lent: Loan[]; borrowed: Loan[]; history: Loan[] };
+export type LoanRequest = {
+  id: number; copyId: number; message: string | null; status: 'pending' | 'accepted' | 'declined' | 'cancelled'; createdAt: string; decidedAt: string | null;
+  loanId: number | null; lentOut: boolean; owner: { id: number; displayName: string }; requester: { id: number; displayName: string };
+  copy: { format: Format; binding: Binding | null }; book: BookBrief;
+};
+export type Loans = { lent: Loan[]; borrowed: Loan[]; history: Loan[]; requests: { incoming: LoanRequest[]; outgoing: LoanRequest[] } };
 
 export type NotificationItem = {
-  id: number; type: 'loan_new' | 'loan_returned' | 'comment' | 'invite_accepted' | 'loan_due' | 'loan_overdue' | 'wish_available' | 'import_done' | 'list_shared'; refId: number | null; createdAt: string; read: boolean;
+  id: number; type: 'loan_new' | 'loan_returned' | 'comment' | 'invite_accepted' | 'loan_due' | 'loan_overdue' | 'wish_available' | 'import_done' | 'list_shared' | 'loan_request' | 'loan_declined'; refId: number | null; createdAt: string; read: boolean;
   actor: { id: number | null; displayName: string; avatarUrl: string | null } | null; book: BookBrief | null; list: { id: number; name: string } | null;
 };
 export type FeedItem = {
@@ -173,6 +180,8 @@ export type HistoryEvent = { type: HistoryType; date: string; person: string | n
 export type SearchHit = {
   isbn13: string; title: string; subtitle: string | null; authors: string[]; publisher: string | null;
   year: number | null; bookId: number | null; coverUrl: string | null;
+  /** wer im Freundeskreis das Buch hat */
+  owners?: { id: number; displayName: string }[];
 };
 
 export type Invite = { id: number; token: string; note: string | null; createdAt: string; expiresAt: string; usedAt: string | null; usedBy: string | null; createdBy?: string };

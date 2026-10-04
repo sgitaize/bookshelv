@@ -7,7 +7,7 @@
   import Timeline from '../components/Timeline.svelte';
   import RemoveSheet from '../components/RemoveSheet.svelte';
   import type { HistoryEvent, ArchivedCopy } from '../lib/api.ts';
-  import { toast, toastError } from '../lib/state.svelte.ts';
+  import { toast, toastError, session } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
   import { t, tn, i18n, fmtDate as fmtD, type Key } from '../lib/i18n.svelte.ts';
   import Cover from '../components/Cover.svelte';
@@ -31,6 +31,21 @@
   let progressOpen = $state(false);
   let askReview = $state(false);
   let lendCopy = $state<number | null>(null);
+
+  // Leihanfrage an ein Exemplar aus dem Freundeskreis
+  let asking = $state<number | null>(null);
+  let askText = $state('');
+  async function sendRequest(c: Copy) {
+    try {
+      await api.post(`/copies/${c.id}/requests`, { message: askText.trim() || null });
+      asking = null;
+      toast(t('req.sent', { name: c.ownerName }));
+      await load();
+    } catch (e) { toastError(e); }
+  }
+  async function cancelRequest(id: number) {
+    try { await api.del(`/loan-requests/${id}`); await load(); } catch (e) { toastError(e); }
+  }
 
   async function gotBack(loanId: number) {
     try {
@@ -261,14 +276,32 @@
     {#if others.length}
       <h2>{t('book.amongFriends')}</h2>
       {#each others as c (c.id)}
-        <a class="card copy" href="/people/{c.ownerId}">
-          <span class="avatar">{c.ownerName.slice(0, 1).toUpperCase()}</span>
+        <div class="card copy">
+          <a class="avatar" href="/people/{c.ownerId}">{c.ownerName.slice(0, 1).toUpperCase()}</a>
           <div class="grow">
-            <strong>{c.ownerName}</strong>
+            <a class="owner" href="/people/{c.ownerId}"><strong>{c.ownerName}</strong></a>
             <div class="muted small">{describe(c)} · {labels.read[c.readStatus]}{#if c.loan} · {c.loan.borrowerName ? t('loan.at', { name: c.loan.borrowerName }) : t('loan.lentOut')}{/if}</div>
+            {#if c.format === 'print' && c.loan?.borrowerId !== session.me?.id}
+              {#if asking === c.id}
+                <div class="ask">
+                  <input bind:value={askText} maxlength="300" placeholder={t('req.messagePh')} />
+                  <div class="row loanacts">
+                    <button class="small primary" onclick={() => sendRequest(c)}>{t('req.send')}</button>
+                    <button class="small ghost" onclick={() => (asking = null)}>{t('common.cancel')}</button>
+                  </div>
+                </div>
+              {:else if c.requestId}
+                <div class="row loanacts">
+                  <span class="chip">{t('req.pending')}</span>
+                  <button class="small ghost" onclick={() => cancelRequest(c.requestId!)}>{t('req.withdraw')}</button>
+                </div>
+              {:else}
+                <div class="row loanacts"><button class="small lendbtn" onclick={() => { asking = c.id; askText = ''; }}><Icon name="users" size={14} /> {t('req.ask')}</button></div>
+              {/if}
+            {/if}
           </div>
           {#if c.sprayedEdges}<span class="chip edge">{t('copy.edges')}</span>{/if}
-        </a>
+        </div>
       {/each}
     {/if}
   </section>
@@ -386,7 +419,9 @@
   .copies { margin-top: 2rem; }
   .copies h2 { margin: 0.6rem 0 0; }
   .copy { display: flex; align-items: center; gap: 0.9rem; padding: 0.9rem 1rem; color: var(--text); }
-  a.copy:hover { text-decoration: none; border-color: var(--surface-3); }
+  .copy a.avatar:hover, .copy a.owner:hover { text-decoration: none; }
+  .owner { color: var(--text); }
+  .ask { display: grid; gap: 0.4rem; margin-top: 0.5rem; }
   .grow { flex: 1; min-width: 0; }
   .fmt { color: var(--accent); }
   .tags { margin-top: 0.3rem; gap: 0.3rem; }

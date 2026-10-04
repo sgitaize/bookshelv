@@ -300,6 +300,21 @@ const migrations: string[] = [
   );
   CREATE INDEX list_members_user ON list_members(user_id);
   ALTER TABLE list_items ADD COLUMN added_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+  `,
+  // 13: Leihanfragen – jemand bittet um ein Exemplar aus einem sichtbaren Regal; Annehmen legt den Verleih an
+  `
+  CREATE TABLE loan_requests (
+    id INTEGER PRIMARY KEY,
+    copy_id INTEGER NOT NULL REFERENCES copies(id) ON DELETE CASCADE,
+    requester_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    message TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','accepted','declined','cancelled')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    decided_at TEXT,
+    loan_id INTEGER REFERENCES loans(id) ON DELETE SET NULL
+  );
+  CREATE UNIQUE INDEX loan_requests_open ON loan_requests(copy_id, requester_id) WHERE status = 'pending';
+  CREATE INDEX loan_requests_requester ON loan_requests(requester_id);
   `
 ];
 

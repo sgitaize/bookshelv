@@ -3,7 +3,7 @@
  * Freitext-Namen (Personen ohne Konto) sieht nur der Verleiher – sie werden nicht im Freundeskreis angezeigt.
  */
 import { HTTPException } from 'hono/http-exception';
-import { db } from '../db.ts';
+import { db, tx } from '../db.ts';
 import { requireUser, type User } from '../auth.ts';
 import { router, body, str, int, idParam, notFound } from '../util.ts';
 import { bookBrief } from './books.ts';
@@ -85,7 +85,8 @@ loanRoutes.get('/loans', c => {
   return c.json({
     lent: rows('l.lender_id = ? AND l.returned_at IS NULL', 'l.due_at IS NULL, l.due_at, l.lent_at', u.id),
     borrowed: [...rows('l.borrower_id = ? AND l.returned_at IS NULL', 'l.due_at IS NULL, l.due_at, l.lent_at', u.id), ...remote('rl.returned_at IS NULL')],
-    history: rows('(l.lender_id = ? OR l.borrower_id = ?) AND l.returned_at IS NOT NULL', 'l.returned_at DESC LIMIT 50', u.id, u.id)
+    history: rows('(l.lender_id = ? OR l.borrower_id = ?) AND l.returned_at IS NOT NULL', 'l.returned_at DESC LIMIT 50', u.id, u.id),
+    requests: requestsFor(u.id)
   });
 });
 
@@ -121,6 +122,8 @@ loanRoutes.post('/copies/:id/loans', async c => {
   const bookId = (db.prepare('SELECT book_id FROM copies WHERE id = ?').get(copy.id) as { book_id: number }).book_id;
   if (remote) offerRemote(id);
   else notify(borrowerId, 'loan_new', u.id, bookId, id);
+  // direkt an die anfragende Person verliehen → ihre offene Anfrage gilt als angenommen
+  if (borrowerId) db.prepare(`UPDATE loan_requests SET status = 'accepted', decided_at = datetime('now'), loan_id = ? WHERE copy_id = ? AND requester_id = ? AND status = 'pending'`).run(id, copy.id, borrowerId);
   return c.json({ id });
 });
 
@@ -204,3 +207,106 @@ loanRoutes.delete('/loans/:id', c => {
 export function anonymizeBorrower(userId: number) {
   db.prepare(`UPDATE loans SET borrower_name = '–', borrower_id = NULL WHERE borrower_id = ?`).run(userId);
 }
+
+// ---------- Leihanfragen ----------
+
+type RequestRow = { id: number; copy_id: number; requester_id: number; message: string | null; status: string; created_at: string; decided_at: string | null; loan_id: number | null };
+
+const REQUEST_SELECT = `
+  SELECT r.*, c.owner_id, c.format, c.binding, ow.display_name AS ownerName, rq.display_name AS requesterName,
+         b.id AS bookId, b.title, b.subtitle, b.authors, b.year, b.pages, b.cover,
+         (SELECT 1 FROM loans l WHERE l.copy_id = r.copy_id AND l.returned_at IS NULL) AS lentOut
+  FROM loan_requests r
+  JOIN copies c ON c.id = r.copy_id
+  JOIN books b ON b.id = c.book_id
+  JOIN users ow ON ow.id = c.owner_id
+  JOIN users rq ON rq.id = r.requester_id
+`;
+
+function requestJson(r: RequestRow & Record<string, unknown>) {
+  return {
+    id: r.id, copyId: r.copy_id, message: r.message, status: r.status, createdAt: r.created_at, decidedAt: r.decided_at, loanId: r.loan_id,
+    lentOut: !!r.lentOut,
+    owner: { id: r.owner_id as number, displayName: r.ownerName as string },
+    requester: { id: r.requester_id, displayName: r.requesterName as string },
+    copy: { format: r.format, binding: r.binding },
+    book: bookBrief(r)
+  };
+}
+
+/** Offene Anfragen an mich + meine eigenen (offen und die letzten 30 Tage entschieden) */
+export function requestsFor(userId: number) {
+  const rows = (where: string, ...args: number[]) =>
+    (db.prepare(`${REQUEST_SELECT} WHERE ${where} ORDER BY r.created_at DESC LIMIT 100`).all(...args) as Array<RequestRow & Record<string, unknown>>).map(requestJson);
+  return {
+    incoming: rows(`c.owner_id = ? AND r.status = 'pending'`, userId),
+    outgoing: rows(`r.requester_id = ? AND (r.status = 'pending' OR r.decided_at >= datetime('now', '-30 days'))`, userId)
+  };
+}
+
+loanRoutes.get('/loan-requests', c => c.json(requestsFor(requireUser(c).id)));
+
+/** Anfrage an ein Exemplar aus einem sichtbaren Regal (nur gedruckte – E-Books lassen sich nicht weitergeben) */
+loanRoutes.post('/copies/:id/requests', async c => {
+  const u = requireUser(c);
+  const copy = db.prepare(`
+    SELECT c.id, c.owner_id, c.book_id, c.format FROM copies c JOIN users o ON o.id = c.owner_id
+    WHERE c.id = ? AND c.removed_at IS NULL AND o.disabled = 0 AND o.shelf_visible = 1
+  `).get(idParam(c)) as { id: number; owner_id: number; book_id: number; format: string } | undefined;
+  if (!copy) throw notFound('Exemplar');
+  if (copy.owner_id === u.id) throw new HTTPException(400, { message: 'Das ist dein eigenes Exemplar' });
+  if (copy.format !== 'print') throw new HTTPException(400, { message: 'E-Books können nicht verliehen werden' });
+  const open = db.prepare(`SELECT id FROM loan_requests WHERE copy_id = ? AND requester_id = ? AND status = 'pending'`).get(copy.id, u.id) as { id: number } | undefined;
+  if (open) return c.json({ id: open.id });
+  const id = Number(db.prepare('INSERT INTO loan_requests (copy_id, requester_id, message) VALUES (?, ?, ?)')
+    .run(copy.id, u.id, str((await body(c)).message, 300)).lastInsertRowid);
+  notify(copy.owner_id, 'loan_request', u.id, copy.book_id, id);
+  return c.json({ id });
+});
+
+function requestFor(id: number) {
+  const r = db.prepare(`SELECT r.*, c.owner_id, c.book_id FROM loan_requests r JOIN copies c ON c.id = r.copy_id WHERE r.id = ?`).get(id) as
+    (RequestRow & { owner_id: number; book_id: number }) | undefined;
+  if (!r) throw notFound('Anfrage');
+  return r;
+}
+
+/** Annehmen (Besitzer*in): legt den Verleih an, optional mit Rückgabedatum */
+loanRoutes.post('/loan-requests/:id/accept', async c => {
+  const u = requireUser(c);
+  const r = requestFor(idParam(c));
+  if (r.owner_id !== u.id) throw notFound('Anfrage');
+  if (r.status !== 'pending') throw new HTTPException(409, { message: 'Diese Anfrage ist schon erledigt' });
+  if (openLoanFor(r.copy_id)) throw new HTTPException(409, { message: 'Dieses Exemplar ist schon verliehen' });
+  const dueAt = date((await body(c)).dueAt, null);
+  if (dueAt && dueAt < today()) throw new HTTPException(400, { message: 'Rückgabe kann nicht vor dem Verleihdatum liegen' });
+  const loanId = tx(() => {
+    const id = Number(db.prepare('INSERT INTO loans (copy_id, lender_id, borrower_id, lent_at, due_at, note) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(r.copy_id, u.id, r.requester_id, today(), dueAt, r.message).lastInsertRowid);
+    db.prepare(`UPDATE loan_requests SET status = 'accepted', decided_at = datetime('now'), loan_id = ? WHERE id = ?`).run(id, r.id);
+    return id;
+  });
+  notify(r.requester_id, 'loan_new', u.id, r.book_id, loanId);
+  return c.json({ loanId });
+});
+
+loanRoutes.post('/loan-requests/:id/decline', c => {
+  const u = requireUser(c);
+  const r = requestFor(idParam(c));
+  if (r.owner_id !== u.id) throw notFound('Anfrage');
+  if (r.status !== 'pending') return c.json({ ok: true });
+  db.prepare(`UPDATE loan_requests SET status = 'declined', decided_at = datetime('now') WHERE id = ?`).run(r.id);
+  notify(r.requester_id, 'loan_declined', u.id, r.book_id, r.id);
+  return c.json({ ok: true });
+});
+
+/** Zurückziehen (anfragende Person) */
+loanRoutes.delete('/loan-requests/:id', c => {
+  const u = requireUser(c);
+  const r = requestFor(idParam(c));
+  if (r.requester_id !== u.id) throw notFound('Anfrage');
+  if (r.status === 'pending') db.prepare(`UPDATE loan_requests SET status = 'cancelled', decided_at = datetime('now') WHERE id = ?`).run(r.id);
+  // die Glocke der Besitzer*in nicht mit einer erledigten Anfrage stehen lassen
+  db.prepare(`DELETE FROM notifications WHERE type = 'loan_request' AND ref_id = ? AND user_id = ?`).run(r.id, r.owner_id);
+  return c.json({ ok: true });
+});

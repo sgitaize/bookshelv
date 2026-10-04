@@ -17,6 +17,7 @@ trap 'kill $PID 2>/dev/null; rm -rf "$T"' EXIT
 for i in $(seq 1 50); do curl -sf localhost:3999/api/status >/dev/null && break; sleep 0.2; done
 node api.mjs "$T"
 node loans.mjs
+node requests.mjs
 node social.mjs
 node extras.mjs
 node stats.mjs

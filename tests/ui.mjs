@@ -24,6 +24,33 @@ await new Promise(r => setTimeout(r, 1200));
 const y1 = await page.evaluate(() => scrollY);
 check('scroll restored after back', y0 > 300 && Math.abs(y1 - y0) < 5, `${y0} → ${y1}`);
 
+// Leihanfrage über die Oberfläche: Anna fragt auf der Buchseite an, Simon nimmt unter Verleih → Anfragen an
+const ctxA = await browser.createBrowserContext();
+const pa = await ctxA.newPage();
+await pa.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true });
+await pa.goto(base + '/', { waitUntil: 'networkidle0' });
+await pa.evaluate(() => fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'anna', password: 'geheim1234' }) }));
+const target = await page.evaluate(() => fetch('/api/copies').then(r => r.json()).then(cs => cs.find(c => !c.lent && c.format === 'print')));
+await pa.goto(base + `/book/${target.book.id}`, { waitUntil: 'networkidle0' });
+const askBtn = await pa.evaluateHandle(() => [...document.querySelectorAll('button')].find(b => /Ausleihen anfragen|Ask to borrow/.test(b.textContent)));
+check('ask button on friend copy', !!(await askBtn.evaluate(b => !!b)));
+await askBtn.click();
+await pa.type('.ask input', 'Bitte bis Sonntag');
+await (await pa.evaluateHandle(() => [...document.querySelectorAll('.ask button')][0])).click();
+await pa.waitForFunction(() => [...document.querySelectorAll('.chip')].some(c => /Angefragt|Requested/.test(c.textContent)), { timeout: 5000 }).catch(() => {});
+check('request shown as pending', await pa.evaluate(() => [...document.querySelectorAll('.chip')].some(c => /Angefragt|Requested/.test(c.textContent))));
+await page.goto(base + '/loans?tab=requests', { waitUntil: 'networkidle0' });
+check('incoming request listed', await page.evaluate(() => document.body.innerText.includes('Bitte bis Sonntag')));
+if (process.env.SHOTDIR) await page.screenshot({ path: `${process.env.SHOTDIR}/ui-requests.png` });
+await (await page.evaluateHandle(() => [...document.querySelectorAll('button')].find(b => /Annehmen|Accept/.test(b.textContent)))).click();
+await (await page.evaluateHandle(() => [...document.querySelectorAll('button')].find(b => /^\s*(Verleihen|Lend)\s*$/.test(b.textContent)))).click();
+await page.waitForFunction(() => !document.body.innerText.includes('Bitte bis Sonntag'), { timeout: 5000 }).catch(() => {});
+const borrowed = await pa.evaluate(() => fetch('/api/loans').then(r => r.json()));
+const ln = borrowed.borrowed.find(l => l.book.id === target.book.id);
+check('accepted via UI → loan', !!ln);
+if (ln) await page.evaluate(id => fetch(`/api/loans/${id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: '{}' }), ln.id);
+await ctxA.close();
+
 await browser.close();
 console.log(`UI-Test: ${ok} ok, ${fail} fehlgeschlagen`);
 process.exit(fail ? 1 : 0);

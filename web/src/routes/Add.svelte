@@ -289,6 +289,7 @@
                 {#if h.subtitle}<span class="sub">{h.subtitle}</span>{/if}
                 <span class="muted small">{h.authors.join(', ')}</span>
                 <span class="muted small">{[h.publisher, h.year, h.isbn13].filter(Boolean).join(' · ')}</span>
+                {#if h.owners?.length}<span class="owners small"><Icon name="users" size={13} /> {t('req.ownedBy', { names: h.owners.map(o => o.displayName).join(', ') })}</span>{/if}
               </span>
               {#if lookupIsbn === h.isbn13}<span class="spinner sm"></span>{/if}
             </button>
@@ -374,6 +375,7 @@
   .searchbox :global(svg) { position: absolute; left: 0.85rem; color: var(--muted); }
   .searchbox input { padding-left: 2.5rem; font-size: 1.05rem; }
   .searchbox .spinner { position: absolute; right: 0.9rem; }
+  .owners { color: var(--accent); display: inline-flex; gap: 0.3rem; align-items: center; }
   .hits { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
   .hit {
     width: 100%; display: flex; align-items: center; gap: 0.9rem; text-align: left;

@@ -79,8 +79,15 @@ bookRoutes.post('/catalog/isbn', async c => {
   return c.json({ found: true, book: bookJson(book) });
 });
 
+/** Wer im Freundeskreis hat das Buch? (sichtbare Regale, ohne mich) */
+const ownersOf = (bookId: number, me: number) => (db.prepare(`
+  SELECT DISTINCT u.id, u.display_name AS displayName FROM copies c JOIN users u ON u.id = c.owner_id
+  WHERE c.book_id = ? AND c.removed_at IS NULL AND c.owner_id != ? AND u.shelf_visible = 1 AND u.disabled = 0
+  ORDER BY u.display_name LIMIT 5
+`).all(bookId, me) as { id: number; displayName: string }[]);
+
 bookRoutes.get('/catalog/search', async c => {
-  requireUser(c);
+  const u = requireUser(c);
   const q = (c.req.query('q') ?? '').trim().slice(0, 100);
   if (q.length < 2) return c.json([]);
   // ISBN direkt eingegeben? Dann nicht suchen, sondern nachschlagen
@@ -93,6 +100,7 @@ bookRoutes.get('/catalog/search', async c => {
     return {
       isbn13: h.isbn13, title: h.title, subtitle: h.subtitle, authors: h.authors, publisher: h.publisher, year: h.year,
       bookId: local?.id ?? null,
+      owners: local ? ownersOf(local.id, u.id) : [],
       coverUrl: local?.cover ? `/covers/${local.cover}`
         : h.coverHint?.ol ? `/api/catalog/cover?ol=${h.coverHint.ol}`
         : h.coverHint?.isbn ? `/api/catalog/cover?isbn=${h.coverHint.isbn}` : null
@@ -168,8 +176,9 @@ bookRoutes.get('/books/:id', c => {
         : loan?.borrower_remote_id
           ? (db.prepare(`SELECT ra.display_name || ' (@' || ra.username || ')' AS n FROM remote_actors ra WHERE ra.id = ?`).get(loan.borrower_remote_id) as { n: string } | undefined)?.n ?? null
           : null;
+      const request = mine ? undefined : db.prepare(`SELECT id FROM loan_requests WHERE copy_id = ? AND requester_id = ? AND status = 'pending'`).get(cp.id as number, u.id) as { id: number } | undefined;
       return {
-        ...cp, sprayedEdges: !!cp.sprayedEdges, mine, notes: mine ? cp.notes : null,
+        ...cp, sprayedEdges: !!cp.sprayedEdges, mine, notes: mine ? cp.notes : null, requestId: request?.id ?? null,
         // Verleih: Verleiher sieht alles, andere nur registrierte Entleiher (keine Freitext-Namen Dritter)
         loan: !loan ? null : mine
           ? { id: loan.id, borrowerId: loan.borrower_id, borrowerName: borrowerName ?? loan.borrower_name, lentAt: loan.lent_at, dueAt: loan.due_at, note: loan.note }
