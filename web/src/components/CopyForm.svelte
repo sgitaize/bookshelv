@@ -106,10 +106,14 @@
   </div>
   {#if value.readStatus === 'read'}
     <!-- „gelesen am“ gleich beim Eintragen; leer = Datum unbekannt -->
-    <label class="field readon"><span>{t('dates.finishedOn')}</span>
-      <input type="date" value={value.finishedAt ?? new Date().toISOString().slice(0, 10)} max={new Date().toISOString().slice(0, 10)}
-        oninput={e => (value.finishedAt = (e.target as HTMLInputElement).value || '')} />
-    </label>
+    {#if value.finishedAt !== ''}
+      <label class="field readon"><span>{t('dates.finishedOn')}</span>
+        <input type="date" value={value.finishedAt ?? new Date().toISOString().slice(0, 10)} max={new Date().toISOString().slice(0, 10)}
+          oninput={e => (value.finishedAt = (e.target as HTMLInputElement).value || '')} />
+      </label>
+    {/if}
+    <label class="check"><input type="checkbox" checked={value.finishedAt === ''}
+      onchange={e => (value.finishedAt = (e.target as HTMLInputElement).checked ? '' : undefined)} /> {t('dates.unknown')}</label>
   {/if}
   {/if}
 
@@ -120,6 +124,7 @@
 </div>
 
 <style>
+  .check { display: inline-flex; gap: 0.5em; align-items: center; cursor: pointer; font-size: 0.92rem; }
   .form { gap: 0.9rem; }
   .group { display: grid; gap: 0.35rem; justify-items: start; }
   .group.wide { justify-items: stretch; }

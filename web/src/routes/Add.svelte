@@ -123,7 +123,7 @@
     // Schon bekannt (z. B. per Import ohne Exemplar)? Dann Lesestand und Daten übernehmen statt überschreiben
     const r = detail.reading;
     const known = r && (r.status !== 'unread' || r.favorite || r.progress) ? r : null;
-    copy = { ...copy, notes: '', readStatus: r?.status ?? 'unread', finishedAt: r?.finishedAt ?? undefined };
+    copy = { ...copy, notes: '', readStatus: r?.status ?? 'unread', finishedAt: r?.status === 'read' && !r.finishedAt ? '' : r?.finishedAt ?? undefined };
     selected = { book, owned: detail.copies.filter(c => c.mine).length, known };
   }
 

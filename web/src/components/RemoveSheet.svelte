@@ -5,8 +5,9 @@
   import Sheet from './Sheet.svelte';
 
   // Exemplar entfernen: ins Archiv (mit Grund, Verlauf bleibt) oder endgültig löschen (Verlauf weg)
+  // copyId als Liste: Massen-Aktion aus der Bibliothek (verliehene Exemplare werden übersprungen)
   let { copyId, title, archivedOnly = false, onclose, onsaved }: {
-    copyId: number | null; title: string; archivedOnly?: boolean; onclose: () => void; onsaved: () => void;
+    copyId: number | number[] | null; title: string; archivedOnly?: boolean; onclose: () => void; onsaved: () => void;
   } = $props();
 
   let mode = $state<'archive' | 'purge'>('archive');
@@ -18,12 +19,17 @@
   async function confirm() {
     if (copyId === null) return;
     busy = true;
-    try {
-      await api.del(`/copies/${copyId}`, mode === 'purge' ? { mode } : { mode, reason });
-      toast(t(mode === 'purge' ? 'rm.purged' : 'rm.archived'));
-      onsaved();
-      onclose();
-    } catch (e) { toastError(e); } finally { busy = false; }
+    const ids = Array.isArray(copyId) ? copyId : [copyId];
+    let failed = 0, last: unknown;
+    for (const id of ids) {
+      try { await api.del(`/copies/${id}`, mode === 'purge' ? { mode } : { mode, reason }); }
+      catch (e) { failed++; last = e; }
+    }
+    busy = false;
+    if (failed === ids.length) return toastError(last);
+    toast(failed ? t('rm.partly', { n: failed }) : t(mode === 'purge' ? 'rm.purged' : 'rm.archived'));
+    onsaved();
+    onclose();
   }
 </script>
 

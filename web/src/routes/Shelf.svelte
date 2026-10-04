@@ -1,10 +1,11 @@
 <script lang="ts">
   import { api, labels, type ShelfItem } from '../lib/api.ts';
-  import { session, toastError } from '../lib/state.svelte.ts';
+  import { session, toast, toastError } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
   import { t, tn, i18n, fmtDate, type Key } from '../lib/i18n.svelte.ts';
   import Cover from '../components/Cover.svelte';
   import Icon from '../components/Icon.svelte';
+  import RemoveSheet from '../components/RemoveSheet.svelte';
 
   // ohne userId: eigenes Regal; mit userId: Regal eines Freundes (nur lesen)
   let { userId }: { userId?: number } = $props();
@@ -19,7 +20,36 @@
 
   const own = $derived(!userId || userId === session.me?.id);
 
+  // Massen-Aktionen: mehrere Bücher markieren → gelesen (ohne Datum) oder entfernen
+  let selecting = $state(false);
+  let picked = $state(new Set<number>());
+  let removing = $state<number[] | null>(null);
+  let bulkBusy = $state(false);
+  let reload = $state(0);
+  const canSelect = $derived(own && filter !== 'archive' && filter !== 'sold');
+
+  function toggle(bookId: number) {
+    const n = new Set(picked);
+    if (!n.delete(bookId)) n.add(bookId);
+    picked = n;
+  }
+  function endSelect() { selecting = false; picked = new Set(); }
+  const pickedCopies = $derived((items ?? []).filter(i => picked.has(i.book.id)).map(i => i.id));
+
+  async function bulkRead() {
+    bulkBusy = true;
+    try {
+      // schon Gelesenes nicht anfassen (behält sein Datum)
+      const ids = [...picked].filter(id => items?.find(i => i.book.id === id)?.readStatus !== 'read');
+      for (const id of ids) await api.put(`/books/${id}/reading`, { status: 'read', finishedAt: null });
+      if (items) for (const it of items) if (picked.has(it.book.id)) it.readStatus = 'read';
+      toast(t('bulk.markedRead', { n: picked.size }));
+      endSelect();
+    } catch (e) { toastError(e); } finally { bulkBusy = false; }
+  }
+
   $effect(() => {
+    reload;
     items = null;
     const req = own
       ? api.get<ShelfItem[]>('/copies').then(r => { items = r; ownerName = ''; })
@@ -75,6 +105,7 @@
     }
     return [...byBook.values()];
   });
+  const allPicked = $derived(shown.length > 0 && shown.every(it => picked.has(it.book.id)));
 </script>
 
 <section>
@@ -86,6 +117,11 @@
         {#if own}<a href="/history" class="histlink small">{t('hist.title')} →</a>{/if}
       </div>
     </div>
+    {#if canSelect && items?.length}
+      <button class="small selbtn" onclick={() => (selecting ? endSelect() : (selecting = true))}>
+        {#if selecting}{t('common.cancel')}{:else}<Icon name="check" size={16} /> {t('bulk.select')}{/if}
+      </button>
+    {/if}
   </div>
 
   {#if items && (items.length || own)}
@@ -121,7 +157,8 @@
   {:else}
     <div class="grid">
       {#each shown as it (it.id)}
-        <a class="item" href="/book/{it.book.id}">
+        <a class="item" class:picked={selecting && picked.has(it.book.id)} href="/book/{it.book.id}"
+          onclick={e => { if (selecting) { e.preventDefault(); toggle(it.book.id); } }}>
           <div class="cv" class:gone={!!it.removedAt}>
             <Cover url={it.book.coverUrl} title={it.book.title} authors={it.book.authors} />
             <div class="badges">
@@ -131,7 +168,8 @@
               {#if it.formats.has('audio')}<span class="chip">{t('format.audio')}</span>{/if}
               {#if it.sprayedEdges}<span class="chip edge">{t('copy.edges')}</span>{/if}
             </div>
-            {#if it.readStatus !== 'unread'}<span class="status {it.readStatus}" title={labels.read[it.readStatus]}></span>{/if}
+            {#if selecting}<span class="pick" aria-hidden="true">{#if picked.has(it.book.id)}<Icon name="check" size={18} />{/if}</span>{/if}
+            {#if it.readStatus !== 'unread' && !selecting}<span class="status {it.readStatus}" title={labels.read[it.readStatus]}></span>{/if}
           </div>
           <div class="t">{it.book.title}</div>
           <div class="a muted">{it.book.authors.join(', ')}</div>
@@ -141,6 +179,20 @@
     {#if !shown.length}<p class="empty">{t('shelf.nothing')}</p>{/if}
   {/if}
 </section>
+
+{#if selecting}
+  <div class="bulkbar" role="toolbar" aria-label={t('bulk.select')}>
+    <button class="ghost small" onclick={() => (picked = allPicked ? new Set() : new Set(shown.map(it => it.book.id)))}>
+      {allPicked ? t('bulk.none') : t('bulk.all')}
+    </button>
+    <span class="count">{t('bulk.count', { n: picked.size })}</span>
+    <button class="small" disabled={!picked.size || bulkBusy} onclick={bulkRead}><Icon name="check" size={16} /> {t('read.read')}</button>
+    <button class="small danger" disabled={!picked.size || bulkBusy} onclick={() => (removing = pickedCopies)} aria-label={t('rm.title')}><Icon name="trash" size={16} /></button>
+  </div>
+{/if}
+
+<RemoveSheet copyId={removing} title={t('bulk.count', { n: picked.size })} onclose={() => (removing = null)}
+  onsaved={() => { endSelect(); archived = null; reload++; }} />
 
 <style>
   .head { margin-bottom: 1rem; align-items: flex-end; }
@@ -177,6 +229,21 @@
   .status.reading { background: var(--accent); }
   .t { font-weight: 600; font-size: 0.86rem; margin-top: 0.6rem; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .a { font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .selbtn { display: inline-flex; gap: 0.4em; align-items: center; flex: none; }
+  .pick { position: absolute; top: 6px; right: 6px; z-index: 2; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+    border: 2px solid #fff; background: rgb(0 0 0 / 0.35); color: #fff; box-shadow: 0 1px 4px rgb(0 0 0 / 0.4); }
+  .picked .pick { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .picked .cv { transform: scale(0.94); outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+  .bulkbar {
+    position: fixed; z-index: 45; left: 16px; right: 16px; bottom: calc(82px + env(safe-area-inset-bottom));
+    max-width: 520px; margin: 0 auto; display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.6rem;
+    border-radius: 999px; background: var(--glass); backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6);
+    border: 1px solid var(--line); box-shadow: 0 8px 30px rgb(0 0 0 / 0.2);
+  }
+  .bulkbar .count { flex: 1; min-width: 0; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bulkbar button { display: inline-flex; gap: 0.35em; align-items: center; flex: none; }
+  @media (min-width: 1000px) { .bulkbar { bottom: 20px; } }
+  section:has(~ .bulkbar) { padding-bottom: 5rem; }
   .skeleton { aspect-ratio: 2/3; border-radius: 6px; background: var(--surface-2); animation: pulse 1.2s ease-in-out infinite alternate; }
   @keyframes pulse { to { opacity: 0.5; } }
 </style>
