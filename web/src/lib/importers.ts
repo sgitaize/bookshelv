@@ -8,6 +8,8 @@ export type ImportItem = {
   rating?: number | null; review?: string | null; spoiler?: boolean; finishedAt?: string | null; addedAt?: string | null;
   owned?: boolean; format?: 'print' | 'ebook'; binding?: 'paperback' | 'hardcover' | null; startedAt?: string | null;
   lists?: (string | ListRef)[]; resolve?: string[]; favorite?: boolean; wishlist?: boolean; dateUnknown?: boolean;
+  /** nur Booky, nur im Browser: alle Listen des Buchs (für die Auswahl je Liste), wird vor dem Hochladen entfernt */
+  booky?: { key: string; refs: (ListRef & { std?: string })[] };
 };
 export type ListRef = { name: string; createdAt?: string | null; addedAt?: string | null };
 
@@ -238,12 +240,13 @@ export function fromBooky(header: string[], data: string[][]): ImportItem[] {
     const title = (r[i.title] ?? '').trim();
     if (!isbn && !title) continue;
     const key = isbn ?? title.toLowerCase();
-    const it = byBook.get(key) ?? { isbn, title, authors: authorsOf(r[i.contributors]), status: 'unread', owned: false, format: 'print', lists: [] };
+    const it = byBook.get(key) ?? { isbn, title, authors: authorsOf(r[i.contributors]), status: 'unread', owned: false, format: 'print', lists: [], booky: { key, refs: [] } };
     byBook.set(key, it);
     const list = (r[i.list_name] ?? '').trim();
     const isDefault = (r[i.is_default] ?? '').toLowerCase() === 'true';
     const entry = bookyDate(r[i.entry_created_at]);
     const kind = isDefault ? BOOKY_DEFAULTS[list] : undefined;
+    if (list) it.booky!.refs.push({ name: list, createdAt: bookyDate(r[i.list_created_at]), addedAt: entry, ...(isDefault && kind ? { std: list } : {}) });
     if (kind === 'read' || kind === 'dnf') {
       // gelesen schlägt alles andere; mehrfach gelesen → letztes Datum
       if (it.status !== 'read' || kind === 'read') it.status = kind;
@@ -273,3 +276,77 @@ export function fromBooky(header: string[], data: string[][]): ImportItem[] {
 /** Listen-/Regalnamen eines Imports (für die Auswahl „steht in meinem Regal“) */
 export const listNames = (items: ImportItem[]) =>
   [...new Set(items.flatMap(it => (it.lists ?? []).map(l => (typeof l === 'string' ? l : l.name))))];
+
+// ---------- Booky: Auswahl je Liste ----------
+
+/** Was mit den Büchern einer Booky-Liste passiert: Besitz (alle / einzeln angetippt), Wunschliste oder nichts */
+export type BookyTarget = 'all' | 'pick' | 'wish' | 'none';
+export type BookyPlan = {
+  target: BookyTarget; format: 'print' | 'ebook';
+  /** als Leseliste mit diesem Namen anlegen (bzw. in die gleichnamige Liste einfügen) */
+  list: boolean; name: string;
+  /** Lesestand für Bücher, die Booky nicht als gelesen/am Lesen/abgebrochen führt */
+  status: 'auto' | 'unread' | 'reading' | 'read' | 'dnf';
+  /** bei target 'pick': Schlüssel der Bücher, die im Regal stehen */
+  picked: string[];
+};
+export type BookyRow = { id: string; name: string; std?: string; count: number };
+
+/** Standardlisten in dieser Reihenfolge, danach eigene Listen nach Größe; Favoriten werden nur ♥ */
+const STD_ORDER = ['want_to_read', 'finished', 'currently_reading', 'did_not_finish', 'wishlist'];
+export const bookyRowId = (r: { name: string; std?: string }) => (r.std ? `std:${r.std}` : `list:${r.name}`);
+
+export function bookyRows(items: ImportItem[]): BookyRow[] {
+  const rows = new Map<string, BookyRow>();
+  for (const it of items) for (const r of it.booky?.refs ?? []) {
+    if (r.std === 'favorite') continue;
+    const id = bookyRowId(r);
+    const row = rows.get(id) ?? { id, name: r.name, std: r.std, count: 0 };
+    row.count++; rows.set(id, row);
+  }
+  const rank = (r: BookyRow) => (r.std ? STD_ORDER.indexOf(r.std) : STD_ORDER.length);
+  return [...rows.values()].sort((a, b) => rank(a) - rank(b) || b.count - a.count || a.name.localeCompare(b.name));
+}
+
+/** Vorschlag je Liste; „Will ich lesen“ heißt in Booky „Stapel ungelesener Bücher“ und steht im Regal */
+export function bookyDefaultPlan(row: BookyRow): BookyPlan {
+  const plan: BookyPlan = { target: 'none', format: /e-?books?/i.test(row.name) ? 'ebook' : 'print', list: !row.std, name: row.name, status: 'auto', picked: [] };
+  if (row.std === 'want_to_read') return { ...plan, target: 'all', list: true, name: 'Stapel ungelesener Bücher' };
+  if (row.std === 'finished') return { ...plan, target: 'pick' };
+  if (row.std === 'currently_reading') return { ...plan, target: 'all' };
+  if (row.std === 'wishlist') return { ...plan, target: 'wish' };
+  if (row.std) return plan;
+  if (/wunsch|geburtstag|weihnacht|geschenk/i.test(row.name)) return { ...plan, target: 'wish' };
+  if (/stapel|ungelesen|sub\b/i.test(row.name)) return { ...plan, target: 'all' };
+  // unklar → nachfragen: einzeln antippen, nichts vorausgewählt
+  return { ...plan, target: 'pick' };
+}
+
+const RANK = { unread: 1, reading: 2, dnf: 3, read: 4 } as const;
+
+/**
+ * Wendet die Auswahl je Liste an. Regeln (Simon, 2026-10-04):
+ * Besitz gewinnt über Wunschliste; Gelesenes kommt nie auf die Wunschliste; der Lesestand aus Booky
+ * (gelesen/am Lesen/abgebrochen) gilt, sonst der höchste Lesestand, den eine Liste vorgibt.
+ */
+export function applyBookyPlans(items: ImportItem[], plans: Record<string, BookyPlan>): ImportItem[] {
+  return items.map(({ booky, ...it }) => {
+    if (!booky) return it;
+    const rows = booky.refs.map(r => ({ r, p: plans[bookyRowId(r)] })).filter(x => x.p);
+    const owning = rows.filter(x => x.p.target === 'all' || (x.p.target === 'pick' && x.p.picked.includes(booky.key)));
+    const owned = owning.length > 0;
+    let status: ImportItem['status'] = it.status === 'want' ? 'unread' : it.status;
+    if (status === 'unread') {
+      for (const { p } of rows) if (p.status !== 'auto' && RANK[p.status] > RANK[status as keyof typeof RANK]) status = p.status;
+    }
+    const wishlist = !owned && status !== 'read' && rows.some(x => x.p.target === 'wish');
+    if (!owned && wishlist && status === 'unread') status = 'want';
+    const lists = rows.filter(x => x.p.list && x.p.name.trim())
+      .map(({ r, p }) => ({ name: p.name.trim(), createdAt: r.createdAt, addedAt: r.addedAt }));
+    return {
+      ...it, status, owned, wishlist, lists,
+      format: owned && owning.every(x => x.p.format === 'ebook') ? 'ebook' : 'print',
+      dateUnknown: status === 'read' && !it.finishedAt ? true : it.dateUnknown
+    };
+  });
+}

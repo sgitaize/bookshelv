@@ -2,8 +2,9 @@
   import { api } from '../lib/api.ts';
   import { session, toast, toastError } from '../lib/state.svelte.ts';
   import { t, fmtDate, type Key } from '../lib/i18n.svelte.ts';
-  import { parseCsv, convert, convertMapped, guessMapping, listNames, FIELDS, type ImportItem, type ImportSource, type Mapping, type Field } from '../lib/importers.ts';
+  import { parseCsv, convert, convertMapped, guessMapping, bookyRows, bookyDefaultPlan, applyBookyPlans, FIELDS, type BookyPlan, type ImportItem, type ImportSource, type Mapping, type Field } from '../lib/importers.ts';
   import Icon from '../components/Icon.svelte';
+  import BookyPlanner from '../components/BookyPlanner.svelte';
 
   type ConflictField = 'status' | 'finishedAt' | 'rating' | 'review';
   type Conflict = { field: ConflictField; mine: unknown; theirs: unknown };
@@ -18,22 +19,14 @@
   let filename = $state('');
   let importId = $state<number | null>(null);
   let undone = $state(false);
-  // Booky kennt keinen Besitz: man wählt, welche Listen im eigenen Regal stehen
-  const STATUS_SHELVES = ['read', 'reading', 'dnf'] as const;
-  let shelfStatus = $state<string[]>(['reading', 'dnf']);
-  let shelfLists = $state<string[]>([]);
-  const isEbookList = (n: string) => /e-?books?/i.test(n);
-  const listsOf = (it: ImportItem) => (it.lists ?? []).map(l => (typeof l === 'string' ? l : l.name));
+  // Booky kennt keinen Besitz: je Liste wird festgelegt, was im Regal/auf der Wunschliste/in Leselisten landet
+  let plans = $state<Record<string, BookyPlan>>({});
+  const rowsBooky = $derived(source === 'booky' ? bookyRows(parsed) : []);
   const items = $derived.by(() => {
     if (source === 'generic' && mapping) return convertMapped(rows, mapping);
     if (source !== 'booky') return parsed;
-    return parsed.map(it => {
-      const shelved = listsOf(it).filter(n => shelfLists.includes(n));
-      const owned = shelfStatus.includes(it.status) || shelved.length > 0;
-      return { ...it, owned, format: owned && shelved.length && shelved.every(isEbookList) ? 'ebook' as const : 'print' as const };
-    });
+    return applyBookyPlans(parsed, plans);
   });
-  const allLists = $derived(source === 'booky' ? listNames(parsed) : []);
 
   let copies = $state<'owned' | 'all' | 'none'>('owned');
   let reviews = $state(true);
@@ -77,8 +70,7 @@
     results = []; done = 0; finished = false; open = []; resolved = false; importId = null; undone = false;
     filename = file.name;
     copies = r.source === 'booky' ? 'owned' : r.source === 'generic' || !r.items.some(i => i.owned) ? 'all' : 'owned';
-    // Vorschlag: Listen, die nach „ungelesenem Stapel“ klingen, stehen im Regal; Wunsch-/Geschenklisten nicht
-    shelfLists = r.source === 'booky' ? listNames(r.items).filter(n => /stapel|ungelesen|sub\b/i.test(n) && !/wunsch|geburtstag|weihnacht|geschenk/i.test(n)) : [];
+    plans = r.source === 'booky' ? Object.fromEntries(bookyRows(r.items).map(row => [row.id, bookyDefaultPlan(row)])) : {};
   }
 
   /**
@@ -209,8 +201,8 @@
       <ul class="facts">
         <li>{t('imp.cRead', { n: counts.read })}</li>
         <li>{t('imp.cReading', { n: counts.reading })}</li>
-        <li>{t('imp.cWant', { n: counts.want })}</li>
-        <li>{t('imp.cRated', { n: counts.rated })}</li>
+        {#if source !== 'booky'}<li>{t('imp.cWant', { n: counts.want })}</li>{/if}
+        {#if source !== 'booky'}<li>{t('imp.cRated', { n: counts.rated })}</li>{/if}
         {#if source !== 'booky' && (source !== 'generic' || mapping?.owned !== -1)}<li>{t('imp.cOwned', { n: counts.owned })}</li>{/if}
         {#if counts.dnf}<li>{t('imp.cDnf', { n: counts.dnf })}</li>{/if}
         {#if source === 'booky' && counts.wish}<li>{t('imp.cWish', { n: counts.wish })}</li>{/if}
@@ -221,18 +213,8 @@
       </ul>
 
       {#if source === 'booky'}
-        <div class="opt">
-          <span class="lbl">{t('imp.shelfWhich')}</span>
-          <div class="shelfpick">
-            {#each STATUS_SHELVES as st}
-              <label class="row check"><input type="checkbox" bind:group={shelfStatus} value={st} /> {t(`read.${st}` as Key)}</label>
-            {/each}
-            {#each allLists as n}
-              <label class="row check"><input type="checkbox" bind:group={shelfLists} value={n} /> „{n}“{#if isEbookList(n)} <span class="muted small">· {t('format.ebook')}</span>{/if}</label>
-            {/each}
-          </div>
-          <span class="muted small">{t('imp.shelfInfo', { n: counts.owned })}</span>
-        </div>
+        <BookyPlanner rows={rowsBooky} items={parsed} bind:plans />
+        <span class="muted small">{t('imp.shelfInfo', { n: counts.owned })}</span>
       {:else}
       <div class="opt">
         <span class="lbl">{t('imp.copies')}</span>
@@ -254,8 +236,8 @@
         <span class="muted small">{t('imp.conflictInfo')}</span>
       </div>
 
-      {#if counts.want}<label class="row check"><input type="checkbox" bind:checked={wishlist} /> {t('imp.wishlist')}</label>{/if}
-      {#if counts.listed}<label class="row check"><input type="checkbox" bind:checked={lists} /> {t('imp.lists')}</label>{/if}
+      {#if counts.want && source !== 'booky'}<label class="row check"><input type="checkbox" bind:checked={wishlist} /> {t('imp.wishlist')}</label>{/if}
+      {#if counts.listed && source !== 'booky'}<label class="row check"><input type="checkbox" bind:checked={lists} /> {t('imp.lists')}</label>{/if}
       {#if counts.rated}
         <label class="row check"><input type="checkbox" bind:checked={reviews} /> {t('imp.reviews')}</label>
         {#if reviews}
@@ -333,7 +315,6 @@
 <style>
   section { max-width: 720px; margin: 0 auto; }
   .hist { justify-self: start; }
-  .shelfpick { display: grid; gap: 0.3rem; }
   .pick { justify-self: start; cursor: pointer; }
   details p { margin: 0.4rem 0; }
   .facts { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.15rem; }

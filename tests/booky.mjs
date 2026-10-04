@@ -1,5 +1,5 @@
 // Iteration 9: Booky-Import, Import rückgängig machen, Lesedaten nachträglich ändern (läuft nach lists.mjs)
-import { parseCsv, convert } from '../web/src/lib/importers.ts';
+import { parseCsv, convert, bookyRows, bookyDefaultPlan, applyBookyPlans } from '../web/src/lib/importers.ts';
 const base = 'http://localhost:3999/api';
 let ok = 0, fail = 0;
 const check = (n, c, x = '') => { c ? ok++ : (fail++, console.log('✗', n, x)); };
@@ -26,6 +26,30 @@ check('booky detected', bk.source === 'booky' && bk.items.length === 5, JSON.str
 check('booky read date + fav + list', by('Babel').status === 'read' && by('Babel').finishedAt === '2025-10-24' && by('Babel').favorite && by('Babel').lists[0].name === "12 für '26");
 check('booky unknown date', by('Die Lücken').status === 'read' && !by('Die Lücken').finishedAt && by('Die Lücken').dateUnknown);
 check('booky wishlist/dnf/want', by('Trotzdem').status === 'want' && by('Spielen').status === 'dnf' && by('DAISY').lists[0].name === 'Will ich lesen');
+
+// Auswahl je Liste (Simon 2026-10-04): Regal schlägt Wunschliste, Gelesenes nie auf die Wunschliste, Leseliste mit exaktem Namen
+const csv2 = csv + "9783328604495,Trotzdem zuhause,Tupoka Ogette,Diesen Herbst lese ich …,False,2025-09-01 10:00:00,2025-09-02 10:00:00\n"
+  + "9783462005011,Die Lücken,Shida Bazyar,Geburtstag/ Weihnachten,False,2025-09-01 10:00:00,2025-09-02 10:00:00\n"
+  + "9783442763559,DAISY,Melanie Raabe,Ungelesene Fachbücher ,False,2025-09-01 10:00:00,2025-09-02 10:00:00\n";
+const bk2 = convert(parseCsv(csv2));
+const rows2 = bookyRows(bk2.items);
+const plans = Object.fromEntries(rows2.map(r => [r.id, bookyDefaultPlan(r)]));
+check('plan rows', rows2[0].std === 'want_to_read' && !rows2.some(r => r.std === 'favorite') && rows2.some(r => r.name === 'Ungelesene Fachbücher'), JSON.stringify(rows2));
+check('plan defaults', plans['std:want_to_read'].target === 'all' && plans['std:want_to_read'].name === 'Stapel ungelesener Bücher' && plans['std:finished'].target === 'pick'
+  && plans['std:wishlist'].target === 'wish' && plans['list:Diesen Herbst lese ich …'].target === 'pick' && plans['list:Geburtstag/ Weihnachten'].target === 'wish');
+let a = applyBookyPlans(bk2.items, plans);
+const pa = t => a.find(i => i.title.startsWith(t));
+check('plan want_to_read owned + list', pa('DAISY').owned && pa('DAISY').lists.some(l => l.name === 'Stapel ungelesener Bücher') && pa('DAISY').lists.some(l => l.name === 'Ungelesene Fachbücher') && !('booky' in pa('DAISY')));
+check('plan read not on wishlist', pa('Die Lücken').status === 'read' && !pa('Die Lücken').wishlist && !pa('Die Lücken').owned);
+check('plan wish only', pa('Trotzdem').status === 'want' && pa('Trotzdem').wishlist && !pa('Trotzdem').owned);
+plans['list:Diesen Herbst lese ich …'].picked = [pa('Trotzdem').isbn];
+plans['std:finished'].picked = [by('Babel').isbn]; plans['std:finished'].format = 'ebook';
+plans['list:Diesen Herbst lese ich …'].status = 'reading';
+plans["list:12 für '26"].list = false;
+a = applyBookyPlans(bk2.items, plans);
+check('plan shelf beats wishlist', pa('Trotzdem').owned && !pa('Trotzdem').wishlist && pa('Trotzdem').status === 'reading');
+check('plan picked read ebook', pa('Babel').owned && pa('Babel').format === 'ebook' && pa('Babel').status === 'read' && !pa('Babel').lists.length && pa('Babel').favorite);
+check('plan not picked', !pa('Die Lücken').owned);
 
 const copiesBefore = (await req('GET', '/copies')).data.length;
 const listsBefore = (await req('GET', '/lists')).data.length;
