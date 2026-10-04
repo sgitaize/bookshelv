@@ -503,6 +503,7 @@ export default {
   "stats.fmt.ebook": "E-book",
   "stats.fmt.none": "Borrowed / no copy",
   "stats.none": "There are no finished books with an end date for this period yet.",
+  "stats.jump": "Show {y}",
   "stats.table": "As a table",
   "stats.wrapup": "Year in review {y}",
   "stats.books.unit": " books",

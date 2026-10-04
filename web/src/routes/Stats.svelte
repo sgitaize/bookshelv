@@ -69,6 +69,10 @@
 
     {#if !s.totals.books}
       <p class="empty">{t('stats.none')}</p>
+      {#if year && (s.years ?? []).some(y => y !== year)}
+        {@const last = (s.years ?? []).filter(y => y !== year).sort().reverse()[0]}
+        <p class="jump"><button class="btn" onclick={() => (year = last)}>{t('stats.jump', { y: last })}</button></p>
+      {/if}
     {:else}
       <p class="muted small hint">{t('stats.tapHint')}</p>
       <div class="charts">
@@ -150,6 +154,7 @@
 <BooksSheet {pick} onclose={() => (pick = null)} />
 
 <style>
+  .jump { text-align: center; margin-top: 0; }
   .chips { display: flex; gap: 0.4rem; flex-wrap: wrap; }
   .chips button { font-size: 0.85rem; padding: 0.4em 0.9em; border-radius: 999px; }
   .chips button.active { background: var(--accent); color: var(--accent-ink); }

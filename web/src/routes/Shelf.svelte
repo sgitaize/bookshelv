@@ -81,8 +81,10 @@
   <div class="spread head">
     <div>
       <h1>{own ? t('shelf.mine') : t('shelf.of', { name: ownerName })}</h1>
-      {#if own}<a href="/history" class="histlink small">{t('hist.title')} →</a>{/if}
-      {#if items}<p class="muted">{tn('n.books', bookCount)}{#if shown.length !== bookCount} · {t('shelf.shown', { n: shown.length })}{/if}</p>{/if}
+      <div class="meta">
+        {#if items}<p class="muted">{tn('n.books', bookCount)}{#if shown.length !== bookCount} · {t('shelf.shown', { n: shown.length })}{/if}</p>{/if}
+        {#if own}<a href="/history" class="histlink small">{t('hist.title')} →</a>{/if}
+      </div>
     </div>
   </div>
 
@@ -142,7 +144,9 @@
 <style>
   .head { margin-bottom: 1rem; align-items: flex-end; }
   .head p { margin: 0; }
-  .histlink { float: right; margin-top: 0.4rem; }
+  .meta { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.25rem 1rem; }
+  .meta p { margin: 0; }
+  .histlink { white-space: nowrap; }
   .tools { display: flex; gap: 0.6rem; margin-bottom: 0.7rem; }
   .tools select { width: auto; }
   .searchbox { position: relative; flex: 1; display: flex; align-items: center; }

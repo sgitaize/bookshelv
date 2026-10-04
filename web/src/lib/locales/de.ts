@@ -503,6 +503,7 @@ export default {
   "stats.fmt.ebook": "E-Book",
   "stats.fmt.none": "Geliehen / ohne Exemplar",
   "stats.none": "Für diesen Zeitraum gibt es noch keine gelesenen Bücher mit Enddatum.",
+  "stats.jump": "Zu {y} wechseln",
   "stats.table": "Als Tabelle",
   "stats.wrapup": "Jahresrückblick {y}",
   "stats.books.unit": " Bücher",

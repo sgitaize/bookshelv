@@ -7,6 +7,8 @@
   let failed = $state(false);
 
   const hue = $derived([...title].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 7));
+  // lange Wörter („Wunschbuch“, „Schatten“) kleiner setzen, damit sie nicht mitten im Wort brechen
+  const longest = $derived(Math.max(0, ...title.split(/\s+/).map(w => w.length)));
 </script>
 
 <div class="cover {size}" style="--hue: {hue}">
@@ -14,7 +16,7 @@
     <img src={url} alt="" loading="lazy" decoding="async" onerror={() => (failed = true)} />
   {:else}
     <div class="generated">
-      <span class="t">{title}</span>
+      <span class="t" style="--fit: {Math.round(120 / Math.max(longest, 6))}cqi">{title}</span>
       {#if authors.length}<span class="a">{authors[0]}</span>{/if}
     </div>
   {/if}
@@ -50,10 +52,13 @@
     background: linear-gradient(160deg, hsl(var(--hue) 35% 42%), hsl(calc(var(--hue) + 30) 40% 28%));
     color: hsl(var(--hue) 40% 92%);
   }
-  .t { font-weight: 600; font-size: 0.95em; line-height: 1.15; overflow-wrap: anywhere; }
-  .a { font-size: 0.7em; opacity: 0.8; }
+  .t { font-weight: 600; font-size: 0.95em; line-height: 1.15; overflow-wrap: anywhere; hyphens: auto; }
+  /* längstes Wort passt in die Breite (Innenraum ~72 %, Zeichen ~0,6 em) */
+  .generated { container-type: inline-size; }
+  .generated .t { font-size: min(0.95em, var(--fit)); }
+  .a { font-size: min(0.7em, 9cqi); opacity: 0.8; }
   .sm .generated { padding: 10%; }
-  .sm .t { font-size: 0.5rem; }
   .sm .a { display: none; }
-  .lg .t { font-size: 1.4rem; }
+  .sm .generated .t { font-size: min(0.5rem, var(--fit)); }
+  .lg .generated .t { font-size: min(1.4rem, var(--fit)); }
 </style>
