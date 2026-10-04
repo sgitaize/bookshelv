@@ -228,6 +228,8 @@ export default {
   "scan.noCamera": "Camera not available – the page must be opened via HTTPS.",
   "scan.starting": "Starting camera …",
   "scan.torch": "Torch",
+  "scan.cameraPause": "Camera off",
+  "scan.cameraOff": "Camera is off (saves battery). Tap to keep scanning.",
   "settings.about": "About you",
   "settings.appearance": "Appearance",
   "settings.builtBy": "built by",

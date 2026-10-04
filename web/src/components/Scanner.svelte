@@ -49,41 +49,69 @@
     };
   }
 
+  let detectP: Promise<Detect> | null = null;
+  // Kamera aus (Akku sparen, z. B. beim Umräumen des Regals); Stream wird dabei komplett beendet
+  let off = $state(false);
+  let run = 0;
+
+  async function start() {
+    const my = ++run;
+    starting = true;
+    error = null;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      error = t('scan.noCamera');
+      starting = false;
+      return;
+    }
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
+      });
+      if (stopped || my !== run) return s.getTracks().forEach(t => t.stop());
+      stream = s;
+      video.srcObject = stream;
+      await video.play();
+      const track = stream.getVideoTracks()[0];
+      torchAvailable = !!(track.getCapabilities?.() as { torch?: boolean })?.torch;
+      torch = false;
+      const detect = await (detectP ??= createDetector());
+      if (my !== run) return;
+      starting = false;
+      loop(detect, my);
+    } catch (e) {
+      if (my !== run) return;
+      starting = false;
+      error = (e as Error).name === 'NotAllowedError'
+        ? t('scan.denied')
+        : t('scan.failed');
+    }
+  }
+
+  function stopStream() {
+    run++;
+    stream?.getTracks().forEach(t => t.stop());
+    stream = null;
+    if (video) video.srcObject = null;
+    torchAvailable = false;
+  }
+
+  function toggleCamera() {
+    off = !off;
+    if (off) stopStream();
+    else start();
+  }
+
   onMount(() => {
-    (async () => {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        error = t('scan.noCamera');
-        starting = false;
-        return;
-      }
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: false
-        });
-        if (stopped) return stream.getTracks().forEach(t => t.stop());
-        video.srcObject = stream;
-        await video.play();
-        const track = stream.getVideoTracks()[0];
-        torchAvailable = !!(track.getCapabilities?.() as { torch?: boolean })?.torch;
-        const detect = await createDetector();
-        starting = false;
-        loop(detect);
-      } catch (e) {
-        starting = false;
-        error = (e as Error).name === 'NotAllowedError'
-          ? t('scan.denied')
-          : t('scan.failed');
-      }
-    })();
+    start();
     return () => {
       stopped = true;
-      stream?.getTracks().forEach(t => t.stop());
+      stopStream();
     };
   });
 
-  async function loop(detect: Detect) {
-    while (!stopped) {
+  async function loop(detect: Detect, my: number) {
+    while (!stopped && my === run) {
       if (!paused && video.readyState >= 2) {
         try {
           const code = await detect(video);
@@ -114,12 +142,17 @@
   <!-- svelte-ignore a11y_media_has_caption -->
   <video bind:this={video} playsinline muted></video>
   <div class="frame"><span class="laser"></span></div>
-  {#if starting}
+  {#if off}
+    <button class="overlay resume" onclick={toggleCamera}><Icon name="camera" size={32} /><span>{t('scan.cameraOff')}</span></button>
+  {:else if starting}
     <div class="overlay"><div class="spinner"></div><span>{t('scan.starting')}</span></div>
   {:else if error}
     <div class="overlay"><Icon name="camera" size={32} /><span>{error}</span></div>
   {/if}
-  {#if torchAvailable}
+  {#if !off}
+    <button class="camoff" onclick={toggleCamera}><Icon name="camera" size={16} /> {t('scan.cameraPause')}</button>
+  {/if}
+  {#if torchAvailable && !off}
     <button class="torch icon" class:on={torch} onclick={toggleTorch} aria-label={t('scan.torch')}>
       <Icon name="sparkle" />
     </button>
@@ -169,5 +202,7 @@
     background: rgb(0 0 0 / 0.6);
   }
   .torch { position: absolute; right: 12px; bottom: 12px; background: rgb(0 0 0 / 0.5); color: #fff; border-color: transparent; }
+  .resume { border: 0; border-radius: 0; width: 100%; font: inherit; cursor: pointer; background: rgb(0 0 0 / 0.85); }
+  .camoff { position: absolute; left: 12px; bottom: 12px; display: inline-flex; gap: 0.4em; align-items: center; padding: 0.45em 0.8em; font-size: 0.85rem; background: rgb(0 0 0 / 0.5); color: #fff; border-color: transparent; }
   .torch.on { background: var(--accent); color: var(--accent-ink); }
 </style>

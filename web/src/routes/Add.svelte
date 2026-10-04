@@ -364,7 +364,7 @@
   .massopts { flex-wrap: wrap; }
   .masslist { padding: 0.8rem 1rem; }
   .massrow { flex-wrap: nowrap; gap: 0.7rem; }
-  .mcov { width: 40px; flex: none; }
+  .mcov { flex: none; }
   .massrow .grow { flex: 1; min-width: 0; display: grid; }
   .massrow strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .offline { padding: 0.8rem 1rem; border-color: color-mix(in srgb, var(--star) 60%, transparent); margin: 0; }
