@@ -164,7 +164,7 @@
     <button class="ghost logout" onclick={logout}><Icon name="logout" size={16} /> {t('settings.logout')}</button>
     <p class="muted small about">
       {t('settings.free')} · <a href="https://github.com/sgitaize/bookshelv" target="_blank" rel="noopener">{t('settings.source')}</a>
-      · {t('settings.builtBy')} <a href="https://sgitaize.aize-it.de" target="_blank" rel="noopener">sgitaize</a>
+      · {t('settings.builtBy')} <a href="https://simongutjahr.de" target="_blank" rel="noopener">Simon Gutjahr</a>
       · <a href="/legal#impressum">{t('privacy.imprint')}</a> · <a href="/legal#datenschutz">{t('privacy.title')}</a>
     </p>
   </nav>

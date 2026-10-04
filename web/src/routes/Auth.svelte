@@ -95,7 +95,7 @@
 
   <footer class="muted small">
     <a href="https://github.com/sgitaize/bookshelv" target="_blank" rel="noopener">bookshelv</a> – {t('auth.footer')}
-    · <a href="https://sgitaize.aize-it.de" target="_blank" rel="noopener">sgitaize</a>
+    · <a href="https://simongutjahr.de" target="_blank" rel="noopener">Simon Gutjahr</a>
     · <a href="/legal#impressum">{t('privacy.imprint')}</a> · <a href="/legal#datenschutz">{t('privacy.title')}</a>
     · <button class="lang" onclick={() => i18n.set(i18n.lang === 'de' ? 'en' : 'de')}>{i18n.lang === 'de' ? 'English' : 'Deutsch'}</button>
   </footer>
