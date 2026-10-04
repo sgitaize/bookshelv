@@ -662,6 +662,8 @@ export default {
   "scan.alreadyOwned": "“{title}” is already on your shelf",
   "scan.massCount": "{n} in this run",
   "scan.undoOne": "Remove again",
+  "scan.markAllRead": "Mark all read",
+  "scan.allMarkedRead": "All marked as read",
   "wish.addedTitle": "“{title}” is on your wishlist",
   "offline.bar": "Offline – scanning, reading status and reviews still work, everything else needs a connection.",
   "offline.barScan": "Open scanner",

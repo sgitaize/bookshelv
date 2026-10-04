@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { api, ApiError, emptyCopy, labels, type Reading, type Book, type Copy, type CopyValues, type SearchHit } from '../lib/api.ts';
+  import { api, ApiError, emptyCopy, labels, type Reading, type ReadStatus, type Book, type Copy, type CopyValues, type SearchHit } from '../lib/api.ts';
   import { toast, toastError } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
   import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
@@ -28,7 +28,10 @@
   let target = $state<Mode>((['shelf', 'mass', 'wishlist'] as const).find(m => m === router.query.get('to')) ?? 'shelf');
   let lastQueued = $state<string | null>(null);
   // im Massen-Scan hinzugefügt (mit Exemplar-ID zum sofortigen Entfernen)
-  let massAdded = $state<{ book: Book; copyId: number }[]>([]);
+  // prev = Lesestand vor dem Scan (zum Zurücksetzen beim Entfernen), read = von hier als gelesen markiert
+  let massAdded = $state<{ book: Book; copyId: number; prev: ReadStatus; read: boolean }[]>([]);
+  let massRead = $state(false);
+  let scanOk = $state(0);
 
   /** ohne Netz: ISBN merken, später fertigstellen */
   function queue(isbn: string) {
@@ -50,10 +53,14 @@
     lookupIsbn = isbn;
     try {
       const r = await api.post<{ book: Book }>('/catalog/isbn', { isbn });
-      const detail = await api.get<{ copies: Copy[] }>(`/books/${r.book.id}`);
+      const detail = await api.get<{ copies: Copy[]; reading: Reading }>(`/books/${r.book.id}`);
       if (detail.copies.some(c => c.mine && c.format === copy.format)) { toast(t('scan.alreadyOwned', { title: r.book.title })); return; }
       const c = await api.post<{ id: number }>('/copies', { bookId: r.book.id, format: copy.format, binding: copy.format === 'print' ? copy.binding : null, sprayedEdges: false, notes: '', storeId: null });
-      massAdded = [{ book: r.book, copyId: c.id }, ...massAdded];
+      const prev = detail.reading?.status ?? 'unread';
+      const entry = { book: r.book, copyId: c.id, prev, read: false };
+      if (massRead && prev !== 'read') await markRead(entry);
+      massAdded = [entry, ...massAdded];
+      scanOk++;
       toast(t('add.added', { title: r.book.title }));
     } catch (e) {
       if (isNetworkError(e)) { net.online = false; queue(isbn); }
@@ -65,10 +72,27 @@
     }
   }
 
-  /** Fehlscan im Massen-Scan zurücknehmen (Exemplar endgültig löschen) */
+  // Lesedatum bleibt bewusst leer (unbekannt) – beim Regal-Einräumen liegt das Lesen meist lange zurück
+  async function markRead(m: { book: Book; read: boolean }) {
+    await api.put(`/books/${m.book.id}/reading`, { status: 'read', finishedAt: null });
+    m.read = true;
+  }
+
+  async function markAllRead() {
+    busy = true;
+    try {
+      for (const m of massAdded) if (!m.read && m.prev !== 'read') await markRead(m);
+      toast(t('scan.allMarkedRead'));
+    } catch (e) { toastError(e); }
+    finally { busy = false; }
+  }
+
+  /** Fehlscan im Massen-Scan zurücknehmen (Exemplar endgültig löschen, Lesestand zurücksetzen) */
   async function unmass(copyId: number) {
     try {
+      const m = massAdded.find(m => m.copyId === copyId);
       await api.del(`/copies/${copyId}`, { mode: 'purge' });
+      if (m?.read) await api.put(`/books/${m.book.id}/reading`, { status: m.prev });
       massAdded = massAdded.filter(m => m.copyId !== copyId);
     } catch (e) { toastError(e); }
   }
@@ -82,6 +106,7 @@
       const r = await api.post<{ book: Book }>('/catalog/isbn', { isbn });
       await api.put(`/books/${r.book.id}/wishlist`, {});
       added = [r.book, ...added];
+      scanOk++;
       toast(t('wish.addedTitle', { title: r.book.title }));
     } catch (e) {
       if (isNetworkError(e)) { net.online = false; queue(isbn); }
@@ -249,10 +274,14 @@
               <button class:active={copy.binding === 'hardcover'} onclick={() => (copy.binding = 'hardcover')}>{t('binding.hardcover')}</button>
             </div>
           {/if}
+          <div class="segmented">
+            <button class:active={!massRead} onclick={() => (massRead = false)}>{t('read.unread')}</button>
+            <button class:active={massRead} onclick={() => (massRead = true)}><Icon name="check" size={16} /> {t('read.read')}</button>
+          </div>
         </div>
       {/if}
     </div>
-    <Scanner onscan={onScan} paused={busy || !!selected || !!notFound} />
+    <Scanner onscan={onScan} paused={busy || !!selected || !!notFound} ok={scanOk} />
     <p class="muted small center">
       {#if lookupIsbn}<span class="row inline"><span class="spinner sm"></span> {t('add.looking', { isbn: lookupIsbn })}</span>
       {:else if !net.online && lastQueued}{t('offline.lastSaved', { isbn: lastQueued, n: pending.items.length })}
@@ -260,11 +289,16 @@
     </p>
     {#if target === 'mass' && massAdded.length}
       <div class="card stack masslist">
-        <h3>{t('scan.massCount', { n: massAdded.length })}</h3>
+        <div class="row masshead">
+          <h3>{t('scan.massCount', { n: massAdded.length })}</h3>
+          {#if massAdded.some(m => !m.read && m.prev !== 'read')}
+            <button class="small" onclick={markAllRead} disabled={busy}><Icon name="check" size={16} /> {t('scan.markAllRead')}</button>
+          {/if}
+        </div>
         {#each massAdded as m (m.copyId)}
           <div class="row massrow">
             <a href="/book/{m.book.id}" class="mcov"><Cover url={m.book.coverUrl} title={m.book.title} authors={m.book.authors} size="sm" /></a>
-            <span class="grow"><strong>{m.book.title}</strong><span class="muted small">{m.book.authors.join(', ')}</span></span>
+            <span class="grow"><strong>{m.book.title}</strong><span class="muted small">{m.book.authors.join(', ')}</span>{#if m.read || m.prev === 'read'}<span class="readtag small"><Icon name="check" size={14} /> {t('read.read')}</span>{/if}</span>
             <button class="icon ghost" onclick={() => unmass(m.copyId)} aria-label={t('scan.undoOne')}><Icon name="x" size={18} /></button>
           </div>
         {/each}
@@ -365,6 +399,9 @@
   .masslist { padding: 0.8rem 1rem; }
   .massrow { flex-wrap: nowrap; gap: 0.7rem; }
   .mcov { flex: none; }
+  .masshead { justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; }
+  .masshead button { display: inline-flex; gap: 0.4em; align-items: center; }
+  .readtag { display: inline-flex; gap: 0.3em; align-items: center; color: var(--ok); }
   .massrow .grow { flex: 1; min-width: 0; display: grid; }
   .massrow strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .offline { padding: 0.8rem 1rem; border-color: color-mix(in srgb, var(--star) 60%, transparent); margin: 0; }

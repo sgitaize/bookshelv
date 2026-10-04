@@ -2,8 +2,20 @@
   import { onMount } from 'svelte';
   import Icon from './Icon.svelte';
   import { t } from '../lib/i18n.svelte.ts';
+  import { haptic } from '../lib/haptic.ts';
 
-  let { onscan, paused = false }: { onscan: (isbn: string) => void; paused?: boolean } = $props();
+  // ok: hochzählen, sobald ein Scan fertig verarbeitet ist → großer Haken + Haptik
+  let { onscan, paused = false, ok = 0 }: { onscan: (isbn: string) => void; paused?: boolean; ok?: number } = $props();
+
+  let done = $state(false);
+  let doneTimer: ReturnType<typeof setTimeout>;
+  $effect(() => {
+    if (!ok) return;
+    done = true;
+    haptic([40, 60, 40]);
+    clearTimeout(doneTimer);
+    doneTimer = setTimeout(() => (done = false), 1100);
+  });
 
   let video: HTMLVideoElement;
   let error = $state<string | null>(null);
@@ -149,6 +161,9 @@
   {:else if error}
     <div class="overlay"><Icon name="camera" size={32} /><span>{error}</span></div>
   {/if}
+  {#if done}
+    <div class="done" aria-live="polite"><span><Icon name="check" size={64} /></span></div>
+  {/if}
   {#if !off}
     <button class="camoff" onclick={toggleCamera}><Icon name="camera" size={16} /> {t('scan.cameraPause')}</button>
   {/if}
@@ -204,5 +219,9 @@
   .torch { position: absolute; right: 12px; bottom: 12px; background: rgb(0 0 0 / 0.5); color: #fff; border-color: transparent; }
   .resume { border: 0; border-radius: 0; width: 100%; font: inherit; cursor: pointer; background: rgb(0 0 0 / 0.85); }
   .camoff { position: absolute; left: 12px; bottom: 12px; display: inline-flex; gap: 0.4em; align-items: center; padding: 0.45em 0.8em; font-size: 0.85rem; background: rgb(0 0 0 / 0.5); color: #fff; border-color: transparent; }
+  .done { position: absolute; inset: 0; display: grid; place-items: center; background: rgb(0 0 0 / 0.35); pointer-events: none; animation: fade 1.1s ease-out forwards; }
+  .done span { display: grid; place-items: center; width: 112px; height: 112px; border-radius: 50%; background: var(--ok); color: #fff; box-shadow: 0 0 0 8px color-mix(in srgb, var(--ok) 35%, transparent); animation: pop 0.35s cubic-bezier(.2, 1.6, .4, 1); }
+  @keyframes pop { from { transform: scale(0.4); } }
+  @keyframes fade { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
   .torch.on { background: var(--accent); color: var(--accent-ink); }
 </style>

@@ -662,6 +662,8 @@ export default {
   "scan.alreadyOwned": "„{title}“ steht schon in deinem Regal",
   "scan.massCount": "{n} in diesem Durchgang",
   "scan.undoOne": "Wieder entfernen",
+  "scan.markAllRead": "Alle als gelesen",
+  "scan.allMarkedRead": "Alle als gelesen markiert",
   "wish.addedTitle": "„{title}“ steht auf der Wunschliste",
   "offline.bar": "Offline – Scannen, Lesestand und Bewertungen gehen weiter, alles andere braucht Netz.",
   "offline.barScan": "Zum Scanner",
