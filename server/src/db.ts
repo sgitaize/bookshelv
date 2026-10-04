@@ -344,6 +344,12 @@ const migrations: string[] = [
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE INDEX buddy_posts_read ON buddy_posts(read_id, position);
+  `,
+  // 15: Reihen/Bände (aus DNB MARC21 490/830 oder von Hand); series_index REAL für Bände wie 2.5
+  `
+  ALTER TABLE books ADD COLUMN series TEXT;
+  ALTER TABLE books ADD COLUMN series_index REAL;
+  CREATE INDEX books_series ON books(series, series_index);
   `
 ];
 

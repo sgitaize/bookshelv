@@ -13,14 +13,15 @@ export const bookRoutes = router();
 export type BookRow = {
   id: number; isbn13: string | null; title: string; subtitle: string | null; authors: string; publisher: string | null;
   year: number | null; pages: number | null; language: string | null; subjects: string; cover: string | null;
-  source: string | null; created_by: number | null;
+  source: string | null; created_by: number | null; series: string | null; series_index: number | null;
 };
 
-export const bookJson = (b: Pick<BookRow, 'id' | 'isbn13' | 'title' | 'subtitle' | 'authors' | 'publisher' | 'year' | 'pages' | 'language' | 'subjects' | 'cover'>) => ({
+export const bookJson = (b: Pick<BookRow, 'id' | 'isbn13' | 'title' | 'subtitle' | 'authors' | 'publisher' | 'year' | 'pages' | 'language' | 'subjects' | 'cover'> & Partial<Pick<BookRow, 'series' | 'series_index'>>) => ({
   id: b.id, isbn13: b.isbn13, title: b.title, subtitle: b.subtitle, authors: JSON.parse(b.authors) as string[],
   publisher: b.publisher, year: b.year, pages: b.pages, language: b.language,
   subjects: JSON.parse(b.subjects ?? '[]') as string[],
-  coverUrl: b.cover ? `/covers/${b.cover}` : null
+  coverUrl: b.cover ? `/covers/${b.cover}` : null,
+  series: b.series ?? null, seriesIndex: b.series_index ?? null
 });
 
 /** Kurzform für Listen (Regal, Startseite) */
@@ -60,10 +61,10 @@ export async function importIsbn(isbn: string, userId: number): Promise<BookRow 
 function insertBook(d: BookData, cover: string | null, userId: number): BookRow {
   // INSERT OR IGNORE: ein anderer Prozess könnte die ISBN gerade parallel angelegt haben
   const r = db.prepare(`
-    INSERT OR IGNORE INTO books (isbn13, title, subtitle, authors, publisher, year, pages, language, subjects, cover, source, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT OR IGNORE INTO books (isbn13, title, subtitle, authors, publisher, year, pages, language, subjects, cover, source, created_by, series, series_index)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(d.isbn13, d.title, d.subtitle, JSON.stringify(d.authors), d.publisher, d.year, d.pages, d.language,
-    JSON.stringify(d.subjects), cover, d.source, userId);
+    JSON.stringify(d.subjects), cover, d.source, userId, canonicalSeries(d.series?.name), d.series?.index ?? null);
   return r.changes ? getBook(Number(r.lastInsertRowid))! : getBookByIsbn(d.isbn13!)!;
 }
 
@@ -346,4 +347,81 @@ bookRoutes.post('/stores', async c => {
   if (!name) throw new HTTPException(400, { message: 'Name fehlt' });
   db.prepare('INSERT OR IGNORE INTO stores (name, created_by) VALUES (?, ?)').run(name, u.id);
   return c.json(db.prepare('SELECT id, name FROM stores WHERE name = ?').get(name));
+});
+
+// ---------- Reihen ----------
+
+/**
+ * Vorhandene Schreibweise einer Reihe wiederverwenden („WÄCHTER“ → „Wächter“). SQLite-NOCASE faltet nur ASCII,
+ * deshalb wird in JS verglichen; die Zahl verschiedener Reihen ist klein.
+ */
+export function canonicalSeries(name: string | null | undefined): string | null {
+  const n = name?.trim();
+  if (!n) return null;
+  const key = n.toLocaleLowerCase('de');
+  const found = (db.prepare('SELECT DISTINCT series FROM books WHERE series IS NOT NULL').all() as { series: string }[])
+    .find(r => r.series.toLocaleLowerCase('de') === key);
+  return found?.series ?? n;
+}
+
+/** Reihe/Band von Hand setzen oder korrigieren (geteilte Katalogdaten, die Erkennung ist nicht perfekt – darf jede Person) */
+bookRoutes.put('/books/:id/series', async c => {
+  requireUser(c);
+  const book = getBook(idParam(c));
+  if (!book) throw notFound('Buch');
+  const b = await body(c);
+  const name = canonicalSeries(str(b.name, 200));
+  const raw = b.index === '' || b.index == null ? null : Number(String(b.index).replace(',', '.'));
+  if (raw != null && (!Number.isFinite(raw) || raw < 0 || raw > 1000)) throw new HTTPException(400, { message: 'Ungültige Bandnummer' });
+  db.prepare('UPDATE books SET series = ?, series_index = ? WHERE id = ?').run(name, name ? raw : null, book.id);
+  return c.json(bookJson(getBook(book.id)!));
+});
+
+type SeriesBook = { bookId: number; title: string; subtitle: string | null; authors: string; year: number | null; pages: number | null; cover: string | null; series_index: number | null; status: string | null; owned: number; friends: number };
+
+/** Alle Bände einer Reihe in der Instanz, mit eigenem Lesestand und ob man/Freund*innen es besitzen */
+export function seriesBooks(name: string, userId: number) {
+  return (db.prepare(`
+    SELECT b.id AS bookId, b.title, b.subtitle, b.authors, b.year, b.pages, b.cover, b.series_index, ub.status,
+           EXISTS (SELECT 1 FROM copies c WHERE c.book_id = b.id AND c.owner_id = :u AND c.removed_at IS NULL) AS owned,
+           (SELECT COUNT(DISTINCT c.owner_id) FROM copies c JOIN users o ON o.id = c.owner_id
+             WHERE c.book_id = b.id AND c.owner_id != :u AND c.removed_at IS NULL AND o.shelf_visible = 1 AND o.disabled = 0) AS friends
+    FROM books b LEFT JOIN user_books ub ON ub.book_id = b.id AND ub.user_id = :u
+    WHERE b.series = :s
+    ORDER BY b.series_index IS NULL, b.series_index, b.year, b.title
+  `).all({ u: userId, s: name }) as SeriesBook[]).map(r => ({
+    ...bookBrief(r), index: r.series_index, status: (r.status ?? 'unread') as string, owned: !!r.owned, friends: r.friends
+  }));
+}
+
+bookRoutes.get('/series', c => {
+  const u = requireUser(c);
+  const name = canonicalSeries(c.req.query('name'));
+  if (!name) throw new HTTPException(400, { message: 'Reihe fehlt' });
+  const books = seriesBooks(name, u.id);
+  // nächster Band: erster ungelesene nach dem höchsten gelesenen
+  const lastRead = Math.max(-1, ...books.map((b, i) => (b.status === 'read' ? i : -1)));
+  const next = books.slice(lastRead + 1).find(b => b.status !== 'read' && b.status !== 'dnf') ?? null;
+  return c.json({ name, books, next });
+});
+
+/** Meine Reihen: alle Reihen, von denen ich etwas besitze oder gelesen/angefangen habe */
+bookRoutes.get('/me/series', c => {
+  const u = requireUser(c);
+  const names = (db.prepare(`
+    SELECT DISTINCT b.series AS name FROM books b
+    WHERE b.series IS NOT NULL AND (
+      EXISTS (SELECT 1 FROM copies c WHERE c.book_id = b.id AND c.owner_id = :u AND c.removed_at IS NULL)
+      OR EXISTS (SELECT 1 FROM user_books ub WHERE ub.book_id = b.id AND ub.user_id = :u AND ub.status != 'unread'))
+    ORDER BY b.series COLLATE NOCASE
+  `).all({ u: u.id }) as { name: string }[]).map(r => r.name);
+  return c.json(names.map(name => {
+    const books = seriesBooks(name, u.id);
+    const lastRead = Math.max(-1, ...books.map((b, i) => (b.status === 'read' ? i : -1)));
+    return {
+      name, total: books.length, read: books.filter(b => b.status === 'read').length, owned: books.filter(b => b.owned).length,
+      next: books.slice(lastRead + 1).find(b => b.status !== 'read' && b.status !== 'dnf') ?? null,
+      covers: books.slice(0, 6).map(b => ({ id: b.id, title: b.title, coverUrl: b.coverUrl, status: b.status }))
+    };
+  }));
 });

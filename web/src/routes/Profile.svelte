@@ -102,6 +102,7 @@
         <a class="btn" href="/lists"><Icon name="list" size={16} /> {t('list.title')}</a>
         <a class="btn" href="/loans"><Icon name="users" size={16} /> {t('loan.title')}</a>
         <a class="btn" href="/reads"><Icon name="message" size={16} /> {t('reads.title')}</a>
+        <a class="btn" href="/series"><Icon name="library" size={16} /> {t('series.mine')}</a>
         <a class="btn" href="/history"><Icon name="book" size={16} /> {t('hist.title')}</a>
         <a class="btn" href="/wishlist"><Icon name="bookmark" size={16} /> {t('wish.count', { n: p.wishlistCount })}</a>
         <a class="btn" href="/settings"><Icon name="settings" size={16} /> {t('settings.title')}</a>

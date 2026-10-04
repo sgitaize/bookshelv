@@ -62,7 +62,13 @@ export type Me = { id: number; username: string; displayName: string; isAdmin: b
 export type Book = {
   id: number; isbn13: string | null; title: string; subtitle: string | null; authors: string[];
   publisher: string | null; year: number | null; pages: number | null; language: string | null; subjects: string[]; coverUrl: string | null;
+  series?: string | null; seriesIndex?: number | null;
 };
+
+export type SeriesBook = BookBrief & { index: number | null; status: ReadStatus; owned: boolean; friends: number };
+export type Series = { name: string; books: SeriesBook[]; next: SeriesBook | null };
+export type MySeries = { name: string; total: number; read: number; owned: number; next: SeriesBook | null; covers: { id: number; title: string; coverUrl: string | null; status: ReadStatus }[] };
+export const seriesHref = (name: string) => `/series?name=${encodeURIComponent(name)}`;
 
 export type Format = 'print' | 'ebook';
 export type Binding = 'paperback' | 'hardcover';

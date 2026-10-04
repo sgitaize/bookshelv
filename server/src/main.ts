@@ -7,8 +7,9 @@ import { purgeExpiredSessions } from './auth.ts';
 import { prunePreviews } from './catalog.ts';
 import { deliver } from './federation.ts';
 import { db } from './db.ts';
-import { fetchCover, deleteCoverFile } from './catalog.ts';
+import { fetchCover, deleteCoverFile, dnbMarc, olSeries } from './catalog.ts';
 import { kickImports } from './routes/extras.ts';
+import { canonicalSeries } from './routes/books.ts';
 
 ensureSetupToken();
 purgeExpiredSessions();
@@ -35,6 +36,24 @@ async function repairMissingCovers() {
   }
 }
 setTimeout(() => { repairMissingCovers().catch(e => console.error('Cover-Nachladen:', e)); }, 5000).unref();
+
+/** Einmalig: Reihe/Band für Bestandsbücher aus der DNB nachladen (langsam, nacheinander; nur leere Felder) */
+async function backfillSeries() {
+  // Fortschritt = zuletzt geprüfte Buch-ID; schläft Passenger die App ein, geht es beim nächsten Start dort weiter
+  const key = 'series_backfill_v1';
+  const last = (db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined)?.value;
+  if (last === 'done') return;
+  const books = db.prepare('SELECT id, isbn13 FROM books WHERE series IS NULL AND isbn13 IS NOT NULL AND id > ? ORDER BY id').all(Number(last) || 0) as { id: number; isbn13: string }[];
+  const mark = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
+  for (const b of books) {
+    const series = (await dnbMarc(b.isbn13).catch(() => null))?.series ?? await olSeries(b.isbn13).catch(() => null);
+    if (series) db.prepare('UPDATE books SET series = ?, series_index = ? WHERE id = ? AND series IS NULL').run(canonicalSeries(series.name), series.index, b.id);
+    mark.run(key, String(b.id));
+    await new Promise(r => setTimeout(r, 400));
+  }
+  mark.run(key, 'done');
+}
+if (!process.env.BOOKSHELV_NO_BACKFILL) setTimeout(() => { backfillSeries().catch(e => console.error('Reihen-Nachladen:', e)); }, 15000).unref();
 
 const server = http.createServer(getRequestListener(app.fetch));
 

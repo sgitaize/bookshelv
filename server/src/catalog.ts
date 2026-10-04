@@ -22,6 +22,8 @@ export type BookData = {
   language: string | null;
   subjects: string[];
   source: string;
+  /** Reihe + Band, nur wenn sicher erkannt (keine Verlagsreihen wie „dtv ; 21412“) */
+  series?: { name: string; index: number | null } | null;
 };
 
 export type SearchHit = BookData & { coverHint: { isbn?: string; ol?: number } | null };
@@ -117,12 +119,50 @@ async function dnbQuery(query: string, max: number): Promise<BookData[]> {
  * das eigentliche Genre steht in Feld 655 (GND-Gattung) und in der Buchhandels-Warengruppe (653 "(VLB-WN)…").
  */
 export async function dnbGenres(isbn: string): Promise<string[]> {
+  return (await dnbMarc(isbn))?.genres ?? [];
+}
+
+/** Genres und Reihe aus dem MARC21-Datensatz der DNB (null = Dienst nicht erreichbar) */
+export async function dnbMarc(isbn: string): Promise<{ genres: string[]; series: { name: string; index: number | null } | null } | null> {
   const res = await get(`https://services.dnb.de/sru/dnb?version=1.1&operation=searchRetrieve&recordSchema=MARC21-xml`
     + `&maximumRecords=1&query=${encodeURIComponent('num=' + isbn)}`);
-  if (!res) return [];
+  if (!res) return null;
   const xml = await res.text();
-  const fields = (tag: string) => [...xml.matchAll(new RegExp(`<datafield tag="${tag}"[^>]*>([\\s\\S]*?)</datafield>`, 'g'))]
-    .map(m => [...m[1].matchAll(/<subfield code="a">([^<]*)<\/subfield>/g)].map(x => decodeXml(x[1]).trim()));
+  const blocks = (tag: string) => [...xml.matchAll(new RegExp(`<datafield tag="${tag}"[^>]*>([\\s\\S]*?)</datafield>`, 'g'))].map(m => m[1]);
+  const sub = (block: string, code: string) => [...block.matchAll(new RegExp(`<subfield code="${code}">([^<]*)</subfield>`, 'g'))].map(x => cleanMarc(x[1]));
+  const fields = (tag: string) => blocks(tag).map(b => sub(b, 'a'));
+  return { genres: marcGenres(fields), series: marcSeries(blocks, sub) };
+}
+
+/** MARC-Text: Nichtsortier-Zeichen (&#152;Der&#156;) entfernen */
+const cleanMarc = (s: string) => decodeXml(s.replace(/&#15[26];/g, '')).replace(/[\u0098\u009c]/g, '').trim();
+
+/**
+ * Reihe aus 490/830 ($a Reihe, $v Band) oder 800 ($t Reihe, $v Band). Verlagsreihen fallen raus:
+ * dort ist der Band eine Bestellnummer (dtv 21412, Carlsen 401) und der Name meist der Verlag.
+ */
+function marcSeries(blocks: (tag: string) => string[], sub: (block: string, code: string) => string[]) {
+  const publishers = [...blocks('264'), ...blocks('260')].flatMap(b => sub(b, 'b')).map(p => p.toLowerCase());
+  const candidates = [
+    ...blocks('800').map(b => ({ name: sub(b, 't')[0], v: sub(b, 'v')[0] })),
+    ...blocks('830').map(b => ({ name: sub(b, 'a')[0], v: sub(b, 'v')[0] })),
+    ...blocks('490').map(b => ({ name: sub(b, 'a')[0], v: sub(b, 'v')[0] }))
+  ];
+  for (const c of candidates) {
+    if (!c.name) continue;
+    const name = c.name.replace(/\s*[;:,.]\s*$/, '').trim();
+    const num = c.v?.match(/(\d+(?:[.,]\d+)?)/)?.[1];
+    const index = num ? Number(num.replace(',', '.')) : null;
+    if (index != null && index > 60) continue;
+    const low = name.toLowerCase();
+    if (publishers.some(p => p && (p.includes(low) || low.includes(p)))) continue;
+    if (/(taschenbuch|tb\b|bibliothek|edition|klassik|reihe|verlag|bücher|books|paperback)/i.test(name) && index == null) continue;
+    return { name, index };
+  }
+  return null;
+}
+
+function marcGenres(fields: (tag: string) => string[][]): string[] {
   const genres: string[] = [];
   for (const [a] of fields('655')) if (a) genres.push(a);
   for (const subs of fields('653')) for (const a of subs) {
@@ -161,6 +201,25 @@ async function olByIsbn(isbn: string): Promise<BookData | null> {
   };
 }
 
+/**
+ * Reihe aus dem Open-Library-Editionsdatensatz: „Harry Potter, Band 1“, „Harry Potter #1“, „Discworld (3)“.
+ * Ergänzt die DNB, die z. B. bei Carlsen nur die Verlagsreihe kennt.
+ */
+export async function olSeries(isbn: string): Promise<{ name: string; index: number | null } | null> {
+  const res = await get(`https://openlibrary.org/isbn/${isbn}.json`);
+  if (!res?.ok) return null;
+  const raw = ((await res.json().catch(() => ({}))) as { series?: string[] }).series?.[0];
+  return raw ? parseSeriesLabel(raw) : null;
+}
+
+export function parseSeriesLabel(raw: string): { name: string; index: number | null } | null {
+  const m = raw.trim().match(/^(.*?)[\s,;:(]*(?:#|band|bd\.?|vol\.?|volume|book|teil|nr\.?|no\.?)?\s*(\d+(?:[.,]\d+)?)\)?\s*$/i);
+  const name = (m ? m[1] : raw).replace(/[\s,;:(]+$/, '').trim();
+  const index = m ? Number(m[2].replace(',', '.')) : null;
+  if (!name || name.length > 120 || (index != null && index > 60)) return null;
+  return { name, index };
+}
+
 type OlDoc = { title: string; author_name?: string[]; isbn?: string[]; cover_i?: number; first_publish_year?: number };
 
 async function olSearch(q: string, max: number): Promise<SearchHit[]> {
@@ -184,7 +243,8 @@ async function olSearch(q: string, max: number): Promise<SearchHit[]> {
 
 /** Metadaten zu einer ISBN aus allen Quellen zusammenführen. */
 export async function lookupIsbn(isbn13: string): Promise<BookData | null> {
-  const [dnb, ol, genres] = await Promise.all([dnbQuery(`num=${isbn13}`, 1).then(r => r[0] ?? null), olByIsbn(isbn13), dnbGenres(isbn13)]);
+  const [dnb, ol, marc, ols] = await Promise.all([dnbQuery(`num=${isbn13}`, 1).then(r => r[0] ?? null), olByIsbn(isbn13), dnbMarc(isbn13), olSeries(isbn13).catch(() => null)]);
+  const genres = marc?.genres ?? [];
   if (!dnb && !ol) return null;
   // DNB-Titel sind für deutsche Bücher meist korrekter, Open Library ergänzt Lücken
   const a = dnb ?? ol!, b = ol ?? dnb!;
@@ -199,7 +259,8 @@ export async function lookupIsbn(isbn13: string): Promise<BookData | null> {
     language: a.language ?? b.language,
     // Genres zuerst, dann Sachgruppen; die DDC-Sprachgruppe ("830 Deutsche Literatur" → "Deutsche Literatur") bleibt dahinter
     subjects: [...new Set([...genres, ...a.subjects, ...b.subjects])].slice(0, 15),
-    source: [dnb && 'dnb', ol && 'openlibrary'].filter(Boolean).join('+')
+    source: [dnb && 'dnb', ol && 'openlibrary'].filter(Boolean).join('+'),
+    series: marc?.series ?? ols ?? null
   };
 }
 

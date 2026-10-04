@@ -19,6 +19,7 @@ node api.mjs "$T"
 node loans.mjs
 node requests.mjs
 node reads.mjs
+node series.mjs
 node social.mjs
 node extras.mjs
 node stats.mjs

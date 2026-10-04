@@ -16,6 +16,7 @@
   import Icon from '../components/Icon.svelte';
   import ListSheet from '../components/ListSheet.svelte';
   import ReadSheet from '../components/ReadSheet.svelte';
+  import SeriesLine from '../components/SeriesLine.svelte';
   import Avatar from '../components/Avatar.svelte';
   import DatesSheet from '../components/DatesSheet.svelte';
   import FeedList from '../components/FeedList.svelte';
@@ -189,6 +190,7 @@
       <h1>{b.title}</h1>
       {#if b.subtitle}<p class="subtitle">{b.subtitle}</p>{/if}
       <p class="authors">{b.authors.join(', ') || t('book.unknownAuthor')}</p>
+      <SeriesLine book={b} onchange={nb => (data!.book = nb)} />
       <dl>
         {#if b.publisher}<dt>{t('book.publisher')}</dt><dd>{b.publisher}</dd>{/if}
         {#if b.year}<dt>{t('book.year')}</dt><dd>{b.year}</dd>{/if}
