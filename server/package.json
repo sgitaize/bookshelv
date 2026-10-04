@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --watch --experimental-strip-types src/index.ts",
+    "dev": "node --watch --experimental-strip-types src/main.ts",
     "build": "node build.mjs",
     "check": "tsc --noEmit"
   },
