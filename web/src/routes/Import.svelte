@@ -78,7 +78,7 @@
     filename = file.name;
     copies = r.source === 'booky' ? 'owned' : r.source === 'generic' || !r.items.some(i => i.owned) ? 'all' : 'owned';
     // Vorschlag: Listen, die nach „ungelesenem Stapel“ klingen, stehen im Regal; Wunsch-/Geschenklisten nicht
-    shelfLists = r.source === 'booky' ? listNames(r.items).filter(n => /stapel|ungelesen|sub\b|will ich lesen/i.test(n) && !/wunsch|geburtstag|weihnacht|geschenk/i.test(n)) : [];
+    shelfLists = r.source === 'booky' ? listNames(r.items).filter(n => /stapel|ungelesen|sub\b/i.test(n) && !/wunsch|geburtstag|weihnacht|geschenk/i.test(n)) : [];
   }
 
   /**

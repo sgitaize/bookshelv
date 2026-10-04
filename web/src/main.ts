@@ -2,8 +2,10 @@ import { mount } from 'svelte';
 import './app.css';
 import App from './App.svelte';
 import { applyTheme } from './lib/theme.ts';
+import { keepViewportAligned } from './lib/viewport.ts';
 
 applyTheme();
+keepViewportAligned();
 
 mount(App, { target: document.getElementById('app')! });
 
