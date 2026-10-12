@@ -137,7 +137,7 @@ readingRoutes.get('/users/:id/shelf', c => {
   const u = requireUser(c);
   const owner = visibleUser(u.id, idParam(c));
   if (!owner.visible) throw new HTTPException(403, { message: 'Dieses Regal ist privat' });
-  return c.json({ owner: { id: owner.id, displayName: owner.displayName }, copies: shelf(owner.id) });
+  return c.json({ owner: { id: owner.id, displayName: owner.displayName }, copies: shelf(owner.id).map(cp => ({ ...cp, unsure: false })) });
 });
 
 readingRoutes.get('/users/:id/profile', c => {

@@ -4,12 +4,15 @@
   import { t, fmtDate } from '../lib/i18n.svelte.ts';
   import Cover from '../components/Cover.svelte';
   import Icon from '../components/Icon.svelte';
+  import ListSheet from '../components/ListSheet.svelte';
 
   // ohne userId: eigene Wunschliste; sonst die eines Freundes (Geschenkideen)
   let { userId }: { userId?: number } = $props();
   type Wish = { note: string | null; addedAt: string; book: BookBrief };
   let items = $state<Wish[] | null>(null);
   let ownerName = $state('');
+  // Wunschbuch direkt in eine Leseliste legen
+  let listFor = $state<number | null>(null);
   const own = $derived(!userId || userId === session.me?.id);
 
   $effect(() => {
@@ -47,14 +50,22 @@
             {#if w.note}<span class="small">{w.note}</span>{/if}
             <span class="muted small">{t('wish.since', { d: fmtDate(w.addedAt) })}</span>
           </div>
-          {#if own}<button class="icon ghost" onclick={() => remove(w)} aria-label={t('wish.remove')}><Icon name="x" size={18} /></button>{/if}
+          {#if own}
+            <div class="acts">
+              <button class="icon ghost" onclick={() => (listFor = w.book.id)} aria-label={t('wish.toList')} title={t('wish.toList')}><Icon name="list" size={18} /></button>
+              <button class="icon ghost" onclick={() => remove(w)} aria-label={t('wish.remove')}><Icon name="x" size={18} /></button>
+            </div>
+          {/if}
         </div>
       {/each}
     </div>
   {/if}
 </section>
 
+<ListSheet bookId={listFor ?? 0} open={listFor !== null} onclose={() => (listFor = null)} />
+
 <style>
+  .acts { display: flex; flex-direction: column; gap: 0.2rem; }
   .list { display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
   @media (max-width: 400px) { .list { grid-template-columns: 1fr; } }
   .item { display: flex; gap: 0.9rem; align-items: center; padding: 0.8rem; }

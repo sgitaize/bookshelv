@@ -74,7 +74,7 @@ export type Format = 'print' | 'ebook' | 'audio';
 export type Binding = 'paperback' | 'hardcover';
 export type ReadStatus = 'unread' | 'reading' | 'read' | 'dnf';
 
-export type CopyValues = { format: Format; binding: Binding | null; sprayedEdges: boolean; readStatus: ReadStatus; notes: string; storeId: number | null; finishedAt?: string; durationMin?: number | null };
+export type CopyValues = { format: Format; binding: Binding | null; sprayedEdges: boolean; readStatus: ReadStatus; notes: string; storeId: number | null; finishedAt?: string; durationMin?: number | null; ownerUnsure?: boolean };
 export const emptyCopy = (): CopyValues => ({ format: 'print', binding: null, sprayedEdges: false, readStatus: 'unread', notes: '', storeId: null });
 export type Store = { id: number; name: string };
 
@@ -85,6 +85,8 @@ export type ShelfItem = {
   progress: number | null; favorite: boolean; createdAt: string; lent: boolean;
   store?: string | null; storeId?: number | null;
   removedAt?: string | null; removedReason?: RemoveReason | null;
+  /** Besitz unklar (nur im eigenen Regal), Sprache: eigene oder erkannte (ISO-639-1, „unknown“) */
+  unsure?: boolean; language?: string;
   book: BookBrief;
 };
 
@@ -155,6 +157,7 @@ export type Copy = {
   /** meine offene Leihanfrage an dieses Exemplar */
   requestId?: number | null;
   durationMin?: number | null;
+  ownerUnsure?: boolean;
 };
 
 export type Loan = {
@@ -218,6 +221,7 @@ export type Stats = {
   ratings: { rating: number; n: number; ids: number[] }[]; genres: StatGroup[]; authors: StatGroup[];
   formats: StatGroup<'print' | 'ebook' | 'audio' | 'none'>[]; languages: StatGroup[]; pageBuckets: StatGroup[];
   moods: StatGroup<Mood>[]; paces: StatGroup<Pace>[]; books: Record<number, BookBrief>;
+  library?: { languages: (StatGroup & { read: number })[] };
   highlights: { first: BookBrief | null; last: BookBrief | null; longest: BookBrief | null; shortest: BookBrief | null; fiveStars: BookBrief[]; top?: BookBrief | null; topRating?: number | null };
 };
 

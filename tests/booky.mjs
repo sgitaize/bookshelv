@@ -50,6 +50,13 @@ a = applyBookyPlans(bk2.items, plans);
 check('plan shelf beats wishlist', pa('Trotzdem').owned && !pa('Trotzdem').wishlist && pa('Trotzdem').status === 'reading');
 check('plan picked read ebook', pa('Babel').owned && pa('Babel').format === 'ebook' && pa('Babel').status === 'read' && !pa('Babel').lists.length && pa('Babel').favorite);
 check('plan not picked', !pa('Die Lücken').owned);
+// nur ausgewählte Listen (Simon 2026-10-12): Rest der Datei fällt weg, andere Listen zählen nicht
+for (const k of Object.keys(plans)) plans[k].include = false;
+plans['list:Ungelesene Fachbücher '] ? (plans['list:Ungelesene Fachbücher '].include = true) : (plans['list:Ungelesene Fachbücher'].include = true);
+const only = applyBookyPlans(bk2.items, plans, true);
+check('only selected lists', only.length === 1 && only[0].title === 'DAISY' && only[0].owned && only[0].lists.length === 1 && only[0].lists[0].name === 'Ungelesene Fachbücher', JSON.stringify(only.map(i => [i.title, i.lists])));
+check('only none selected', applyBookyPlans(bk2.items, Object.fromEntries(Object.entries(plans).map(([k, v]) => [k, { ...v, include: false }])), true).length === 0);
+check('without only unchanged', applyBookyPlans(bk2.items, plans).length === a.length);
 
 const copiesBefore = (await req('GET', '/copies')).data.length;
 const listsBefore = (await req('GET', '/lists')).data.length;

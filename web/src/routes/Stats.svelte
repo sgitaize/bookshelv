@@ -150,12 +150,22 @@
         </div>
       </div>
     {/if}
+    {#if s.library?.languages.length}
+      {@const lib = s.library.languages}
+      <div class="card libcard">
+        <h2>{t('stats.libLanguages')}</h2>
+        <p class="sub">{t('stats.libLanguagesSub')} · {summary(lib, x => langName(x.name))}</p>
+        <HBarChart label={t('stats.libLanguages')} data={lib.map(x => ({ label: langName(x.name), value: x.n, pct: t('stats.ofRead', { n: nf(x.n), r: nf(x.read) }) }))}
+          onpick={i => router.go(`/library?filter=lang:${lib[i].name}`)} />
+      </div>
+    {/if}
   {/if}
 </section>
 
 <BooksSheet {pick} onclose={() => (pick = null)} />
 
 <style>
+  .libcard { margin-top: 1rem; }
   .jump { text-align: center; margin-top: 0; }
   .chips { display: flex; gap: 0.4rem; flex-wrap: wrap; }
   .chips button { font-size: 0.85rem; padding: 0.4em 0.9em; border-radius: 999px; }

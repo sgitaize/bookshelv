@@ -400,6 +400,16 @@ const migrations: string[] = [
   CREATE INDEX copies_created ON copies(created_at);
   INSERT INTO stores (name) SELECT n FROM (SELECT 'Audible' AS n UNION ALL SELECT 'BookBeat' UNION ALL SELECT 'Spotify' UNION ALL SELECT 'Nextory' UNION ALL SELECT 'Hörbuch-CD')
     WHERE NOT EXISTS (SELECT 1 FROM stores s WHERE lower(s.name) = lower(n));
+  `,
+  // 18: Sprache je Person und Buch (überschreibt die erkannte), Besitz unklar je Exemplar (z. B. nach Import ungeprüft)
+  `
+  CREATE TABLE user_book_lang (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    book_id INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    language TEXT NOT NULL,
+    PRIMARY KEY (user_id, book_id)
+  );
+  ALTER TABLE copies ADD COLUMN owner_unsure INTEGER NOT NULL DEFAULT 0;
   `
 ];
 

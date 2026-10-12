@@ -5,7 +5,7 @@
   import { bookyRowId, type BookyPlan, type BookyRow, type BookyTarget, type ImportItem } from '../lib/importers.ts';
   import Icon from './Icon.svelte';
 
-  let { rows, items, plans = $bindable() }: { rows: BookyRow[]; items: ImportItem[]; plans: Record<string, BookyPlan> } = $props();
+  let { rows, items, plans = $bindable(), only = $bindable(false) }: { rows: BookyRow[]; items: ImportItem[]; plans: Record<string, BookyPlan>; only?: boolean } = $props();
 
   const TARGETS: BookyTarget[] = ['all', 'pick', 'wish', 'none'];
   const STATUSES = ['auto', 'unread', 'reading', 'read', 'dnf'] as const;
@@ -38,11 +38,20 @@
 <div class="planner">
   <span class="lbl">{t('bp.title')}</span>
   <span class="muted small">{t('bp.info')}</span>
+  <label class="only">
+    <input type="checkbox" bind:checked={only} />
+    <span><strong>{t('bp.onlyLists')}</strong><br /><span class="muted small">{t('bp.onlyListsHint')}</span></span>
+  </label>
+  {#if only && !rows.some(r => plans[r.id]?.include)}<span class="muted small">{t('bp.nothing')}</span>{/if}
   {#each rows as r (r.id)}
     {@const p = plans[r.id]}
     {#if p}
-      <div class="row-card">
-        <div class="head"><strong>{label(r)}</strong> <span class="muted small">{t('bp.books', { n: r.count })}</span></div>
+      <div class="row-card" class:off={only && !p.include}>
+        <div class="head">
+          {#if only}<input type="checkbox" bind:checked={p.include} aria-label={t('bp.include')} />{/if}
+          <strong>{label(r)}</strong> <span class="muted small">{t('bp.books', { n: r.count })}</span>
+        </div>
+        {#if !only || p.include}
         <div class="segmented targets">
           {#each TARGETS as tg}
             <button class:active={p.target === tg} onclick={() => setTarget(r, tg)}>{t(`bp.${tg}` as Key)}</button>
@@ -90,6 +99,7 @@
             </select>
           </label>
         {/if}
+        {/if}
       </div>
     {/if}
   {/each}
@@ -99,8 +109,11 @@
 <style>
   .planner { display: grid; gap: 0.6rem; }
   .lbl { font-size: 0.85rem; color: var(--muted); }
+  .only { display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.6rem 0.75rem; border: 1px solid var(--accent); border-radius: 12px; }
+  .only input, .head input { width: auto; flex: none; margin-top: 0.2rem; }
+  .row-card.off { opacity: 0.6; }
   .row-card { display: grid; gap: 0.5rem; justify-items: start; padding: 0.75rem; border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
-  .head { overflow-wrap: anywhere; }
+  .head { overflow-wrap: anywhere; display: flex; flex-wrap: wrap; gap: 0.25rem 0.5rem; align-items: baseline; }
   .targets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-radius: 16px; width: 100%; max-width: 26rem; }
   .targets button { white-space: normal; }
   .pickbar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }

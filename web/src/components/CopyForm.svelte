@@ -94,6 +94,10 @@
       {#if value.sprayedEdges}<span class="chip edge">✦</span>{/if}
     </label>
   {/if}
+  <label class="toggle">
+    <input type="checkbox" bind:checked={value.ownerUnsure} />
+    <span>{t('own.unsure')} <span class="muted small">· {t('own.unsureHint')}</span></span>
+  </label>
 
   {#if showStatus}
   <div class="group">

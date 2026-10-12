@@ -291,6 +291,8 @@ export type BookyPlan = {
   status: 'auto' | 'unread' | 'reading' | 'read' | 'dnf';
   /** bei target 'pick': Schlüssel der Bücher, die im Regal stehen */
   picked: string[];
+  /** im Modus „nur ausgewählte Listen“: diese Liste übernehmen */
+  include?: boolean;
 };
 export type BookyRow = { id: string; name: string; std?: string; count: number };
 
@@ -331,10 +333,15 @@ const RANK = { unread: 1, reading: 2, dnf: 3, read: 4 } as const;
  * Besitz gewinnt über Wunschliste; Gelesenes kommt nie auf die Wunschliste; der Lesestand aus Booky
  * (gelesen/am Lesen/abgebrochen) gilt, sonst der höchste Lesestand, den eine Liste vorgibt.
  */
-export function applyBookyPlans(items: ImportItem[], plans: Record<string, BookyPlan>): ImportItem[] {
-  return items.map(({ booky, ...it }) => {
-    if (!booky) return it;
-    const rows = booky.refs.map(r => ({ r, p: plans[bookyRowId(r)] })).filter(x => x.p);
+/**
+ * only = nur ausgewählte Listen (plan.include): andere Listen zählen nicht, Bücher ohne gewählte Liste fallen ganz weg.
+ */
+export function applyBookyPlans(items: ImportItem[], plans: Record<string, BookyPlan>, only = false): ImportItem[] {
+  const out: ImportItem[] = [];
+  for (const { booky, ...it } of items) {
+    if (!booky) { if (!only) out.push(it); continue; }
+    const rows = booky.refs.map(r => ({ r, p: plans[bookyRowId(r)] })).filter(x => x.p && (!only || x.p.include));
+    if (only && !rows.length) continue;
     const owning = rows.filter(x => x.p.target === 'all' || (x.p.target === 'pick' && x.p.picked.includes(booky.key)));
     const owned = owning.length > 0;
     let status: ImportItem['status'] = it.status === 'want' ? 'unread' : it.status;
@@ -345,10 +352,11 @@ export function applyBookyPlans(items: ImportItem[], plans: Record<string, Booky
     if (!owned && wishlist && status === 'unread') status = 'want';
     const lists = rows.filter(x => x.p.list && x.p.name.trim())
       .map(({ r, p }) => ({ name: p.name.trim(), createdAt: r.createdAt, addedAt: r.addedAt }));
-    return {
+    out.push({
       ...it, status, owned, wishlist, lists,
       format: owned && owning.every(x => x.p.format === 'ebook') ? 'ebook' : 'print',
       dateUnknown: status === 'read' && !it.finishedAt ? true : it.dateUnknown
-    };
-  });
+    });
+  }
+  return out;
 }

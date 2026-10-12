@@ -1,12 +1,13 @@
 import fs from 'node:fs';
 import { HTTPException } from 'hono/http-exception';
-import { db } from '../db.ts';
+import { db, tx } from '../db.ts';
 import { wishAvailable } from '../notify.ts';
 import { requireUser, type User } from '../auth.ts';
 import { lookupIsbn, normalizeIsbn, searchCatalog, fetchCover, previewCover, deleteCoverFile, type BookData } from '../catalog.ts';
 import { router, body, str, int, oneOf, idParam, notFound } from '../util.ts';
 import { setReading, readingJson, READ_STATUS, today, type ReadingRow } from './reading.ts';
 import { openLoanFor } from './loans.ts';
+import { langOf, LANG_CODE } from '../lang.ts';
 
 export const bookRoutes = router();
 
@@ -162,7 +163,7 @@ bookRoutes.get('/books/:id', c => {
   if (!book) throw notFound('Buch');
   // Exemplare: eigene immer, fremde nur bei sichtbarem Regal
   const copies = db.prepare(`
-    SELECT c.id, c.format, c.binding, c.sprayed_edges AS sprayedEdges, c.notes, c.created_at AS createdAt, c.duration_min AS durationMin,
+    SELECT c.id, c.format, c.binding, c.sprayed_edges AS sprayedEdges, c.notes, c.created_at AS createdAt, c.duration_min AS durationMin, c.owner_unsure AS ownerUnsure,
            c.store_id AS storeId, (SELECT name FROM stores WHERE id = c.store_id) AS store,
            u.id AS ownerId, u.display_name AS ownerName, COALESCE(ub.status, 'unread') AS readStatus
     FROM copies c JOIN users u ON u.id = c.owner_id
@@ -179,6 +180,8 @@ bookRoutes.get('/books/:id', c => {
     book: bookJson(book),
     canEdit: !!u.is_admin || book.created_by === u.id,
     wishlisted: !!db.prepare('SELECT 1 FROM wishlist WHERE user_id = ? AND book_id = ?').get(u.id, book.id),
+    // Sprache: erkannt (Katalog/ISBN) und ggf. von der Person selbst gesetzt
+    language: { auto: langOf(book.language, book.isbn13), mine: langOverride(u.id, book.id) },
     reading: readingJson(reading),
     archived,
     copies: copies.map(cp => {
@@ -192,6 +195,7 @@ bookRoutes.get('/books/:id', c => {
       const request = mine ? undefined : db.prepare(`SELECT id FROM loan_requests WHERE copy_id = ? AND requester_id = ? AND status = 'pending'`).get(cp.id as number, u.id) as { id: number } | undefined;
       return {
         ...cp, sprayedEdges: !!cp.sprayedEdges, mine, notes: mine ? cp.notes : null, requestId: request?.id ?? null,
+        ownerUnsure: mine && !!cp.ownerUnsure,
         // Verleih: Verleiher sieht alles, andere nur registrierte Entleiher (keine Freitext-Namen Dritter)
         loan: !loan ? null : mine
           ? { id: loan.id, borrowerId: loan.borrower_id, borrowerName: borrowerName ?? loan.borrower_name, lentAt: loan.lent_at, dueAt: loan.due_at, note: loan.note }
@@ -232,7 +236,8 @@ export function shelf(ownerId: number) {
   return (db.prepare(`
     SELECT c.id, c.format, c.binding, c.sprayed_edges AS sprayedEdges, c.created_at AS createdAt, c.store_id AS storeId,
            (SELECT name FROM stores WHERE id = c.store_id) AS store,
-           b.id AS bookId, b.title, b.subtitle, b.authors, b.year, b.pages, b.cover,
+           b.id AS bookId, b.title, b.subtitle, b.authors, b.year, b.pages, b.cover, b.isbn13, b.language, c.owner_unsure AS unsure,
+           (SELECT language FROM user_book_lang WHERE user_id = c.owner_id AND book_id = c.book_id) AS langOverride,
            COALESCE(ub.status, 'unread') AS readStatus, ub.progress, ub.favorite,
            EXISTS (SELECT 1 FROM loans l WHERE l.copy_id = c.id AND l.returned_at IS NULL) AS lent
     FROM copies c JOIN books b ON b.id = c.book_id
@@ -242,6 +247,7 @@ export function shelf(ownerId: number) {
     id: r.id, format: r.format, binding: r.binding, sprayedEdges: !!r.sprayedEdges, readStatus: r.readStatus,
     storeId: r.storeId, store: r.store,
     progress: r.progress, favorite: !!r.favorite, createdAt: r.createdAt, lent: !!r.lent,
+    unsure: !!r.unsure, language: (r.langOverride as string | null) ?? langOf(r.language as string | null, r.isbn13 as string | null),
     book: bookBrief(r)
   }));
 }
@@ -286,7 +292,9 @@ function copyFields(b: Record<string, unknown>, current?: Record<string, unknown
   // Shop/Plattform bei E-Books und Hörbüchern
   let storeId = print ? null : b.storeId === undefined ? (current?.store_id as number | null ?? null) : int(b.storeId, 1, Number.MAX_SAFE_INTEGER);
   if (storeId && !db.prepare('SELECT 1 FROM stores WHERE id = ?').get(storeId)) storeId = null;
-  return { format, binding, sprayed, notes, storeId, durationMin };
+  // Besitz unklar (z. B. nach Import noch nicht im Regal nachgesehen)
+  const unsure = b.ownerUnsure === undefined ? Number(current?.owner_unsure ?? 0) : b.ownerUnsure ? 1 : 0;
+  return { format, binding, sprayed, notes, storeId, durationMin, unsure };
 }
 
 bookRoutes.post('/copies', async c => {
@@ -295,8 +303,8 @@ bookRoutes.post('/copies', async c => {
   const bookId = int(b.bookId, 1, Number.MAX_SAFE_INTEGER);
   if (!bookId || !getBook(bookId)) throw notFound('Buch');
   const f = copyFields(b);
-  const id = Number(db.prepare(`INSERT INTO copies (book_id, owner_id, format, binding, sprayed_edges, notes, store_id, duration_min) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(bookId, u.id, f.format, f.binding, f.sprayed, f.notes, f.storeId, f.durationMin).lastInsertRowid);
+  const id = Number(db.prepare(`INSERT INTO copies (book_id, owner_id, format, binding, sprayed_edges, notes, store_id, duration_min, owner_unsure) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(bookId, u.id, f.format, f.binding, f.sprayed, f.notes, f.storeId, f.durationMin, f.unsure).lastInsertRowid);
   // Lesestatus gleich mit setzen (gehört zur Person, nicht zum Exemplar)
   // optional mit Datum („gelesen am …“ schon beim Eintragen)
   const day = (v: unknown) => (v === '' ? null : typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && v <= today() ? v : undefined);
@@ -316,11 +324,52 @@ bookRoutes.patch('/copies/:id', async c => {
   const current = ownCopy(u, idParam(c));
   const b = await body(c);
   const f = copyFields(b, current);
-  db.prepare('UPDATE copies SET format = ?, binding = ?, sprayed_edges = ?, notes = ?, store_id = ?, duration_min = ? WHERE id = ?')
-    .run(f.format, f.binding, f.sprayed, f.notes, f.storeId, f.durationMin, current.id as number);
+  db.prepare('UPDATE copies SET format = ?, binding = ?, sprayed_edges = ?, notes = ?, store_id = ?, duration_min = ?, owner_unsure = ? WHERE id = ?')
+    .run(f.format, f.binding, f.sprayed, f.notes, f.storeId, f.durationMin, f.unsure, current.id as number);
   if (b.readStatus !== undefined) setReading(u.id, current.book_id as number, { status: oneOf(b.readStatus, READ_STATUS, 'unread') });
   return c.json({ ok: true });
 });
+
+// ---------- Sprache und Besitz (auch für viele Bücher auf einmal) ----------
+
+const langOverride = (userId: number, bookId: number) =>
+  (db.prepare('SELECT language FROM user_book_lang WHERE user_id = ? AND book_id = ?').get(userId, bookId) as { language: string } | undefined)?.language ?? null;
+
+/** eigene Sprache für Bücher setzen; language null = wieder automatisch erkennen */
+bookRoutes.put('/me/languages', async c => {
+  const u = requireUser(c);
+  const b = await body(c);
+  const ids = idList(b.bookIds);
+  const lang = b.language === null ? null : typeof b.language === 'string' && LANG_CODE.test(b.language) ? b.language : undefined;
+  if (lang === undefined) throw new HTTPException(400, { message: 'Ungültige Sprache' });
+  tx(() => {
+    for (const id of ids) {
+      if (!getBook(id)) continue;
+      if (lang === null) db.prepare('DELETE FROM user_book_lang WHERE user_id = ? AND book_id = ?').run(u.id, id);
+      else db.prepare(`INSERT INTO user_book_lang (user_id, book_id, language) VALUES (?, ?, ?)
+        ON CONFLICT (user_id, book_id) DO UPDATE SET language = excluded.language`).run(u.id, id, lang);
+    }
+  });
+  return c.json({ ok: true, n: ids.length });
+});
+
+/** „Besitz unklar“ für alle eigenen Exemplare der Bücher setzen oder aufheben */
+bookRoutes.put('/me/unsure', async c => {
+  const u = requireUser(c);
+  const b = await body(c);
+  const ids = idList(b.bookIds);
+  const on = b.unsure ? 1 : 0;
+  tx(() => {
+    for (const id of ids) db.prepare('UPDATE copies SET owner_unsure = ? WHERE owner_id = ? AND book_id = ? AND removed_at IS NULL').run(on, u.id, id);
+  });
+  return c.json({ ok: true, n: ids.length });
+});
+
+/** Liste von IDs aus dem Body (max. 2000, ohne Doppelte) */
+function idList(v: unknown): number[] {
+  if (!Array.isArray(v)) throw new HTTPException(400, { message: 'Keine Bücher gewählt' });
+  return [...new Set(v.map(x => int(x, 1, Number.MAX_SAFE_INTEGER)).filter((x): x is number => !!x))].slice(0, 2000);
+}
 
 /**
  * Entfernen: mode "archive" (Standard) markiert nur – Verlauf bleibt, optional mit Grund (verkauft …);

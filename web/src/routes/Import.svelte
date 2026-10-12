@@ -21,11 +21,13 @@
   let undone = $state(false);
   // Booky kennt keinen Besitz: je Liste wird festgelegt, was im Regal/auf der Wunschliste/in Leselisten landet
   let plans = $state<Record<string, BookyPlan>>({});
+  // nur ausgewählte Booky-Listen übernehmen (z. B. „Stapel ungelesener E-Books“), Rest der Datei ignorieren
+  let bookyOnly = $state(false);
   const rowsBooky = $derived(source === 'booky' ? bookyRows(parsed) : []);
   const items = $derived.by(() => {
     if (source === 'generic' && mapping) return convertMapped(rows, mapping);
     if (source !== 'booky') return parsed;
-    return applyBookyPlans(parsed, plans);
+    return applyBookyPlans(parsed, plans, bookyOnly);
   });
 
   let copies = $state<'owned' | 'all' | 'none'>('owned');
@@ -213,7 +215,7 @@
       </ul>
 
       {#if source === 'booky'}
-        <BookyPlanner rows={rowsBooky} items={parsed} bind:plans />
+        <BookyPlanner rows={rowsBooky} items={parsed} bind:plans bind:only={bookyOnly} />
         <span class="muted small">{t('imp.shelfInfo', { n: counts.owned })}</span>
       {:else}
       <div class="opt">

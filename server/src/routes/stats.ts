@@ -7,6 +7,7 @@ import { requireUser } from '../auth.ts';
 import { router, idParam } from '../util.ts';
 import { bookBrief } from './books.ts';
 import { parseMoods, LIGHT, DARK } from './reviews.ts';
+import { langOf } from '../lang.ts';
 
 export const statsRoutes = router();
 
@@ -16,29 +17,8 @@ const GENERIC = /^(belletristik|fiction|fiktionale darstellung|roman|novel|liter
 type Row = {
   bookId: number; title: string; subtitle: string | null; authors: string; year: number | null; pages: number | null; cover: string | null;
   isbn13: string | null; subjects: string; language: string | null; started_at: string | null; finished_at: string; rating: number | null;
-  formats: string | null; moods: string | null; pace: string | null; minutes: number | null;
+  formats: string | null; moods: string | null; pace: string | null; minutes: number | null; lang_override: string | null;
 };
-
-/** DNB liefert ISO 639-2/B („ger“), Open Library oft nichts – dann Sprachraum aus der ISBN-Gruppe schätzen */
-const LANG: Record<string, string> = {
-  ger: 'de', deu: 'de', de: 'de', eng: 'en', en: 'en', fre: 'fr', fra: 'fr', fr: 'fr', spa: 'es', es: 'es', ita: 'it', it: 'it',
-  dut: 'nl', nld: 'nl', nl: 'nl', swe: 'sv', sv: 'sv', dan: 'da', da: 'da', nor: 'no', no: 'no', pol: 'pl', pl: 'pl',
-  por: 'pt', pt: 'pt', tur: 'tr', tr: 'tr', rus: 'ru', ru: 'ru', jpn: 'ja', ja: 'ja', lat: 'la', la: 'la'
-};
-function languageOf(r: Row): string {
-  const code = r.language?.trim().toLowerCase();
-  if (code && LANG[code]) return LANG[code];
-  if (code) return code;
-  const g = r.isbn13?.startsWith('978') ? r.isbn13.slice(3) : null;
-  if (!g) return 'unknown';
-  if (g[0] === '3') return 'de';
-  if (g[0] === '0' || g[0] === '1') return 'en';
-  if (g[0] === '2') return 'fr';
-  if (g.startsWith('88')) return 'it';
-  if (g.startsWith('84')) return 'es';
-  if (g.startsWith('90') || g.startsWith('94')) return 'nl';
-  return 'unknown';
-}
 
 const PAGE_BUCKETS = [[0, 200, '<200'], [200, 300, '200–299'], [300, 400, '300–399'], [400, 500, '400–499'], [500, Infinity, '500+']] as const;
 
@@ -68,6 +48,7 @@ function statsFor(userId: number, period: string | null) {
   const rows = db.prepare(`
     SELECT b.id AS bookId, b.title, b.subtitle, b.authors, b.year, b.pages, b.cover, b.isbn13, b.subjects, b.language,
            ub.started_at, ub.finished_at, rv.rating, rv.moods, rv.pace,
+           (SELECT language FROM user_book_lang WHERE user_id = ub.user_id AND book_id = b.id) AS lang_override,
            (SELECT group_concat(DISTINCT format) FROM copies WHERE book_id = b.id AND owner_id = ub.user_id) AS formats,
            (SELECT MAX(duration_min) FROM copies WHERE book_id = b.id AND owner_id = ub.user_id AND format = 'audio') AS minutes
     FROM user_books ub JOIN books b ON b.id = ub.book_id
@@ -150,7 +131,7 @@ function statsFor(userId: number, period: string | null) {
     authors: group(each(r => (JSON.parse(r.authors) as string[]).slice(0, 1))).slice(0, 10),
     // Format: Druck vor E-Book vor Hörbuch (ein Buch zählt einmal); ohne Exemplar = geliehen/sonstiges
     formats: group(rows.map(r => [!r.formats ? 'none' : r.formats.includes('print') ? 'print' : r.formats.includes('ebook') ? 'ebook' : 'audio', r.bookId])),
-    languages: group(rows.map(r => [languageOf(r), r.bookId])),
+    languages: group(rows.map(r => [r.lang_override ?? langOf(r.language, r.isbn13), r.bookId])),
     pageBuckets,
     moods: group(each(moodsOf)),
     paces: group(rows.filter(r => r.pace).map(r => [r.pace!, r.bookId])),
@@ -170,6 +151,25 @@ function statsFor(userId: number, period: string | null) {
   };
 }
 
+/** Sprachen der ganzen Bibliothek (alle Bücher im Regal, nicht nur gelesene) mit Anzahl gelesen */
+function libraryLanguages(userId: number) {
+  const rows = db.prepare(`
+    SELECT DISTINCT b.id AS bookId, b.language, b.isbn13, COALESCE(ub.status, 'unread') AS status,
+           (SELECT language FROM user_book_lang WHERE user_id = c.owner_id AND book_id = b.id) AS lang_override
+    FROM copies c JOIN books b ON b.id = c.book_id
+    LEFT JOIN user_books ub ON ub.user_id = c.owner_id AND ub.book_id = b.id
+    WHERE c.owner_id = ? AND c.removed_at IS NULL
+  `).all(userId) as { bookId: number; language: string | null; isbn13: string | null; status: string; lang_override: string | null }[];
+  const m = new Map<string, { name: string; n: number; read: number; ids: number[] }>();
+  for (const r of rows) {
+    const name = r.lang_override ?? langOf(r.language, r.isbn13);
+    const g = m.get(name) ?? { name, n: 0, read: 0, ids: [] };
+    g.n++; if (r.status === 'read') g.read++; g.ids.push(r.bookId);
+    m.set(name, g);
+  }
+  return [...m.values()].sort((a, b) => b.n - a.n);
+}
+
 /** Monate mit gelesenen Büchern (Auswahl im Teilen-Bild) */
 const monthsOf = (userId: number) => (db.prepare(`
   SELECT DISTINCT substr(finished_at, 1, 7) AS m FROM user_books WHERE user_id = ? AND status = 'read' AND finished_at IS NOT NULL ORDER BY m DESC
@@ -184,7 +184,7 @@ statsRoutes.get('/stats', c => {
   // ?period=2026|2026-Q3|2026-09 (Teilen-Bild), ?year=2026 wie bisher
   const y = c.req.query('period') ?? c.req.query('year');
   if (y && !periodRange(y)) throw new HTTPException(400, { message: 'Ungültige Zahl' });
-  return c.json({ years: yearsOf(u.id), months: monthsOf(u.id), ...statsFor(u.id, y ?? null), user: { displayName: u.display_name, username: u.username } });
+  return c.json({ years: yearsOf(u.id), months: monthsOf(u.id), ...statsFor(u.id, y ?? null), library: { languages: libraryLanguages(u.id) }, user: { displayName: u.display_name, username: u.username } });
 });
 
 /** Statistik von Freunden (für den Vergleich/Jahresrückblick), nur bei sichtbarem Regal */

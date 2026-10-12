@@ -8,7 +8,9 @@
   // ein Katalogtreffer wird beim Antippen übernommen. onpick bekommt das gewählte Buch.
   let { onpick, exclude = [], catalog = false }: { onpick: (b: BookBrief) => void; exclude?: number[]; catalog?: boolean } = $props();
   let q = $state('');
-  let hits = $state<{ status: ReadStatus; book: BookBrief }[]>([]);
+  let hits = $state<{ status: ReadStatus; owned?: boolean; wish?: boolean; book: BookBrief }[]>([]);
+  // Reiter: alle eigenen Bücher oder nur die Wunschliste (Wunschbücher gehen sonst unter den gelesenen unter)
+  let tab = $state<'mine' | 'wish'>('mine');
   let remote = $state<SearchHit[] | null>(null);
   let searching = $state(false);
   let busy = $state<string | null>(null);
@@ -16,8 +18,9 @@
 
   $effect(() => {
     const query = q;
+    const wish = tab === 'wish' ? '&wish=1' : '';
     clearTimeout(timer);
-    timer = setTimeout(() => api.get<typeof hits>(`/me/books?q=${encodeURIComponent(query)}`).then(r => (hits = r)).catch(toastError), 200);
+    timer = setTimeout(() => api.get<typeof hits>(`/me/books?q=${encodeURIComponent(query)}${wish}`).then(r => (hits = r)).catch(toastError), 200);
     if (!catalog) return;
     clearTimeout(rtimer);
     remote = null;
@@ -45,13 +48,17 @@
   }
 </script>
 
+<div class="segmented tabs">
+  <button class:active={tab === 'mine'} onclick={() => (tab = 'mine')}>{t('picker.tabMine')}</button>
+  <button class:active={tab === 'wish'} onclick={() => (tab = 'wish')}>{t('picker.tabWish')}</button>
+</div>
 <input type="search" bind:value={q} placeholder={catalog ? t('picker.searchAllPh') : t('top.searchPh')} />
 <div class="hits">
   {#if catalog && own.length}<p class="sect small">{t('picker.mine')}</p>{/if}
   {#each own as h (h.book.id)}
     <button class="hit ghost" onclick={() => onpick(h.book)}>
       <Cover url={h.book.coverUrl} title={h.book.title} authors={h.book.authors} size="sm" />
-      <span class="grow"><strong>{h.book.title}</strong><span class="muted small">{h.book.authors.join(', ')} · {labels.read[h.status]}</span></span>
+      <span class="grow"><strong>{h.book.title}</strong><span class="muted small">{h.book.authors.join(', ')} · {h.wish && !h.owned ? t('picker.wish') : labels.read[h.status]}{#if !h.owned && !h.wish} · {t('picker.notOwned')}{/if}</span></span>
     </button>
   {:else}
     {#if !catalog || q.trim().length < 3}<p class="muted small">{catalog ? t('picker.typeMore') : t('add.noHits')}</p>{/if}
@@ -74,6 +81,7 @@
 </div>
 
 <style>
+  .tabs { margin-bottom: 0.6rem; }
   .hits { display: grid; gap: 0.3rem; max-height: 50dvh; overflow: auto; margin-top: 0.6rem; }
   .hit { display: flex; gap: 0.7rem; align-items: center; text-align: left; padding: 0.4rem; justify-content: flex-start; height: auto; }
   .hit :global(.cover) { width: 40px; flex: none; }

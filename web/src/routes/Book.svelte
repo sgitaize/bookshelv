@@ -12,6 +12,8 @@
   import { t, tn, i18n, fmtDate as fmtD, type Key } from '../lib/i18n.svelte.ts';
   import Cover from '../components/Cover.svelte';
   import CopyForm from '../components/CopyForm.svelte';
+  import LangPicker from '../components/LangPicker.svelte';
+  import { langName } from '../lib/lang.ts';
   import Sheet from '../components/Sheet.svelte';
   import Icon from '../components/Icon.svelte';
   import ListSheet from '../components/ListSheet.svelte';
@@ -30,7 +32,17 @@
   let datesJust = $state(false);
   let bookFeed = $state<FeedItem[]>([]);
   $effect(() => { api.get<{ items: FeedItem[] }>(`/feed?book=${id}&limit=20`).then(r => (bookFeed = r.items)).catch(() => {}); });
-  let data = $state<{ book: Book; copies: Copy[]; canEdit: boolean; wishlisted: boolean; reading: Reading; archived: ArchivedCopy[] } | null>(null);
+  let data = $state<{ book: Book; copies: Copy[]; canEdit: boolean; wishlisted: boolean; reading: Reading; archived: ArchivedCopy[];
+    language: { auto: string; mine: string | null } } | null>(null);
+  let langEdit = $state(false);
+  async function setLang(code: string | null) {
+    try {
+      await api.put('/me/languages', { bookIds: [id], language: code });
+      data!.language.mine = code;
+      langEdit = false;
+      toast(t('common.saved'));
+    } catch (e) { toastError(e); }
+  }
   let removing = $state<{ id: number; archived: boolean } | null>(null);
   let progressOpen = $state(false);
   let askReview = $state(false);
@@ -198,7 +210,10 @@
         {#if b.year}<dt>{t('book.year')}</dt><dd>{b.year}</dd>{/if}
         {#if b.pages}<dt>{t('book.pages')}</dt><dd>{b.pages}</dd>{/if}
         {#if b.isbn13}<dt>ISBN</dt><dd>{b.isbn13}</dd>{/if}
+        <dt>{t('lang.title')}</dt>
+        <dd><button class="link" onclick={() => (langEdit = !langEdit)}>{langName(data.language.mine ?? data.language.auto)} <Icon name="edit" size={13} /></button></dd>
       </dl>
+      {#if langEdit}<LangPicker value={data.language.mine} auto={data.language.auto} onpick={setLang} />{/if}
       {#if subjects.length}
         <div class="row subjects">{#each subjects as s}<span class="chip">{s}</span>{/each}</div>
       {/if}
@@ -258,7 +273,10 @@
         <span class="fmt"><Icon name={c.format === 'ebook' ? 'tablet' : c.format === 'audio' ? 'headphones' : 'book'} /></span>
         <div class="grow">
           <strong>{describe(c)}</strong>
-          {#if c.sprayedEdges}<div class="row tags"><span class="chip edge">{t('copy.edges')}</span></div>{/if}
+          {#if c.sprayedEdges || c.ownerUnsure}<div class="row tags">
+            {#if c.sprayedEdges}<span class="chip edge">{t('copy.edges')}</span>{/if}
+            {#if c.ownerUnsure}<span class="chip unsure" title={t('own.unsureHint')}>{t('own.unsure')}</span>{/if}
+          </div>{/if}
           {#if c.notes}<p class="muted small note">{c.notes}</p>{/if}
           {#if c.loan}
             <p class="loaninfo small">
@@ -276,7 +294,7 @@
           {/if}
         </div>
         <button class="icon ghost" aria-label={t('common.edit')}
-          onclick={() => (editing = { copyId: c.id, values: { format: c.format, binding: c.binding, sprayedEdges: c.sprayedEdges, readStatus: c.readStatus, notes: c.notes ?? '', storeId: c.storeId, durationMin: c.durationMin ?? null } })}>
+          onclick={() => (editing = { copyId: c.id, values: { format: c.format, binding: c.binding, sprayedEdges: c.sprayedEdges, readStatus: c.readStatus, notes: c.notes ?? '', storeId: c.storeId, durationMin: c.durationMin ?? null, ownerUnsure: !!c.ownerUnsure } })}>
           <Icon name="edit" size={18} />
         </button>
       </div>
@@ -409,6 +427,8 @@
 </Sheet>
 
 <style>
+  button.link { background: none; border: none; padding: 0; height: auto; color: inherit; font: inherit; display: inline-flex; gap: 0.3em; align-items: center; cursor: pointer; }
+  .chip.unsure { background: #c98a1b; color: #1a1205; }
   .back { margin: -0.6rem 0 0.4rem -0.8rem; border: none; background: none; color: var(--muted); padding: 0.4em 0.6em; }
   .detail { display: grid; gap: 1.6rem; justify-items: center; text-align: center; margin-bottom: 2rem; }
   .cover-wrap { position: relative; max-width: 100%; }

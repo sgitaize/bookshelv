@@ -6,6 +6,9 @@
   import Cover from '../components/Cover.svelte';
   import Icon from '../components/Icon.svelte';
   import RemoveSheet from '../components/RemoveSheet.svelte';
+  import Sheet from '../components/Sheet.svelte';
+  import LangPicker from '../components/LangPicker.svelte';
+  import { langName } from '../lib/lang.ts';
 
   // ohne userId: eigenes Regal; mit userId: Regal eines Freundes (nur lesen)
   let { userId }: { userId?: number } = $props();
@@ -13,7 +16,7 @@
   let items = $state<ShelfItem[] | null>(null);
   let ownerName = $state('');
   let q = $state('');
-  type Filter = 'all' | 'print' | 'ebook' | 'audio' | 'unread' | 'reading' | 'read' | 'lent' | 'edges' | 'favorite' | 'archive' | 'sold';
+  type Filter = 'all' | 'print' | 'ebook' | 'audio' | 'unread' | 'reading' | 'read' | 'lent' | 'edges' | 'favorite' | 'unsure' | 'archive' | 'sold' | `lang:${string}`;
   let archived = $state<ShelfItem[] | null>(null);
   let filter = $state<Filter>((router.query.get('filter') as Filter) ?? 'all');
   let sort = $state<'added' | 'title' | 'author'>('added');
@@ -35,6 +38,33 @@
   }
   function endSelect() { selecting = false; picked = new Set(); }
   const pickedCopies = $derived((items ?? []).filter(i => picked.has(i.book.id)).map(i => i.id));
+
+  // weitere Aktionen: Sprache setzen, Besitz unklar/bestätigt
+  let moreOpen = $state(false);
+  async function bulkLang(code: string | null) {
+    bulkBusy = true;
+    try {
+      const ids = [...picked];
+      await api.put('/me/languages', { bookIds: ids, language: code });
+      // ohne eigene Sprache zeigt erst das Neuladen die erkannte wieder an
+      if (code === null) reload++;
+      else if (items) for (const it of items) if (picked.has(it.book.id)) it.language = code;
+      toast(code === null ? t('lang.reset', { n: ids.length }) : t('lang.saved', { n: ids.length }));
+      moreOpen = false;
+      endSelect();
+    } catch (e) { toastError(e); } finally { bulkBusy = false; }
+  }
+  async function bulkUnsure(unsure: boolean) {
+    bulkBusy = true;
+    try {
+      const ids = [...picked];
+      await api.put('/me/unsure', { bookIds: ids, unsure });
+      if (items) for (const it of items) if (picked.has(it.book.id)) it.unsure = unsure;
+      toast(unsure ? t('own.markedUnsure', { n: ids.length }) : t('own.markedSure', { n: ids.length }));
+      moreOpen = false;
+      endSelect();
+    } catch (e) { toastError(e); } finally { bulkBusy = false; }
+  }
 
   async function bulkRead() {
     bulkBusy = true;
@@ -60,9 +90,17 @@
     req.catch(toastError);
   });
 
+  const languages = $derived.by(() => {
+    const n = new Map<string, number>();
+    for (const it of items ?? []) if (it.language) n.set(it.language, (n.get(it.language) ?? 0) + 1);
+    return [...n.entries()].sort((a, b) => b[1] - a[1]).map(([l]) => l);
+  });
   const filters = $derived([
     ['all', t('filter.all')], ['print', t('filter.print')], ['ebook', t('filter.ebook')], ['audio', t('filter.audio')], ['unread', t('read.unread')], ['reading', t('read.reading')],
     ['read', t('read.read')], ['favorite', t('filter.favorites')], ...(own ? [['lent', t('filter.lent')]] : []), ['edges', t('copy.edges')],
+    ...(own && items?.some(i => i.unsure) ? [['unsure', t('own.unsure')]] : []),
+    // Sprachen nur, wenn es mehr als eine gibt (häufigste zuerst)
+    ...(languages.length > 1 ? languages.map(l => [`lang:${l}`, langName(l)]) : []),
     ...(own ? [['archive', t('filter.archive')], ['sold', t('filter.sold')]] : [])
   ] as [Filter, string][]);
 
@@ -91,7 +129,8 @@
         case 'lent': return it.lent;
         case 'edges': return it.sprayedEdges;
         case 'favorite': return it.favorite;
-        default: return true;
+        case 'unsure': return !!it.unsure;
+        default: return filter.startsWith('lang:') ? it.language === filter.slice(5) : true;
       }
     });
     const key = (it: ShelfItem) => sort === 'title' ? it.book.title : (it.book.authors[0]?.split(' ').pop() ?? '');
@@ -101,7 +140,7 @@
     for (const it of sorted) {
       const g = byBook.get(it.book.id);
       if (!g) byBook.set(it.book.id, { ...it, formats: new Set([it.format]) });
-      else { g.formats.add(it.format); g.lent ||= it.lent; g.sprayedEdges ||= it.sprayedEdges; }
+      else { g.formats.add(it.format); g.lent ||= it.lent; g.sprayedEdges ||= it.sprayedEdges; g.unsure ||= it.unsure; }
     }
     return [...byBook.values()];
   });
@@ -167,6 +206,7 @@
               {#if it.formats.has('ebook')}<span class="chip">{it.formats.has('print') ? t('shelf.plusEbook') : t('format.ebook')}</span>{/if}
               {#if it.formats.has('audio')}<span class="chip">{t('format.audio')}</span>{/if}
               {#if it.sprayedEdges}<span class="chip edge">{t('copy.edges')}</span>{/if}
+              {#if own && it.unsure}<span class="chip unsure" title={t('own.unsureHint')}>?</span>{/if}
             </div>
             {#if selecting}<span class="pick" aria-hidden="true">{#if picked.has(it.book.id)}<Icon name="check" size={18} />{/if}</span>{/if}
             {#if it.readStatus !== 'unread' && !selecting}<span class="status {it.readStatus}" title={labels.read[it.readStatus]}></span>{/if}
@@ -187,9 +227,23 @@
     </button>
     <span class="count">{t('bulk.count', { n: picked.size })}</span>
     <button class="small" disabled={!picked.size || bulkBusy} onclick={bulkRead}><Icon name="check" size={16} /> {t('read.read')}</button>
+    <button class="small" disabled={!picked.size || bulkBusy} onclick={() => (moreOpen = true)} aria-label={t('bulk.more')}>…</button>
     <button class="small danger" disabled={!picked.size || bulkBusy} onclick={() => (removing = pickedCopies)} aria-label={t('rm.title')}><Icon name="trash" size={16} /></button>
   </div>
 {/if}
+
+<Sheet open={moreOpen} onclose={() => (moreOpen = false)} title={t('bulk.count', { n: picked.size })}>
+  <div class="stack more">
+    <span class="lbl">{t('lang.pick', { n: picked.size })}</span>
+    <LangPicker value={null} disabled={bulkBusy} onpick={bulkLang} />
+    <span class="lbl">{t('own.unsure')}</span>
+    <p class="muted small">{t('own.unsureHint')}</p>
+    <div class="row">
+      <button class="small" disabled={bulkBusy} onclick={() => bulkUnsure(true)}>{t('own.markUnsure')}</button>
+      <button class="small" disabled={bulkBusy} onclick={() => bulkUnsure(false)}><Icon name="check" size={16} /> {t('own.markSure')}</button>
+    </div>
+  </div>
+</Sheet>
 
 <RemoveSheet copyId={removing} title={t('bulk.count', { n: picked.size })} onclose={() => (removing = null)}
   onsaved={() => { endSelect(); archived = null; reload++; }} />
@@ -224,6 +278,10 @@
   .badges .chip { box-shadow: 0 1px 4px rgb(0 0 0 / 0.4); }
   .badges .chip:not(.edge):not(.accent) { background: rgb(20 15 10 / 0.8); color: #eee; }
   .badges .chip.accent { background: var(--accent); color: var(--accent-ink); }
+  .badges .chip.unsure { background: #c98a1b; color: #1a1205; font-weight: 700; }
+  .more { gap: 0.6rem; }
+  .more .lbl { margin-top: 0.4rem; font-weight: 600; font-size: 0.9rem; }
+  .more p { margin: 0; }
   .status { position: absolute; top: 7px; right: 7px; width: 11px; height: 11px; border-radius: 50%; border: 2px solid rgb(0 0 0 / 0.5); z-index: 1; }
   .status.read { background: var(--ok); }
   .status.reading { background: var(--accent); }
