@@ -143,8 +143,9 @@ type ImportRow = {
   status: string; options: string | null; queue: string | null; done: number; results: string | null; finished_at: string | null;
 };
 type JobConflict = { item: ImportItem; title: string; bookId?: number; field: string; mine: unknown; theirs: unknown };
-type JobResults = { ok: number; exists: number; failed: string[]; conflicts: JobConflict[] };
-const emptyResults = (): JobResults => ({ ok: 0, exists: 0, failed: [], conflicts: [] });
+/** onShelf: Titel, die auf die Wunschliste sollten, aber schon im Regal stehen */
+type JobResults = { ok: number; exists: number; failed: string[]; conflicts: JobConflict[]; onShelf: string[] };
+const emptyResults = (): JobResults => ({ ok: 0, exists: 0, failed: [], conflicts: [], onShelf: [] });
 const parseResults = (r: ImportRow): JobResults => { try { return { ...emptyResults(), ...JSON.parse(r.results ?? '{}') }; } catch { return emptyResults(); } };
 
 function jobJson(r: ImportRow, withConflicts = true) {
@@ -152,7 +153,7 @@ function jobJson(r: ImportRow, withConflicts = true) {
   return {
     id: r.id, source: r.source, filename: r.filename, total: r.total, createdAt: r.created_at, undoneAt: r.undone_at,
     status: r.status, done: r.done, finishedAt: r.finished_at,
-    ok: res.ok, exists: res.exists, failed: res.failed, conflictCount: res.conflicts.length,
+    ok: res.ok, exists: res.exists, failed: res.failed, onShelf: res.onShelf, conflictCount: res.conflicts.length,
     ...(withConflicts ? { conflicts: res.conflicts } : {})
   };
 }
@@ -255,6 +256,7 @@ async function work() {
       if (!now || now.status !== 'running') continue;
       const res = parseResults({ ...job, results: now.results });
       out.forEach((r, j) => {
+        if (r.onShelf && res.onShelf.length < 500) res.onShelf.push(r.title);
         if (r.result === 'ok') res.ok++;
         else if (r.result === 'exists') res.exists++;
         else if (r.result === 'failed') res.failed.push(r.title);
@@ -289,7 +291,7 @@ extraRoutes.post('/imports/:id/undo', c => {
 });
 
 type ImportOptions = Record<string, unknown>;
-type ImportResult = { title: string; bookId?: number; result: 'ok' | 'exists' | 'failed' | 'conflict'; done?: string[];
+type ImportResult = { title: string; bookId?: number; result: 'ok' | 'exists' | 'failed' | 'conflict'; done?: string[]; onShelf?: boolean;
   conflicts?: Array<{ field: 'status' | 'finishedAt' | 'rating' | 'review'; mine: unknown; theirs: unknown }> };
 
 /** Ein Paket (max. 10) Einträge direkt importieren – für ältere Clients; die App nutzt den Hintergrund-Job (/imports/jobs) */
@@ -328,6 +330,12 @@ async function importItems(u: User, items: ImportItem[], o: ImportOptions, imp: 
           .run(book.id, u.id, format, binding, added, added ? 0 : 1).lastInsertRowid);
         journal.created(imp, 'copies', { id });
         done.push('copy');
+        // jetzt im Regal → von der Wunschliste (wie beim Anlegen eines Exemplars von Hand)
+        if (db.prepare('SELECT 1 FROM wishlist WHERE user_id = ? AND book_id = ?').get(u.id, book.id)) {
+          journal.before(imp, 'wishlist', ub);
+          db.prepare('DELETE FROM wishlist WHERE user_id = ? AND book_id = ?').run(u.id, book.id);
+          done.push('unwished');
+        }
       }
       // Abgleich mit dem Bestand: Lücken werden gefüllt, echte Unterschiede je nach Regel übernommen,
       // behalten oder als Konflikt zurückgemeldet (Einzelfall-Entscheidung im Browser, dann erneut mit resolve)
@@ -340,7 +348,9 @@ async function importItems(u: User, items: ImportItem[], o: ImportOptions, imp: 
       // Wunschliste (auch zusätzlich zu einem Lesestand, z. B. Booky „wishlist“)
       const onShelf = () => !!db.prepare('SELECT 1 FROM copies WHERE book_id = ? AND owner_id = ? AND removed_at IS NULL').get(book.id, u.id);
       const cur = db.prepare('SELECT status, finished_at FROM user_books WHERE user_id = ? AND book_id = ?').get(u.id, book.id) as { status: string; finished_at: string | null } | undefined;
-      if ((status === 'want' || it.wishlist) && o.wishlist !== false && !onShelf() && (status !== 'want' || !cur || cur.status === 'unread')) {
+      let shelved = false;
+      if ((status === 'want' || it.wishlist) && o.wishlist !== false && onShelf()) shelved = true;
+      else if ((status === 'want' || it.wishlist) && o.wishlist !== false && (status !== 'want' || !cur || cur.status === 'unread')) {
         if (db.prepare('INSERT OR IGNORE INTO wishlist (user_id, book_id) VALUES (?, ?)').run(u.id, book.id).changes) { journal.created(imp, 'wishlist', ub); done.push('wishlist'); }
       }
       // Lesestand
@@ -416,8 +426,9 @@ async function importItems(u: User, items: ImportItem[], o: ImportOptions, imp: 
           }
         }
       }
-      if (conflicts.length) { results.push({ title: book.title, bookId: book.id, result: 'conflict', done, conflicts }); continue; }
-      results.push({ title: book.title, bookId: book.id, result: done.length ? 'ok' : 'exists', done });
+      const extra = shelved ? { onShelf: true } : {};
+      if (conflicts.length) { results.push({ title: book.title, bookId: book.id, result: 'conflict', done, conflicts, ...extra }); continue; }
+      results.push({ title: book.title, bookId: book.id, result: done.length ? 'ok' : 'exists', done, ...extra });
     } catch {
       results.push({ title: it.title ?? '?', result: 'failed' });
     }

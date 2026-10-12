@@ -80,7 +80,7 @@
    * Die App darf geschlossen werden; beim nächsten Öffnen der Seite wird ein laufender Import wieder angezeigt.
    */
   type Job = {
-    id: number; status: 'running' | 'done' | 'cancelled'; total: number; done: number; ok: number; exists: number; failed: string[];
+    id: number; status: 'running' | 'done' | 'cancelled'; total: number; done: number; ok: number; exists: number; failed: string[]; onShelf?: string[];
     conflicts?: { item: ImportItem; title: string; field: ConflictField; mine: unknown; theirs: unknown }[]; undoneAt: string | null; filename: string | null;
   };
   let job = $state<Job | null>(null);
@@ -155,7 +155,7 @@
       : f === 'finishedAt' ? fmtDate(String(v))
       : String(v).length > 120 ? String(v).slice(0, 120) + '…' : String(v);
 
-  const summary = $derived({ ok: job?.ok ?? 0, exists: job?.exists ?? 0, failed: (job?.failed ?? []).map(title => ({ title })) });
+  const summary = $derived({ ok: job?.ok ?? 0, exists: job?.exists ?? 0, failed: (job?.failed ?? []).map(title => ({ title })), onShelf: job?.onShelf ?? [] });
 </script>
 
 
@@ -300,6 +300,11 @@
       <p>{t('imp.summary', { ok: summary.ok, exists: summary.exists, failed: summary.failed.length })}</p>
       {#if resolved}<p class="muted small">{t('imp.resolved')}</p>{/if}
       {#if undone}<p class="muted small">{t('imp.undone')}</p>{/if}
+      {#if summary.onShelf.length}
+        <details><summary>{t('imp.onShelf', { n: summary.onShelf.length })}</summary>
+          <ul>{#each summary.onShelf as title}<li>{title}</li>{/each}</ul>
+        </details>
+      {/if}
       {#if summary.failed.length}
         <details><summary>{t('imp.failedList')}</summary>
           <ul>{#each summary.failed as f}<li>{f.title}</li>{/each}</ul>

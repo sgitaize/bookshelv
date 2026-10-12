@@ -281,8 +281,11 @@ export const listNames = (items: ImportItem[]) =>
 
 // ---------- Booky: Auswahl je Liste ----------
 
-/** Was mit den Büchern einer Booky-Liste passiert: Besitz (alle / einzeln angetippt), Wunschliste oder nichts */
-export type BookyTarget = 'all' | 'pick' | 'wish' | 'none';
+/**
+ * Was mit den Büchern einer Booky-Liste passiert: Besitz (alle / einzeln angetippt), Wunschliste, nichts –
+ * oder nur als Leseliste (list): Regal, Wunschliste und Lesestand bleiben unverändert.
+ */
+export type BookyTarget = 'all' | 'pick' | 'wish' | 'none' | 'list';
 export type BookyPlan = {
   target: BookyTarget; format: 'print' | 'ebook';
   /** als Leseliste mit diesem Namen anlegen (bzw. in die gleichnamige Liste einfügen) */
@@ -314,13 +317,16 @@ export function bookyRows(items: ImportItem[]): BookyRow[] {
 
 /** Vorschlag je Liste; „Will ich lesen“ heißt in Booky „Stapel ungelesener Bücher“ und steht im Regal */
 export function bookyDefaultPlan(row: BookyRow): BookyPlan {
-  const plan: BookyPlan = { target: 'none', format: /e-?books?/i.test(row.name) ? 'ebook' : 'print', list: !row.std, name: row.name, status: 'auto', picked: [] };
+  const ebooks = /e-?books?/i.test(row.name);
+  const plan: BookyPlan = { target: 'none', format: ebooks ? 'ebook' : 'print', list: !row.std, name: row.name, status: 'auto', picked: [] };
   if (row.std === 'want_to_read') return { ...plan, target: 'all', list: true, name: 'Stapel ungelesener Bücher' };
   if (row.std === 'finished') return { ...plan, target: 'pick' };
   if (row.std === 'currently_reading') return { ...plan, target: 'all' };
   if (row.std === 'wishlist') return { ...plan, target: 'wish' };
   if (row.std) return plan;
   if (/wunsch|geburtstag|weihnacht|geschenk/i.test(row.name)) return { ...plan, target: 'wish' };
+  // E-Book-Listen: eigene Leseliste, aber nicht ins Regal (Feedback einer Nutzerin, 2026-10-12)
+  if (ebooks) return { ...plan, target: 'none', list: true };
   if (/stapel|ungelesen|sub\b/i.test(row.name)) return { ...plan, target: 'all' };
   // unklar → nachfragen: einzeln antippen, nichts vorausgewählt
   return { ...plan, target: 'pick' };
@@ -340,8 +346,17 @@ export function applyBookyPlans(items: ImportItem[], plans: Record<string, Booky
   const out: ImportItem[] = [];
   for (const { booky, ...it } of items) {
     if (!booky) { if (!only) out.push(it); continue; }
-    const rows = booky.refs.map(r => ({ r, p: plans[bookyRowId(r)] })).filter(x => x.p && (!only || x.p.include));
-    if (only && !rows.length) continue;
+    const all = booky.refs.map(r => ({ r, p: plans[bookyRowId(r)] })).filter(x => x.p && (!only || x.p.include));
+    if (only && !all.length) continue;
+    // „nur als Liste“ zählt für Regal, Wunschliste und Lesestand nicht; steht das Buch nur in solchen Listen,
+    // wird außer dem Listeneintrag nichts übernommen (auch kein Lesestand/Bewertung aus Booky)
+    const rows = all.filter(x => x.p.target !== 'list');
+    const lists = all.filter(x => (x.p.list || x.p.target === 'list') && x.p.name.trim())
+      .map(({ r, p }) => ({ name: p.name.trim(), createdAt: r.createdAt, addedAt: r.addedAt }));
+    if (all.length && !rows.length) {
+      out.push({ isbn: it.isbn, title: it.title, authors: it.authors, status: 'unread', owned: false, wishlist: false, lists });
+      continue;
+    }
     const owning = rows.filter(x => x.p.target === 'all' || (x.p.target === 'pick' && x.p.picked.includes(booky.key)));
     const owned = owning.length > 0;
     let status: ImportItem['status'] = it.status === 'want' ? 'unread' : it.status;
@@ -350,8 +365,6 @@ export function applyBookyPlans(items: ImportItem[], plans: Record<string, Booky
     }
     const wishlist = !owned && status !== 'read' && rows.some(x => x.p.target === 'wish');
     if (!owned && wishlist && status === 'unread') status = 'want';
-    const lists = rows.filter(x => x.p.list && x.p.name.trim())
-      .map(({ r, p }) => ({ name: p.name.trim(), createdAt: r.createdAt, addedAt: r.addedAt }));
     out.push({
       ...it, status, owned, wishlist, lists,
       format: owned && owning.every(x => x.p.format === 'ebook') ? 'ebook' : 'print',

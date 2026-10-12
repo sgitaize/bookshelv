@@ -98,6 +98,35 @@ check('read without date stays undated', (await req('GET', `/books/${nd}`)).data
 check('undated import not in feed', !(await req('GET', '/feed?scope=me&limit=100')).data.items.some(f => f.book.id === nd));
 await req('POST', `/imports/${imp2}/undo`);
 
+// Feedback 2026-10-12: „nur als Liste“, E-Book-Listen, Wunschliste gegen Regal
+check('ebook list default', bookyDefaultPlan({ id: 'list:Ungelesene eBooks', name: 'Ungelesene eBooks', count: 3 }).target === 'none'
+  && bookyDefaultPlan({ id: 'list:Ungelesene eBooks', name: 'Ungelesene eBooks', count: 3 }).list && bookyDefaultPlan({ id: 'list:x', name: 'E-Books', count: 1 }).format === 'ebook');
+const lp = structuredClone(plans);
+lp["list:12 für '26"] = { ...lp["list:12 für '26"], target: 'list', name: 'Gemischt' };
+lp['std:finished'].picked = [];
+const lo = applyBookyPlans(bk2.items, lp);
+const lb = lo.find(i => i.title === 'Babel');
+check('list only keeps others', lb.status === 'read' && lb.lists.some(l => l.name === 'Gemischt'), JSON.stringify(lb));
+lp['std:finished'].target = 'list'; lp['std:finished'].name = 'Gelesen (Booky)';
+const lb2 = applyBookyPlans(bk2.items, lp).find(i => i.title === 'Babel');
+check('list only: nothing but list', lb2.status === 'unread' && !lb2.owned && !lb2.wishlist && !lb2.favorite && !lb2.finishedAt && lb2.rating == null
+  && lb2.lists.map(l => l.name).sort().join('|') === 'Gelesen (Booky)|Gemischt', JSON.stringify(lb2));
+const imp3 = (await req('POST', '/imports', { source: 'Booky', total: 3 })).data.id;
+r = await req('POST', '/import', { importId: imp3, items: [lb2], options: { copies: 'owned', conflict: 'theirs' } });
+const babelNow = (await req('GET', `/books/${id('Babel')}`)).data;
+check('list only import keeps status/copy', babelNow.reading.status === 'read' && babelNow.reading.favorite && (await req('GET', '/copies')).data.length === copiesBefore + 2, JSON.stringify(babelNow.reading));
+r = await req('POST', '/import', { importId: imp3, items: [{ isbn: by('Babel').isbn, title: 'Babel', status: 'want', wishlist: true }], options: { copies: 'owned' } });
+check('wish on shelf skipped', r.data.results[0].onShelf === true && !(await req('GET', '/wishlist')).data.some(w => w.book.id === id('Babel')), JSON.stringify(r.data));
+const wishNow = (await req('GET', '/wishlist')).data.length;
+r = await req('POST', '/import', { importId: imp3, items: [{ isbn: by('Trotzdem').isbn, title: 'Trotzdem zuhause', status: 'unread', owned: true }], options: { copies: 'owned' } });
+check('owned import clears wishlist', r.data.results[0].done.includes('unwished') && (await req('GET', '/wishlist')).data.length === wishNow - 1, JSON.stringify(r.data));
+await req('POST', `/imports/${imp3}/undo`);
+check('undo restores wishlist', (await req('GET', '/wishlist')).data.length === wishNow);
+const jobImp = (await req('POST', '/imports/jobs', { source: 'Booky', filename: 'x.csv', items: [{ isbn: by('Babel').isbn, title: 'Babel', status: 'want', wishlist: true }], options: { copies: 'owned' } })).data;
+let jb; for (let i = 0; i < 50; i++) { jb = (await req('GET', `/imports/${jobImp.id}`)).data; if (jb.status !== 'running') break; await new Promise(r => setTimeout(r, 100)); }
+check('job lists onShelf', jb.onShelf?.length === 1 && jb.onShelf[0].startsWith('Babel'), JSON.stringify(jb));
+await req('POST', `/imports/${jobImp.id}/undo`);
+
 // --- Lesedaten ändern ---
 check('fav toggle keeps unknown date', (await req('PUT', `/books/${id('Die L')}/reading`, { favorite: true })).data.finishedAt === null);
 r = await req('PUT', `/books/${id('Die L')}/reading`, { finishedAt: '2024-05-01', startedAt: '2024-04-20' });

@@ -7,7 +7,7 @@
 
   let { rows, items, plans = $bindable(), only = $bindable(false) }: { rows: BookyRow[]; items: ImportItem[]; plans: Record<string, BookyPlan>; only?: boolean } = $props();
 
-  const TARGETS: BookyTarget[] = ['all', 'pick', 'wish', 'none'];
+  const TARGETS: BookyTarget[] = ['all', 'pick', 'wish', 'none', 'list'];
   const STATUSES = ['auto', 'unread', 'reading', 'read', 'dnf'] as const;
   let openId = $state<string | null>(null);
   let filter = $state('');
@@ -27,6 +27,7 @@
     // von „alle im Regal“ auf „einzeln“: alle bleiben angetippt, man nimmt nur heraus
     if (target === 'pick' && p.target === 'all') p.picked = booksOf(r).map(it => it.booky!.key);
     p.target = target;
+    if (target === 'list' && (!p.name.trim() || (r.std && p.name === r.name))) p.name = label(r);
     if (target !== 'pick' && openId === r.id) openId = null;
   }
   function toggle(p: BookyPlan, key: string) {
@@ -38,6 +39,14 @@
 <div class="planner">
   <span class="lbl">{t('bp.title')}</span>
   <span class="muted small">{t('bp.info')}</span>
+  <details class="cases">
+    <summary class="small">{t('bp.casesTitle')}</summary>
+    <ul class="small muted">
+      <li>{t('bp.case.wish')}</li>
+      <li>{t('bp.case.ebook')}</li>
+      <li>{t('bp.case.mixed')}</li>
+    </ul>
+  </details>
   <label class="only">
     <input type="checkbox" bind:checked={only} />
     <span><strong>{t('bp.onlyLists')}</strong><br /><span class="muted small">{t('bp.onlyListsHint')}</span></span>
@@ -54,7 +63,7 @@
         {#if !only || p.include}
         <div class="segmented targets">
           {#each TARGETS as tg}
-            <button class:active={p.target === tg} onclick={() => setTarget(r, tg)}>{t(`bp.${tg}` as Key)}</button>
+            <button class:active={p.target === tg} class:wide={tg === 'list'} onclick={() => setTarget(r, tg)}>{t(`bp.${tg}` as Key)}</button>
           {/each}
         </div>
         {#if p.target === 'all' || p.target === 'pick'}
@@ -90,7 +99,13 @@
             </div>
           {/if}
         {/if}
-        {#if !r.std || r.std === 'want_to_read'}
+        {#if p.target === 'list'}
+          <span class="muted small">{t('bp.listHint')}</span>
+          <label class="field"><span>{t('bp.listName')}</span><input bind:value={p.name} maxlength="80" /></label>
+        {:else if p.target === 'wish'}
+          <span class="muted small">{t('bp.wishHint')}</span>
+        {/if}
+        {#if p.target !== 'list' && (!r.std || r.std === 'want_to_read')}
           <label class="row check"><input type="checkbox" bind:checked={p.list} /> {t('bp.asList')}</label>
           {#if p.list}<label class="field"><span>{t('bp.listName')}</span><input bind:value={p.name} maxlength="80" /></label>{/if}
           <label class="field"><span>{t('bp.status')}</span>
@@ -116,6 +131,9 @@
   .head { overflow-wrap: anywhere; display: flex; flex-wrap: wrap; gap: 0.25rem 0.5rem; align-items: baseline; }
   .targets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-radius: 16px; width: 100%; max-width: 26rem; }
   .targets button { white-space: normal; }
+  .targets button.wide { grid-column: 1 / -1; }
+  .cases ul { margin: 0.4rem 0 0; padding-left: 1.2rem; display: grid; gap: 0.3rem; }
+  .cases summary { cursor: pointer; color: var(--accent); }
   .pickbar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
   .picker { display: grid; gap: 0.5rem; width: 100%; }
   .filter { flex: 1; min-width: 10rem; }
