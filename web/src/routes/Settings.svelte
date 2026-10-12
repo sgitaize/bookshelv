@@ -300,10 +300,10 @@
       <p class="muted small">{t('settings.signedInAs', { u: session.me?.username ?? '' })}</p>
       <form class="card stack" onsubmit={changePassword}>
         <h3>{t('settings.changePw')}</h3>
-        <input type="text" autocomplete="username" value={session.me?.username} hidden />
-        <label class="field"><span>{t('settings.currentPw')}</span><input type="password" bind:value={pw.current} required autocomplete="current-password" /></label>
-        <label class="field"><span>{t('settings.newPw')}</span><input type="password" bind:value={pw.next} required minlength="8" autocomplete="new-password" /></label>
-        <label class="field"><span>{t('settings.repeat')}</span><input type="password" bind:value={pw.next2} required minlength="8" autocomplete="new-password" /></label>
+        <input type="text" name="username" autocomplete="username" value={session.me?.username} hidden />
+        <label class="field"><span>{t('settings.currentPw')}</span><input type="password" name="current-password" bind:value={pw.current} required autocomplete="current-password" /></label>
+        <label class="field"><span>{t('settings.newPw')}</span><input type="password" name="new-password" bind:value={pw.next} required minlength="8" autocomplete="new-password" /></label>
+        <label class="field"><span>{t('settings.repeat')}</span><input type="password" name="new-password-confirm" bind:value={pw.next2} required minlength="8" autocomplete="new-password" /></label>
         <button>{t('settings.changePw')}</button>
       </form>
       <div class="card stack">

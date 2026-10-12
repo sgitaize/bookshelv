@@ -94,6 +94,25 @@ for (const [f, h] of [['Post', 1350], ['Quadrat', 1080], ['Square', 1080]]) {
 }
 check('share no page errors', errs.length === 0, errs.join(' | '));
 
+// Anmeldung per Autofill (Passwort-Manager/iOS setzen Werte ohne input-Event)
+const ctxL = await browser.createBrowserContext();
+const pl = await ctxL.newPage();
+await pl.goto(base + '/', { waitUntil: 'networkidle0' });
+const fields = await pl.evaluate(() => ['username', 'password'].map(n => {
+  const el = document.querySelector(`form input[name="${n}"]`);
+  return el ? `${el.id}|${el.getAttribute('autocomplete')}` : null;
+}));
+check('login fields named for autofill', fields[0] === 'username|username' && fields[1] === 'password|current-password', JSON.stringify(fields));
+await pl.evaluate(() => {
+  const set = (n, v) => { const el = document.querySelector(`input[name="${n}"]`); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, v); };
+  set('username', 'simon'); set('password', 'geheim1234');
+});
+await Promise.all([pl.waitForFunction(() => !location.pathname.startsWith('/login') && !document.querySelector('input[name="password"]'), { timeout: 8000 }).catch(() => null),
+  pl.click('form button[type="submit"]')]);
+const me = await pl.evaluate(() => fetch('/api/me').then(r => r.status));
+check('login via autofill without input event', me === 200, String(me));
+await ctxL.close();
+
 await browser.close();
 console.log(`UI-Test: ${ok} ok, ${fail} fehlgeschlagen`);
 process.exit(fail ? 1 : 0);

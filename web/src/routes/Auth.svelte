@@ -23,6 +23,13 @@
   async function submit(e: SubmitEvent) {
     e.preventDefault();
     error = null;
+    // Passwort-Manager/iOS-Autofill setzen Werte teils ohne input-Event → direkt aus dem Formular lesen
+    const f = new FormData(e.currentTarget as HTMLFormElement);
+    const val = (k: string, cur: string) => (typeof f.get(k) === 'string' ? (f.get(k) as string) : cur);
+    username = val('username', username).trim();
+    password = val('password', password);
+    password2 = val('password-confirm', password2);
+    displayName = val('nickname', displayName);
     if (mode !== 'login' && password !== password2) return (error = t('auth.pwMismatch'));
     busy = true;
     try {
@@ -50,11 +57,11 @@
     <p class="muted">{t('auth.tagline')}</p>
   </div>
 
-  <form class="card stack" onsubmit={submit}>
+  <form class="card stack" method="post" action={mode === 'login' ? '/login' : '/register'} onsubmit={submit}>
     {#if mode === 'setup'}
       <h2>{t('auth.setup')}</h2>
       <p class="muted small">{t('auth.setupInfo')} <code>data/setup-token.txt</code>.</p>
-      <label class="field"><span>Setup-Token</span><input bind:value={setupToken} required autocomplete="off" /></label>
+      <label class="field"><span>Setup-Token</span><input name="setup-token" id="setup-token" bind:value={setupToken} required autocomplete="off" /></label>
     {:else if mode === 'register'}
       {#if invite === null}
         <div class="spinner"></div>
@@ -72,19 +79,19 @@
 
     {#if mode !== 'register' || invite?.valid}
       <label class="field"><span>{t('auth.username')}</span>
-        <input bind:value={username} required autocomplete="username" autocapitalize="off" spellcheck="false" minlength="3" maxlength="32" pattern="[a-zA-Z0-9._\-]+" />
+        <input name="username" id="username" type="text" inputmode="text" bind:value={username} required autocomplete="username" autocapitalize="off" spellcheck="false" minlength="3" maxlength="32" pattern="[a-zA-Z0-9._\-]+" />
       </label>
       {#if mode !== 'login'}
-        <label class="field"><span>{t('auth.displayName')}</span><input bind:value={displayName} maxlength="60" placeholder={t('auth.displayNamePh')} /></label>
+        <label class="field"><span>{t('auth.displayName')}</span><input name="nickname" id="nickname" bind:value={displayName} maxlength="60" autocomplete="nickname" placeholder={t('auth.displayNamePh')} /></label>
       {/if}
       <label class="field"><span>{t('auth.password')}</span>
-        <input type="password" bind:value={password} required minlength={mode === 'login' ? 1 : 8} autocomplete={mode === 'login' ? 'current-password' : 'new-password'} />
+        <input type="password" name="password" id="password" bind:value={password} required minlength={mode === 'login' ? 1 : 8} autocomplete={mode === 'login' ? 'current-password' : 'new-password'} />
       </label>
       {#if mode !== 'login'}
-        <label class="field"><span>{t('auth.password2')}</span><input type="password" bind:value={password2} required minlength="8" autocomplete="new-password" /></label>
+        <label class="field"><span>{t('auth.password2')}</span><input type="password" name="password-confirm" id="password-confirm" bind:value={password2} required minlength="8" autocomplete="new-password" /></label>
       {/if}
       {#if error}<p class="err">{error}</p>{/if}
-      <button class="primary" disabled={busy}>
+      <button type="submit" class="primary" disabled={busy}>
         {mode === 'login' ? t('auth.signIn') : mode === 'setup' ? t('auth.createAdmin') : t('auth.createAccount')}
       </button>
       {#if mode === 'login' && !session.needsSetup}
