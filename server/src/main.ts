@@ -11,6 +11,7 @@ import { fetchCover, deleteCoverFile, dnbMarc, olSeries } from './catalog.ts';
 import { kickImports } from './routes/extras.ts';
 import { canonicalSeries } from './routes/books.ts';
 import { checkAuthors } from './routes/authors.ts';
+import { snapshot } from './snapshot.ts';
 
 ensureSetupToken();
 purgeExpiredSessions();
@@ -21,6 +22,9 @@ setInterval(() => { deliver().catch(() => {}); }, 60_000).unref();
 // Importe im Hintergrund: nach einem Neustart weitermachen, und zur Sicherheit jede Minute anstoßen
 kickImports();
 setInterval(kickImports, 60_000).unref();
+// Datenbank-Kopie fürs externe Backup: beim Start (falls älter als 1 h) und stündlich
+snapshot(3600_000);
+setInterval(() => snapshot(), 3600_000).unref();
 
 /**
  * Einmalig (je Version des Flags): Bücher ohne Cover erneut versuchen – früher wurde nur unter der ISBN gesucht,
