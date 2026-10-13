@@ -5,14 +5,16 @@
   import { t } from '../lib/i18n.svelte.ts';
   import Icon from './Icon.svelte';
 
-  let { userId, relation = $bindable(), compact = false, onchange }: { userId: number; relation: Relation; compact?: boolean; onchange?: (r: Relation) => void } = $props();
+  // remote: userId ist eine entfernte Person (remote_actors.id) auf einer gekoppelten Instanz
+  let { userId, relation = $bindable(), compact = false, remote = false, onchange }: { userId: number; relation: Relation; compact?: boolean; remote?: boolean; onchange?: (r: Relation) => void } = $props();
+  const url = $derived(remote ? `/remote/${userId}/friend` : `/users/${userId}/friend`);
   let busy = $state(false);
 
   async function run(method: 'post' | 'del', confirmKey?: 'friend.endQ') {
     if (confirmKey && !confirm(t(confirmKey))) return;
     busy = true;
     try {
-      const r = await (method === 'post' ? api.post<{ relation: Relation }>(`/users/${userId}/friend`) : api.del<{ relation: Relation }>(`/users/${userId}/friend`));
+      const r = await (method === 'post' ? api.post<{ relation: Relation }>(url) : api.del<{ relation: Relation }>(url));
       if (r.relation === 'friend' && relation === 'incoming') toast(t('friend.nowFriends'));
       relation = r.relation;
       onchange?.(r.relation);

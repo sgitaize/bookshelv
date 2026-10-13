@@ -53,7 +53,7 @@ On first start, bookshelv writes a one-time setup token so that nobody else can 
 cat data/setup-token.txt
 ```
 
-Open the app, enter the token and create your admin account. After that you invite people from **Settings → Invite friends**.
+Open the app, enter the token and create your admin account. After that you invite people from **Settings → Invite friends**. An accepted invite makes you friends with the person who invited you; everyone else on the instance can be found under **Friends** and sent a friend request. Shelves, activity, wishlists and lists are only visible to friends, and with a linked instance you can add friends there by their address (`@anna@books.example`).
 
 You'll want HTTPS in front of it. Browsers only allow camera access over HTTPS, and the session cookie is marked `Secure`. With Caddy, for example:
 
@@ -124,7 +124,7 @@ BOOKSHELV_INSECURE_COOKIES=1 npm run dev   # API on :3000, Vite on :5173
 
 ## Roadmap
 
-Done so far: accounts and invitations, the admin area, ISBN scanning and catalogue search, the library with copies (including e-book shops), reading progress, favourites, profiles with pictures, reviews and comments, lending with due dates, an archive for sold or given-away books, a history timeline with filters, a feed of what friends are reading, in-app notifications, a wishlist friends can see, your own covers, a top 5 on the profile, reading lists, an activity feed with each book's history, import from Goodreads, StoryGraph or any CSV with merging, export in Goodreads/StoryGraph format, reading statistics with a yearly wrap-up image you can share, and German/English.
+Done so far: accounts and invitations, the admin area, ISBN scanning and catalogue search, the library with copies (including e-book shops), reading progress, favourites, profiles with pictures, reviews and comments, lending with due dates, an archive for sold or given-away books, a history timeline with filters, a feed of what friends are reading, in-app notifications, a wishlist friends can see, friend requests (also across linked instances), your own covers, a top 5 on the profile, reading lists, an activity feed with each book's history, import from Goodreads, StoryGraph or any CSV with merging, export in Goodreads/StoryGraph format, reading statistics with a yearly wrap-up image you can share, and German/English.
 
 Separate bookshelv instances can be linked, so reviews can be shared and books lent across instances. How that works is described in [docs/FEDERATION.md](docs/FEDERATION.md).
 

@@ -10,6 +10,7 @@ import { router, body, str, idParam, notFound } from '../util.ts';
 import { normalizeIsbn } from '../catalog.ts';
 import { notifyRemote } from '../notify.ts';
 import { importIsbn } from './books.ts';
+import { remoteStatus, setRemote, dropRemote } from '../friends.ts';
 import {
   selfUrl, rememberSelfUrl, instanceName, setSetting, publicKey, normalizeUrl, verify, fetchInfo, sendNow, enqueue,
   upsertActor, kickDelivery, handleOf, type Instance
@@ -137,6 +138,32 @@ federationRoutes.post('/fed/inbox', async c => {
     case 'LoanDelete':
       db.prepare('DELETE FROM remote_loans WHERE instance_id = ? AND remote_id = ?').run(inst.id, Number(msg.id));
       return c.json({ ok: true });
+    case 'FriendRequest':
+    case 'FriendAccept':
+    case 'FriendRemove': {
+      // Freundschaft zwischen msg.from (dort) und msg.to.username (hier)
+      const to = db.prepare('SELECT id FROM users WHERE username = ? AND disabled = 0').get(String(msg.to?.username ?? '')) as { id: number } | undefined;
+      if (!to) throw new HTTPException(404, { message: 'Konto nicht gefunden' });
+      if (!Number.isInteger(msg.from?.id) || typeof msg.from?.username !== 'string') throw new HTTPException(400, { message: 'Absender fehlt' });
+      const actor = upsertActor(inst.id, { id: msg.from.id, username: msg.from.username, displayName: String(msg.from.displayName ?? msg.from.username) });
+      const label = `${String(msg.from.displayName ?? msg.from.username).slice(0, 60)} (${handleOf(msg.from.username, inst.url)})`;
+      const cur = remoteStatus(to.id, actor);
+      if (msg.type === 'FriendRemove') dropRemote(to.id, actor);
+      else if (msg.type === 'FriendAccept') {
+        if (cur === 'outgoing') { setRemote(to.id, actor, 'friend'); notifyRemote(to.id, 'friend_accepted', label, null, actor); }
+      } else if (cur === 'outgoing' || cur === 'friend') {
+        // beide haben angefragt (oder schon befreundet) → befreundet, der anderen Seite bestätigen
+        setRemote(to.id, actor, 'friend');
+        enqueue({ type: 'FriendAccept', from: localActor(to.id), to: { username: msg.from.username } }, inst.id);
+        if (cur === 'outgoing') notifyRemote(to.id, 'friend_accepted', label, null, actor);
+      } else if (!cur) {
+        const open = (db.prepare("SELECT COUNT(*) AS n FROM remote_friends WHERE user_id = ? AND status = 'incoming'").get(to.id) as { n: number }).n;
+        if (open >= 50) throw new HTTPException(429, { message: 'Zu viele offene Anfragen' });
+        setRemote(to.id, actor, 'incoming');
+        notifyRemote(to.id, 'friend_request', label, null, actor);
+      }
+      return c.json({ ok: true });
+    }
     default:
       throw new HTTPException(400, { message: 'Unbekannter Nachrichtentyp' });
   }
@@ -152,7 +179,36 @@ federationRoutes.post('/fed/lookup', async c => {
   return c.json(u);
 });
 
+/**
+ * Regal einer Person für eine befreundete Person auf der anfragenden Instanz (nur bei sichtbarem Regal).
+ * Wird nicht gespeichert, sondern bei jedem Öffnen neu abgefragt.
+ */
+federationRoutes.post('/fed/shelf', async c => {
+  const { inst, msg } = await verified(c);
+  if (!inst || inst.status !== 'linked') throw new HTTPException(403, { message: 'Nicht gekoppelt' });
+  const u = db.prepare('SELECT id, username, display_name AS displayName, shelf_visible FROM users WHERE username = ? AND disabled = 0')
+    .get(String(msg.username ?? '')) as { id: number; username: string; displayName: string; shelf_visible: number } | undefined;
+  const actor = db.prepare('SELECT id FROM remote_actors WHERE instance_id = ? AND remote_id = ?').get(inst.id, Number(msg.viewer?.id)) as { id: number } | undefined;
+  if (!u || !actor || remoteStatus(u.id, actor.id) !== 'friend') throw new HTTPException(403, { message: 'Nicht befreundet' });
+  if (!u.shelf_visible) return c.json({ displayName: u.displayName, visible: false, copies: [] });
+  const copies = db.prepare(`
+    SELECT b.isbn13, b.title, b.subtitle, b.authors, b.year, b.pages, c.format, COALESCE(ub.status, 'unread') AS readStatus
+    FROM copies c JOIN books b ON b.id = c.book_id LEFT JOIN user_books ub ON ub.user_id = c.owner_id AND ub.book_id = c.book_id
+    WHERE c.owner_id = ? AND c.removed_at IS NULL ORDER BY c.created_at DESC LIMIT 3000
+  `).all(u.id) as Array<Record<string, unknown>>;
+  return c.json({
+    displayName: u.displayName, visible: true,
+    copies: copies.map(r => ({ ...r, authors: JSON.parse(r.authors as string) }))
+  });
+});
+
 // ---------- Hilfen ----------
+
+/** So stellt sich ein lokales Konto in Nachrichten an andere Instanzen vor */
+export function localActor(userId: number) {
+  const u = db.prepare('SELECT id, username, display_name AS displayName FROM users WHERE id = ?').get(userId) as { id: number; username: string; displayName: string };
+  return { id: u.id, username: u.username, displayName: u.displayName };
+}
 
 /** Nach dem Koppeln: alle föderierten Reviews an die neue Instanz schicken */
 function backfill(instanceId: number) {

@@ -2,12 +2,12 @@
 
 The idea is that separate bookshelv instances can be linked, a bit like Matrix homeservers or Mastodon instances. Someone on `books.anna.example` should be able to lend a book to a friend on `bookshelv.aize-it.de`, and reviews can be visible across instances.
 
-This is built (since the fifth iteration): linking instances, federated reviews and lending across instances. Comments are not federated yet.
+This is built (since the fifth iteration): linking instances, federated reviews and lending across instances. Since October 2026 people can also become friends across linked instances. Comments are not federated yet.
 
 ## Ground rules
 
 1. **Linking, not an open network.** By default two instances only exchange data after both admins have agreed to the link (an allowlist). That keeps spam out and makes it obvious which operators data goes to, which matters for GDPR. An open mode could come later as an option.
-2. **Only what is explicitly shared leaves the instance.** Reviews only if their visibility is `federated`; lending only when a remote person is involved. Shelves, private notes and passwords always stay local.
+2. **Only what is explicitly shared leaves the instance.** Reviews only if their visibility is `federated`; lending only when a remote person is involved; a shelf only to someone you accepted as a friend, and only while you are friends. Private notes and passwords always stay local.
 3. **Keep it small.** A signed JSON protocol over HTTPS with Ed25519 keys from `node:crypto`, no extra dependencies. ActivityPub/BookWyrm compatibility is possible later.
 4. **Books are matched by ISBN.** Every instance has its own catalogue; the ISBN-13 ties them together. Books without an ISBN can't be federated.
 
@@ -21,7 +21,8 @@ Instead of full ActivityPub, bookshelv uses a small signed JSON protocol. It has
 
 - `GET /api/fed/info` returns software, version, name, public URL and the instance's public key.
 - `POST /api/fed/inbox` receives messages. Every request carries `x-bs-origin` (sender URL), `x-bs-date` (ISO time, at most five minutes off) and `x-bs-signature`, an Ed25519 signature over `<date>\n<sha256 of the body>`.
-- `POST /api/fed/lookup` (signed, linked instances only) resolves a username before lending.
+- `POST /api/fed/lookup` (signed, linked instances only) resolves a username before lending or sending a friend request.
+- `POST /api/fed/shelf` (signed, linked instances only) returns someone's shelf to a friend on the asking instance: `{ viewer: { id, username, displayName }, username }`. The answer is ISBN, title, authors, format and reading status per copy. It is fetched every time the shelf is opened and not stored on the other side. Hidden shelves answer with `visible: false`.
 
 Each instance creates its Ed25519 key pair on first use (`node:crypto`). Messages from instances that aren't linked are rejected, with one exception: the link request itself. For that one, the receiver fetches `/api/fed/info` from the claimed sender URL and checks the signature against that key, so nobody can pretend to be another instance.
 
@@ -47,6 +48,7 @@ If both admins request a link at the same time, the instances link right away. E
 | `LoanOffer` | Someone lends a book to a user of the receiving instance (sent again when the due date changes) |
 | `LoanReturn` | Either side marks the book as returned (`loanOf` says whose loan it is) |
 | `LoanDelete` | The lender deleted the loan record |
+| `FriendRequest` / `FriendAccept` / `FriendRemove` | Friendship between `from` (sender's user) and `to.username` (receiver's user). If both sides send a request, they are friends right away. `FriendRemove` covers ending a friendship, withdrawing and declining a request, and deleted accounts. |
 
 Outgoing messages go through a queue in SQLite (`outbox`). It is processed every minute and whenever requests come in, which matters under Passenger because idle processes are put to sleep. Failed deliveries are retried after 1, 5 and 30 minutes, then 2, 6 and 12 hours, and dropped after three days.
 
@@ -61,6 +63,10 @@ The instance needs to know its public URL. Set `BOOKSHELV_PUBLIC_URL`, or let th
 - The admin area records when an instance was linked, and the privacy notice lists linked instances.
 - Users choose per review whether it is federated. The default is the own instance only.
 - When an account is deleted, the instance sends `Delete(Actor)` to all linked instances, which then remove everything from that user.
+
+## Friends
+
+On one instance, people see each other's shelf, activity, wishlist and lists only once they are friends. Everyone else only sees the profile card. Accepting an invite link makes you friends with the person who invited you. Across instances you search for someone by their address (`@anna@books.example`). The request travels as `FriendRequest` and shows up in the other person's notifications. After `FriendAccept` both can open each other's shelf, which is fetched live via `/api/fed/shelf`. Unlinking an instance removes all friendships with people there.
 
 ## Not done yet
 

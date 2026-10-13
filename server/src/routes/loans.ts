@@ -9,7 +9,7 @@ import { requireUser, type User } from '../auth.ts';
 import { router, body, str, int, idParam, notFound } from '../util.ts';
 import { bookBrief } from './books.ts';
 import { notify } from '../notify.ts';
-import { enqueue, sendNow, upsertActor, parseHandle, handleOf, type Instance } from '../federation.ts';
+import { enqueue, resolveHandle, handleOf, type Instance } from '../federation.ts';
 
 export const loanRoutes = router();
 
@@ -102,15 +102,7 @@ loanRoutes.post('/copies/:id/loans', async c => {
   const handle = str(b.borrowerHandle, 120);
   // Person auf einer gekoppelten Instanz: dort nachschlagen
   let remote: { actorId: number; inst: Instance } | null = null;
-  if (handle) {
-    const h = parseHandle(handle);
-    if (!h) throw new HTTPException(400, { message: 'Ungültige Adresse – Format @name@instanz' });
-    const inst = (db.prepare(`SELECT * FROM instances WHERE status = 'linked'`).all() as Instance[]).find(i => new URL(i.url).host === h.host);
-    if (!inst) throw new HTTPException(400, { message: 'Diese Instanz ist nicht gekoppelt' });
-    const res = await sendNow(inst.url, '/api/fed/lookup', { username: h.username });
-    if (!res.ok) throw new HTTPException(404, { message: 'Konto nicht gefunden' });
-    remote = { actorId: upsertActor(inst.id, res.data as { id: number; username: string; displayName: string }), inst };
-  }
+  if (handle) remote = await resolveHandle(handle);
   if (!borrowerId && !borrowerName && !remote) throw new HTTPException(400, { message: 'An wen? Person auswählen oder Namen eingeben' });
   if (borrowerId === u.id) throw new HTTPException(400, { message: 'An dich selbst kannst du nicht verleihen' });
   if (borrowerId && !db.prepare('SELECT 1 FROM users WHERE id = ? AND disabled = 0').get(borrowerId)) throw notFound('Konto');

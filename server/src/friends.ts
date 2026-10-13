@@ -32,3 +32,17 @@ export function relationOf(me: number, other: number): Relation {
   if (db.prepare('SELECT 1 FROM friend_requests WHERE from_id = ? AND to_id = ?').get(other, me)) return 'incoming';
   return 'none';
 }
+
+// ---------- Freund*innen auf gekoppelten Instanzen ----------
+// Zustand liegt auf beiden Seiten in remote_friends; Nachrichten FriendRequest/FriendAccept/FriendRemove über die Outbox.
+// Das Regal wird nur bei Bedarf signiert abgefragt (/api/fed/shelf) und auf der anderen Seite nicht gespeichert.
+
+export type RemoteStatus = 'friend' | 'outgoing' | 'incoming';
+export const remoteStatus = (userId: number, actorId: number) =>
+  (db.prepare('SELECT status FROM remote_friends WHERE user_id = ? AND actor_id = ?').get(userId, actorId) as { status: RemoteStatus } | undefined)?.status ?? null;
+export const setRemote = (userId: number, actorId: number, status: RemoteStatus) =>
+  db.prepare('INSERT INTO remote_friends (user_id, actor_id, status) VALUES (?, ?, ?) ON CONFLICT (user_id, actor_id) DO UPDATE SET status = excluded.status').run(userId, actorId, status);
+export const dropRemote = (userId: number, actorId: number) => {
+  db.prepare('DELETE FROM remote_friends WHERE user_id = ? AND actor_id = ?').run(userId, actorId);
+  db.prepare("DELETE FROM notifications WHERE user_id = ? AND type = 'friend_request' AND actor_id IS NULL AND ref_id = ?").run(userId, actorId);
+};

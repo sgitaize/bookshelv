@@ -11,6 +11,7 @@
   import Add from './routes/Add.svelte';
   import Book from './routes/Book.svelte';
   import People from './routes/People.svelte';
+  import RemotePerson from './routes/RemotePerson.svelte';
   import Settings from './routes/Settings.svelte';
   import Admin from './routes/Admin.svelte';
   import Loans from './routes/Loans.svelte';
@@ -61,6 +62,7 @@
   const invite = $derived(router.match('/invite/:token'));
   const book = $derived(router.match('/book/:id'));
   const person = $derived(router.match('/people/:id'));
+  const remotePerson = $derived(router.match('/people/remote/:id'));
   const personShelf = $derived(router.match('/people/:id/shelf'));
   const personWish = $derived(router.match('/people/:id/wishlist'));
   const listView = $derived(router.match('/lists/:id'));
@@ -91,6 +93,7 @@
         {:else if router.path === '/add'}<Add />
         {:else if book}<Book id={Number(book.id)} />
         {:else if router.path === '/people'}<People />
+        {:else if remotePerson}<RemotePerson id={Number(remotePerson.id)} />
         {:else if person}<Profile userId={Number(person.id)} />
         {:else if personShelf}<Shelf userId={Number(personShelf.id)} />
         {:else if router.path === '/loans'}<Loans />

@@ -7,6 +7,7 @@
  *   x-bs-signature base64(Ed25519-Signatur über "<date>\n<sha256(body)>")
  * Angenommen wird nur von gekoppelten Instanzen (Ausnahme: die Kopplungsanfrage selbst).
  */
+import { HTTPException } from 'hono/http-exception';
 import crypto from 'node:crypto';
 import { db } from './db.ts';
 import { config } from './config.ts';
@@ -176,3 +177,14 @@ export function parseHandle(h: string): { username: string; host: string } | nul
 }
 
 export const handleOf = (username: string, instanceUrl: string) => `@${username}@${new URL(instanceUrl).host}`;
+
+/** "@anna@host" bei der gekoppelten Instanz nachschlagen → remote_actors-ID; Fehler als HTTP-Meldung */
+export async function resolveHandle(handle: string): Promise<{ actorId: number; inst: Instance }> {
+  const h = parseHandle(handle);
+  if (!h) throw new HTTPException(400, { message: 'Ungültige Adresse – Format @name@instanz' });
+  const inst = (db.prepare(`SELECT * FROM instances WHERE status = 'linked'`).all() as Instance[]).find(i => new URL(i.url).host === h.host);
+  if (!inst) throw new HTTPException(400, { message: 'Diese Instanz ist nicht gekoppelt' });
+  const res = await sendNow(inst.url, '/api/fed/lookup', { username: h.username });
+  if (!res.ok) throw new HTTPException(404, { message: 'Konto nicht gefunden' });
+  return { actorId: upsertActor(inst.id, res.data as { id: number; username: string; displayName: string }), inst };
+}

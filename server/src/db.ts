@@ -430,6 +430,17 @@ const migrations: string[] = [
   );
   CREATE INDEX friend_requests_to ON friend_requests(to_id);
   INSERT INTO friends (user_id, friend_id) SELECT a.id, b.id FROM users a JOIN users b ON a.id != b.id;
+  `,
+  // 20: Freundschaften mit Personen auf gekoppelten Instanzen (Zustand je lokalem Konto + entfernter Person)
+  `
+  CREATE TABLE remote_friends (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    actor_id INTEGER NOT NULL REFERENCES remote_actors(id) ON DELETE CASCADE,
+    status TEXT NOT NULL CHECK (status IN ('friend', 'outgoing', 'incoming')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, actor_id)
+  );
+  CREATE INDEX remote_friends_actor ON remote_friends(actor_id);
   `
 ];
 

@@ -15,6 +15,7 @@ import { setting } from '../federation.ts';
 import { operator } from './admin.ts';
 import { avatarUrl, purgeAvatar } from './social.ts';
 import { retractFederatedReviews } from './reviews.ts';
+import { retractRemoteFriends } from './friends.ts';
 
 export const authRoutes = router();
 
@@ -159,6 +160,7 @@ authRoutes.delete('/me', async c => {
   anonymizeBorrower(u.id);
   purgeAvatar(u.id);
   retractFederatedReviews(u.id);
+  retractRemoteFriends(u.id);
   db.prepare('DELETE FROM users WHERE id = ?').run(u.id);
   return c.json({ ok: true });
 });

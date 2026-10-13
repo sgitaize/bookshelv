@@ -73,9 +73,38 @@ check('return synced to A', await until(async () => (await adminA('GET', '/loans
 check('A notified of return', (await adminA('GET', '/notifications')).data.items.some(i => i.type === 'loan_returned'));
 check('A history has got_back', (await adminA('GET', '/history?types=got_back')).data.events.length === 1);
 
+// Freundschaften über Instanzen (2026-10-13)
+let fr = await adminA('POST', '/friends/remote/lookup', { handle: '@anna@localhost:3996' });
+check('remote lookup', fr.status === 200 && fr.data.relation === 'none' && fr.data.handle === '@anna@localhost:3996', JSON.stringify(fr.data));
+const annaActor = fr.data.actorId;
+check('linked flag', (await adminA('GET', '/friends/remote')).data.linked === true);
+check('remote request', (await adminA('POST', `/remote/${annaActor}/friend`)).data.relation === 'outgoing');
+check('B gets incoming', await until(async () => (await adminB('GET', '/friends/remote')).data.people.some(p => p.relation === 'incoming' && p.handle === '@simon@localhost:3997')));
+const simonActor = (await adminB('GET', '/friends/remote')).data.people[0].actorId;
+const nfr = (await adminB('GET', '/notifications')).data.items.find(i => i.type === 'friend_request');
+check('B notified request', nfr && nfr.actor?.displayName.includes('@simon@') && nfr.refId === simonActor, JSON.stringify(nfr));
+check('B shelf before accept 403', (await adminB('GET', `/remote/${simonActor}/shelf`)).status === 403);
+check('B accepts', (await adminB('POST', `/remote/${simonActor}/friend`)).data.relation === 'friend');
+check('A sees friend', await until(async () => (await adminA('GET', `/remote/${annaActor}`)).data.relation === 'friend'));
+check('A notified accepted', (await adminA('GET', '/notifications')).data.items.some(i => i.type === 'friend_accepted' && i.refId === annaActor));
+let rs = await adminB('GET', `/remote/${simonActor}/shelf`);
+check('B sees A shelf', rs.status === 200 && rs.data.visible && rs.data.copies.length >= 1 && rs.data.copies.some(c => c.isbn13 && c.book.coverUrl), JSON.stringify(rs.data).slice(0, 400));
+await adminA('PATCH', '/me', { shelfVisible: false });
+check('private shelf hidden remotely', (await adminB('GET', `/remote/${simonActor}/shelf`)).data.visible === false);
+await adminA('PATCH', '/me', { shelfVisible: true });
+await adminA('DELETE', `/remote/${annaActor}/friend`);
+check('remove synced', await until(async () => !(await adminB('GET', '/friends/remote')).data.people.length));
+check('shelf gone after remove', (await adminB('GET', `/remote/${simonActor}/shelf`)).status === 403);
+// gegenseitige Anfrage: beide fragen an → befreundet
+await adminB('POST', `/remote/${simonActor}/friend`);
+await until(async () => (await adminA('GET', `/remote/${annaActor}`)).data.relation === 'incoming');
+check('accept via request', (await adminA('POST', `/remote/${annaActor}/friend`)).data.relation === 'friend');
+check('B friend too', await until(async () => (await adminB('GET', `/remote/${simonActor}`)).data.relation === 'friend'));
+
 // Entkoppeln
 const instB = (await adminB('GET', '/admin/federation')).data.instances[0];
 await adminB('DELETE', `/admin/federation/${instB.id}`);
 check('A unlinked too', await until(async () => (await adminA('GET', '/admin/federation')).data.instances.length === 0));
+check('remote friends gone after unlink', !(await adminA('GET', '/friends/remote')).data.people.length);
 check('A keeps loan name as text', (await adminA('GET', '/history?types=lent')).data.events[0]?.person?.includes('anna'));
 console.log(`Föderations-Test: ${ok} ok, ${fail} fehlgeschlagen`);

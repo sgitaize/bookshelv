@@ -9,6 +9,7 @@ import { router, body, idParam, notFound } from '../util.ts';
 import { anonymizeBorrower } from './loans.ts';
 import { purgeAvatar } from './social.ts';
 import { retractFederatedReviews } from './reviews.ts';
+import { retractRemoteFriends } from './friends.ts';
 import { setting, setSetting } from '../federation.ts';
 
 export const adminRoutes = router();
@@ -77,6 +78,7 @@ adminRoutes.delete('/users/:id', c => {
   anonymizeBorrower(id);
   purgeAvatar(id);
   retractFederatedReviews(id);
+  retractRemoteFriends(id);
   if (!db.prepare('DELETE FROM users WHERE id = ?').run(id).changes) throw notFound('Konto');
   return c.json({ ok: true });
 });
