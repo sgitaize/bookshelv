@@ -3,6 +3,7 @@
  */
 import { HTTPException } from 'hono/http-exception';
 import { db } from '../db.ts';
+import { isFriend } from '../friends.ts';
 import { requireUser } from '../auth.ts';
 import { router, idParam } from '../util.ts';
 import { bookBrief } from './books.ts';
@@ -187,14 +188,14 @@ statsRoutes.get('/stats', c => {
   return c.json({ years: yearsOf(u.id), months: monthsOf(u.id), ...statsFor(u.id, y ?? null), library: { languages: libraryLanguages(u.id) }, user: { displayName: u.display_name, username: u.username } });
 });
 
-/** Statistik von Freunden (für den Vergleich/Jahresrückblick), nur bei sichtbarem Regal */
+/** Statistik von Freund*innen (für den Vergleich/Jahresrückblick), nur bei sichtbarem Regal */
 statsRoutes.get('/users/:id/stats', c => {
   const u = requireUser(c);
   const id = idParam(c);
   const owner = db.prepare('SELECT display_name, username, shelf_visible FROM users WHERE id = ? AND disabled = 0').get(id) as
     { display_name: string; username: string; shelf_visible: number } | undefined;
   if (!owner) throw new HTTPException(404, { message: 'Konto nicht gefunden' });
-  if (!owner.shelf_visible && id !== u.id) throw new HTTPException(403, { message: 'Dieses Regal ist privat' });
+  if ((!owner.shelf_visible || !isFriend(u.id, id)) && id !== u.id) throw new HTTPException(403, { message: 'Dieses Regal ist privat' });
   // ?period=2026|2026-Q3|2026-09 (Teilen-Bild), ?year=2026 wie bisher
   const y = c.req.query('period') ?? c.req.query('year');
   if (y && !periodRange(y)) throw new HTTPException(400, { message: 'Ungültige Zahl' });

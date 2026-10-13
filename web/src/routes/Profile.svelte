@@ -7,6 +7,7 @@
   import Cover from '../components/Cover.svelte';
   import Icon from '../components/Icon.svelte';
   import Avatar from '../components/Avatar.svelte';
+  import FriendButton from '../components/FriendButton.svelte';
   import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
 
   // ohne userId: eigenes Profil
@@ -20,11 +21,13 @@
 
   $effect(() => {
     p = null;
-    const id = userId ?? session.me!.id;
+    load(userId ?? session.me!.id);
+  });
+  function load(id: number) {
     api.get<Profile>(`/users/${id}/profile`).then(r => (p = r)).catch(toastError);
     api.get<ReadingListSummary[]>(`/users/${id}/lists`).then(r => (lists = r)).catch(() => {});
     api.get<{ items: FeedItem[] }>(`/feed?user=${id}&limit=5`).then(r => (activity = r.items)).catch(() => {});
-  });
+  }
 </script>
 
 {#if !p}
@@ -45,6 +48,9 @@
       <button class="ghost small topadd" onclick={() => (topOpen = true)}><Icon name="star" size={14} /> {t('top.add')}</button>
     {/if}
 
+    {#if !own}<div class="friend"><FriendButton userId={p.id} bind:relation={p.relation} onchange={() => load(p!.id)} /></div>{/if}
+
+    {#if p.counts}
     <div class="stats">
       <a href={own ? '/library' : `/people/${p.id}/shelf`}><b>{p.counts.books}</b><span>{t('profile.books')}</span></a>
       <span class="div"></span>
@@ -54,6 +60,7 @@
       <span class="div"></span>
       <div><b>{p.averageRating ? p.averageRating.toLocaleString(i18n.locale, { maximumFractionDigits: 1 }) : '–'}</b><span>{t('profile.avgStars')}</span></div>
     </div>
+    {/if}
 
     {#if p.shelfVisible}
       <div class="favs">
@@ -92,7 +99,7 @@
         <div class="act"><FeedList items={activity} /></div>
       {/if}
     {:else}
-      <p class="muted">{t('profile.private')}</p>
+      <p class="muted">{p.relation === 'friend' || own ? t('profile.private') : t('profile.notFriend')}</p>
     {/if}
 
     <div class="row actions">
@@ -120,6 +127,7 @@
 <style>
   .profile { display: grid; justify-items: center; text-align: center; max-width: 560px; margin: 0 auto; }
   .bigav { margin: 0.8rem 0; }
+  .friend { margin: 0.7rem 0 0.2rem; }
   h1 { color: var(--accent); font-size: 1.4rem; margin: 0; }
   .name { margin: 0.1rem 0 0; }
   .top { margin: 0.5rem 0 0; font-size: 0.9rem; line-height: 1.5; color: var(--muted); max-width: 100%; overflow-wrap: anywhere; }

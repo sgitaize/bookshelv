@@ -140,9 +140,12 @@ export function ago(ts: string): string {
   return d.toLocaleDateString(i18n.locale);
 }
 
+export type Relation = 'self' | 'friend' | 'outgoing' | 'incoming' | 'none';
 export type Profile = {
   id: number; username: string; displayName: string; createdAt: string; shelfVisible: boolean; avatarUrl: string | null;
-  counts: { books: number; read: number; readThisYear: number; reviews: number };
+  relation: Relation; friend: boolean;
+  /** null: nicht befreundet, nur Profilkarte */
+  counts: { books: number; read: number; readThisYear: number; reviews: number } | null;
   averageRating: number | null;
   top: BookBrief[]; favorites: BookBrief[]; reading: BookBrief[]; wishlistCount: number;
 };
@@ -173,7 +176,7 @@ export type LoanRequest = {
 export type Loans = { lent: Loan[]; borrowed: Loan[]; history: Loan[]; requests: { incoming: LoanRequest[]; outgoing: LoanRequest[] } };
 
 export type NotificationItem = {
-  id: number; type: 'loan_new' | 'loan_returned' | 'comment' | 'invite_accepted' | 'loan_due' | 'loan_overdue' | 'wish_available' | 'import_done' | 'list_shared' | 'loan_request' | 'loan_declined' | 'buddy_invite' | 'buddy_post' | 'author_new'; refId: number | null; createdAt: string; read: boolean;
+  id: number; type: 'loan_new' | 'loan_returned' | 'comment' | 'invite_accepted' | 'loan_due' | 'loan_overdue' | 'wish_available' | 'import_done' | 'list_shared' | 'loan_request' | 'loan_declined' | 'buddy_invite' | 'buddy_post' | 'author_new' | 'friend_request' | 'friend_accepted'; refId: number | null; createdAt: string; read: boolean;
   actor: { id: number | null; displayName: string; avatarUrl: string | null } | null; book: BookBrief | null; list: { id: number; name: string } | null;
   release?: { title: string; isbn13: string | null } | null;
 };

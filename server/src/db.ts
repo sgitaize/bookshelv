@@ -410,6 +410,26 @@ const migrations: string[] = [
     PRIMARY KEY (user_id, book_id)
   );
   ALTER TABLE copies ADD COLUMN owner_unsure INTEGER NOT NULL DEFAULT 0;
+  `,
+  // 19: Freundschaften (je Paar zwei Zeilen, damit Abfragen nur eine Richtung brauchen) + Anfragen.
+  // Bisher sah jede Person alle → beim Umstieg sind alle bestehenden Konten miteinander befreundet.
+  `
+  CREATE TABLE friends (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    friend_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, friend_id)
+  );
+  CREATE INDEX friends_friend ON friends(friend_id);
+  CREATE TABLE friend_requests (
+    id INTEGER PRIMARY KEY,
+    from_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    to_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (from_id, to_id)
+  );
+  CREATE INDEX friend_requests_to ON friend_requests(to_id);
+  INSERT INTO friends (user_id, friend_id) SELECT a.id, b.id FROM users a JOIN users b ON a.id != b.id;
   `
 ];
 

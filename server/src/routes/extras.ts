@@ -6,6 +6,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { HTTPException } from 'hono/http-exception';
 import { db } from '../db.ts';
+import { isFriend } from '../friends.ts';
 import { config } from '../config.ts';
 import { requireUser, type User } from '../auth.ts';
 import { router, body, str, int, oneOf, idParam, notFound } from '../util.ts';
@@ -30,13 +31,13 @@ function wishlistOf(userId: number) {
 
 extraRoutes.get('/wishlist', c => c.json(wishlistOf(requireUser(c).id)));
 
-/** Wunschliste anderer: nur bei sichtbarem Regal (Geschenkideen) */
+/** Wunschliste anderer: nur Freund*innen mit sichtbarem Regal (Geschenkideen) */
 extraRoutes.get('/users/:id/wishlist', c => {
   const u = requireUser(c);
   const id = idParam(c);
   const owner = db.prepare('SELECT shelf_visible FROM users WHERE id = ? AND disabled = 0').get(id) as { shelf_visible: number } | undefined;
   if (!owner) throw notFound('Konto');
-  if (!owner.shelf_visible && id !== u.id) throw new HTTPException(403, { message: 'Dieses Regal ist privat' });
+  if ((!owner.shelf_visible || !isFriend(u.id, id)) && id !== u.id) throw new HTTPException(403, { message: 'Dieses Regal ist privat' });
   return c.json(wishlistOf(id));
 });
 

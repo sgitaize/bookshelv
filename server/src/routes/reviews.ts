@@ -4,6 +4,7 @@
  */
 import { HTTPException } from 'hono/http-exception';
 import { db } from '../db.ts';
+import { friendSql } from '../friends.ts';
 import { requireUser, type User } from '../auth.ts';
 import { router, body, str, oneOf, idParam, notFound } from '../util.ts';
 import { getBook, bookBrief } from './books.ts';
@@ -194,7 +195,7 @@ reviewRoutes.get('/reviews/recent', c => {
            b.id AS bookId, b.title, b.subtitle, b.authors, b.year, b.pages, b.cover,
            (SELECT COUNT(*) FROM comments WHERE review_id = r.id) AS commentCount
     FROM reviews r JOIN users u ON u.id = r.user_id JOIN books b ON b.id = r.book_id
-    WHERE r.user_id != ? AND r.visibility != 'private' AND u.disabled = 0
+    WHERE r.user_id != ? AND r.visibility != 'private' AND u.disabled = 0 AND ${friendSql(u.id, 'u.id')}
     ORDER BY r.updated_at DESC LIMIT 15
   `).all(u.id) as Array<ReviewRow & Record<string, unknown>>;
   return c.json(rows.map(r => ({
@@ -211,7 +212,7 @@ reviewRoutes.get('/users/:id/reviews', c => {
   const rows = db.prepare(`
     SELECT r.*, u.display_name AS displayName, u.username, u.avatar, b.id AS bookId, b.title, b.subtitle, b.authors, b.year, b.pages, b.cover
     FROM reviews r JOIN users u ON u.id = r.user_id JOIN books b ON b.id = r.book_id
-    WHERE r.user_id = ? AND ${VISIBLE} ORDER BY r.updated_at DESC LIMIT 100
+    WHERE r.user_id = ? AND ${VISIBLE} AND (r.user_id = ${u.id} OR ${friendSql(u.id, 'r.user_id')}) ORDER BY r.updated_at DESC LIMIT 100
   `).all(id, u.id) as Array<ReviewRow & Record<string, unknown>>;
   return c.json(rows.map(r => ({ ...reviewJson(r, u), book: bookBrief(r) })));
 });

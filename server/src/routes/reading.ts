@@ -8,6 +8,7 @@ import { router, body, int, oneOf, idParam, notFound } from '../util.ts';
 import { bookBrief, getBook, shelf } from './books.ts';
 import { avatarUrl } from './social.ts';
 import { topOf } from './lists.ts';
+import { relationOf } from '../friends.ts';
 
 export const readingRoutes = router();
 
@@ -117,20 +118,27 @@ readingRoutes.get('/home', c => {
 
 // ---------- Personen ----------
 
+/** Alle Konten der Instanz mit Beziehung zu mir; Bücherzahl nur bei Freund*innen mit sichtbarem Regal */
 readingRoutes.get('/users', c => {
-  requireUser(c);
-  return c.json(db.prepare(`
+  const u = requireUser(c);
+  const rows = db.prepare(`
     SELECT u.id, u.display_name AS displayName, u.username, u.shelf_visible AS shelfVisible, u.avatar,
            (SELECT COUNT(DISTINCT book_id) FROM copies WHERE owner_id = u.id AND removed_at IS NULL) AS copies
     FROM users u WHERE u.disabled = 0 ORDER BY u.display_name COLLATE NOCASE
-  `).all().map(({ avatar, ...r }) => ({ ...r, avatarUrl: avatarUrl(avatar), shelfVisible: !!r.shelfVisible, copies: r.shelfVisible ? r.copies : null })));
+  `).all() as Array<{ id: number; displayName: string; username: string; shelfVisible: number; avatar: string | null; copies: number }>;
+  return c.json(rows.map(({ avatar, ...r }) => {
+    const relation = relationOf(u.id, r.id);
+    const sees = relation === 'self' || (relation === 'friend' && !!r.shelfVisible);
+    return { ...r, avatarUrl: avatarUrl(avatar), relation, shelfVisible: sees, copies: sees ? r.copies : null };
+  }));
 });
 
 function visibleUser(viewerId: number, id: number) {
   const owner = db.prepare('SELECT id, username, display_name AS displayName, shelf_visible AS shelfVisible, created_at AS createdAt, avatar FROM users WHERE id = ? AND disabled = 0').get(id) as
     { id: number; username: string; displayName: string; shelfVisible: number; createdAt: string; avatar: string | null } | undefined;
   if (!owner) throw notFound('Konto');
-  return { ...owner, visible: !!owner.shelfVisible || owner.id === viewerId };
+  const relation = relationOf(viewerId, owner.id);
+  return { ...owner, relation, visible: owner.id === viewerId || (!!owner.shelfVisible && relation === 'friend') };
 }
 
 readingRoutes.get('/users/:id/shelf', c => {
@@ -147,13 +155,15 @@ readingRoutes.get('/users/:id/profile', c => {
   const n = (sql: string, ...args: (string | number)[]) => (db.prepare(sql).get(...args) as { n: number }).n;
   return c.json({
     id: p.id, username: p.username, displayName: p.displayName, createdAt: p.createdAt, shelfVisible: p.visible, avatarUrl: avatarUrl(p.avatar),
-    counts: {
+    relation: p.relation, friend: p.relation === 'friend',
+    // Nicht-Freund*innen sehen nur die Profilkarte
+    counts: !p.visible && p.relation !== 'friend' ? null : {
       books: n('SELECT COUNT(DISTINCT book_id) AS n FROM copies WHERE owner_id = ? AND removed_at IS NULL', p.id),
       read: n("SELECT COUNT(*) AS n FROM user_books WHERE user_id = ? AND status = 'read'", p.id),
       readThisYear: n("SELECT COUNT(*) AS n FROM user_books WHERE user_id = ? AND status = 'read' AND finished_at LIKE ?", p.id, `${year}%`),
       reviews: n("SELECT COUNT(*) AS n FROM reviews WHERE user_id = ? AND (user_id = ? OR visibility != 'private')", p.id, u.id)
     },
-    averageRating: (db.prepare("SELECT ROUND(AVG(rating), 2) AS a FROM reviews WHERE user_id = ? AND rating IS NOT NULL AND (user_id = ? OR visibility != 'private')").get(p.id, u.id) as { a: number | null }).a,
+    averageRating: !p.visible && p.relation !== 'friend' ? null : (db.prepare("SELECT ROUND(AVG(rating), 2) AS a FROM reviews WHERE user_id = ? AND rating IS NOT NULL AND (user_id = ? OR visibility != 'private')").get(p.id, u.id) as { a: number | null }).a,
     top: p.visible ? topOf(p.id) : [],
     favorites: p.visible ? readingList(p.id, 'ub.favorite = 1', 'ub.updated_at DESC', 10).map(r => r.book) : [],
     wishlistCount: p.visible ? n('SELECT COUNT(*) AS n FROM wishlist WHERE user_id = ?', p.id) : 0,

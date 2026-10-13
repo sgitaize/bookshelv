@@ -6,6 +6,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { HTTPException } from 'hono/http-exception';
 import { db } from '../db.ts';
+import { friendSql } from '../friends.ts';
 import { loanReminders } from '../notify.ts';
 import { config } from '../config.ts';
 import { requireUser, requireAdmin } from '../auth.ts';
@@ -138,7 +139,7 @@ socialRoutes.post('/notifications/read', async c => {
 /**
  * Aktivitätsfeed: ins Regal gestellt, angefangen, fertig, abgebrochen, bewertet, zu einer Leseliste hinzugefügt.
  * scope=friends (Standard: alle außer mir), me (nur meine) oder all; ?user= für ein Profil, ?book= als Buch-Historie.
- * Wer sein Regal privat geschaltet hat, erscheint nur bei sich selbst; private Reviews/Listen ebenso.
+ * Andere erscheinen nur, wenn befreundet und das Regal sichtbar ist; private Reviews/Listen nur bei sich selbst.
  * Blättern über ?before=<ts>.
  */
 socialRoutes.get('/feed', c => {
@@ -149,7 +150,7 @@ socialRoutes.get('/feed', c => {
   const scope = oneOf(q.scope, ['friends', 'me', 'all'] as const, 'friends');
   const userId = int(q.user, 1, Number.MAX_SAFE_INTEGER);
   const bookId = int(q.book, 1, Number.MAX_SAFE_INTEGER);
-  const where = ['e.ts < :before', '(e.user_id = :me OR (u.shelf_visible = 1 AND e.pub = 1))'];
+  const where = ['e.ts < :before', `(e.user_id = :me OR (u.shelf_visible = 1 AND e.pub = 1 AND ${friendSql(u.id, 'e.user_id')}))`];
   const params: Record<string, string | number> = { me: u.id, before, limit };
   if (userId) { where.push('e.user_id = :user'); params.user = userId; }
   else if (!bookId && scope === 'friends') where.push('e.user_id != :me');

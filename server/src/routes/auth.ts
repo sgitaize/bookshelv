@@ -10,6 +10,7 @@ import {
 import { router, body, str, idParam, notFound } from '../util.ts';
 import { anonymizeBorrower } from './loans.ts';
 import { notify } from '../notify.ts';
+import { befriend } from '../friends.ts';
 import { setting } from '../federation.ts';
 import { operator } from './admin.ts';
 import { avatarUrl, purgeAvatar } from './social.ts';
@@ -216,6 +217,8 @@ authRoutes.post('/register', async c => {
     const id = Number(db.prepare('INSERT INTO users (username, display_name, pw_hash, invited_by) VALUES (?, ?, ?, ?)')
       .run(username, str(b.displayName, 60) ?? username, hash, inv.createdBy).lastInsertRowid);
     db.prepare(`UPDATE invites SET used_by = ?, used_at = datetime('now') WHERE id = ?`).run(id, inv.id);
+    // Einladung = Freundschaft mit der einladenden Person
+    befriend(id, inv.createdBy);
     notify(inv.createdBy, 'invite_accepted', id);
     return id;
   });

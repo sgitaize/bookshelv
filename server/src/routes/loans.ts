@@ -4,6 +4,7 @@
  */
 import { HTTPException } from 'hono/http-exception';
 import { db, tx } from '../db.ts';
+import { friendSql } from '../friends.ts';
 import { requireUser, type User } from '../auth.ts';
 import { router, body, str, int, idParam, notFound } from '../util.ts';
 import { bookBrief } from './books.ts';
@@ -246,12 +247,12 @@ export function requestsFor(userId: number) {
 
 loanRoutes.get('/loan-requests', c => c.json(requestsFor(requireUser(c).id)));
 
-/** Anfrage an ein Exemplar aus einem sichtbaren Regal (nur gedruckte – E-Books lassen sich nicht weitergeben) */
+/** Anfrage an ein Exemplar aus dem sichtbaren Regal von Freund*innen (nur gedruckte – E-Books lassen sich nicht weitergeben) */
 loanRoutes.post('/copies/:id/requests', async c => {
   const u = requireUser(c);
   const copy = db.prepare(`
     SELECT c.id, c.owner_id, c.book_id, c.format FROM copies c JOIN users o ON o.id = c.owner_id
-    WHERE c.id = ? AND c.removed_at IS NULL AND o.disabled = 0 AND o.shelf_visible = 1
+    WHERE c.id = ? AND c.removed_at IS NULL AND o.disabled = 0 AND (o.id = ${u.id} OR (o.shelf_visible = 1 AND ${friendSql(u.id, 'o.id')}))
   `).get(idParam(c)) as { id: number; owner_id: number; book_id: number; format: string } | undefined;
   if (!copy) throw notFound('Exemplar');
   if (copy.owner_id === u.id) throw new HTTPException(400, { message: 'Das ist dein eigenes Exemplar' });

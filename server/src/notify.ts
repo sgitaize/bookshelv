@@ -9,9 +9,10 @@ import { db } from './db.ts';
  *        list_shared (du wurdest zu einer gemeinsamen Liste hinzugefügt, ref_id = lists.id),
  *        loan_request (jemand möchte ein Exemplar von dir leihen), loan_declined (deine Anfrage wurde abgelehnt); ref_id = loan_requests.id
  *        buddy_invite (du wurdest zu einer Leserunde eingeladen), buddy_post (neuer Beitrag, den du schon lesen darfst); ref_id = buddy_reads.id
+ *        friend_request (Freundschaftsanfrage an dich), friend_accepted (deine Anfrage wurde angenommen)
  *        author_new (Neuerscheinung einer Autor*in, der du folgst; actor_label = Autor*in, ref_id = author_releases.id)
  */
-export type NotificationType = 'loan_new' | 'loan_returned' | 'comment' | 'invite_accepted' | 'loan_due' | 'loan_overdue' | 'wish_available' | 'import_done' | 'list_shared' | 'loan_request' | 'loan_declined' | 'buddy_invite' | 'buddy_post' | 'author_new';
+export type NotificationType = 'loan_new' | 'loan_returned' | 'comment' | 'invite_accepted' | 'loan_due' | 'loan_overdue' | 'wish_available' | 'import_done' | 'list_shared' | 'loan_request' | 'loan_declined' | 'buddy_invite' | 'buddy_post' | 'author_new' | 'friend_request' | 'friend_accepted';
 
 export function notify(userId: number | null | undefined, type: NotificationType, actorId: number, bookId: number | null = null, refId: number | null = null) {
   if (!userId || userId === actorId) return;
@@ -46,10 +47,10 @@ export function loanReminders(userId: number) {
   }
 }
 
-/** Neues Exemplar im Freundeskreis → alle benachrichtigen, die das Buch auf der Wunschliste haben (nur bei sichtbarem Regal) */
+/** Neues Exemplar im Freundeskreis → befreundete Personen benachrichtigen, die das Buch auf der Wunschliste haben (nur bei sichtbarem Regal) */
 export function wishAvailable(ownerId: number, bookId: number) {
   const owner = db.prepare('SELECT shelf_visible FROM users WHERE id = ?').get(ownerId) as { shelf_visible: number } | undefined;
   if (!owner?.shelf_visible) return;
-  for (const w of db.prepare('SELECT user_id FROM wishlist WHERE book_id = ? AND user_id != ?').all(bookId, ownerId) as { user_id: number }[])
+  for (const w of db.prepare('SELECT w.user_id FROM wishlist w JOIN friends f ON f.user_id = ? AND f.friend_id = w.user_id WHERE w.book_id = ?').all(ownerId, bookId) as { user_id: number }[])
     notify(w.user_id, 'wish_available', ownerId, bookId);
 }

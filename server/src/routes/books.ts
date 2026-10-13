@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import { HTTPException } from 'hono/http-exception';
 import { db, tx } from '../db.ts';
+import { friendSql } from '../friends.ts';
 import { wishAvailable } from '../notify.ts';
 import { requireUser, type User } from '../auth.ts';
 import { lookupIsbn, normalizeIsbn, searchCatalog, fetchCover, previewCover, deleteCoverFile, type BookData } from '../catalog.ts';
@@ -84,7 +85,7 @@ bookRoutes.post('/catalog/isbn', async c => {
 /** Wer im Freundeskreis hat das Buch? (sichtbare Regale, ohne mich) */
 const ownersOf = (bookId: number, me: number) => (db.prepare(`
   SELECT DISTINCT u.id, u.display_name AS displayName FROM copies c JOIN users u ON u.id = c.owner_id
-  WHERE c.book_id = ? AND c.removed_at IS NULL AND c.owner_id != ? AND u.shelf_visible = 1 AND u.disabled = 0
+  WHERE c.book_id = ? AND c.removed_at IS NULL AND c.owner_id != ? AND u.shelf_visible = 1 AND u.disabled = 0 AND ${friendSql(me, 'u.id')}
   ORDER BY u.display_name LIMIT 5
 `).all(bookId, me) as { id: number; displayName: string }[]);
 
@@ -161,14 +162,14 @@ bookRoutes.get('/books/:id', c => {
   const u = requireUser(c);
   const book = getBook(idParam(c));
   if (!book) throw notFound('Buch');
-  // Exemplare: eigene immer, fremde nur bei sichtbarem Regal
+  // Exemplare: eigene immer, fremde nur von Freund*innen mit sichtbarem Regal
   const copies = db.prepare(`
     SELECT c.id, c.format, c.binding, c.sprayed_edges AS sprayedEdges, c.notes, c.created_at AS createdAt, c.duration_min AS durationMin, c.owner_unsure AS ownerUnsure,
            c.store_id AS storeId, (SELECT name FROM stores WHERE id = c.store_id) AS store,
            u.id AS ownerId, u.display_name AS ownerName, COALESCE(ub.status, 'unread') AS readStatus
     FROM copies c JOIN users u ON u.id = c.owner_id
     LEFT JOIN user_books ub ON ub.user_id = c.owner_id AND ub.book_id = c.book_id
-    WHERE c.book_id = ? AND c.removed_at IS NULL AND (c.owner_id = ? OR (u.shelf_visible = 1 AND u.disabled = 0))
+    WHERE c.book_id = ? AND c.removed_at IS NULL AND (c.owner_id = ? OR (u.shelf_visible = 1 AND u.disabled = 0 AND ${friendSql(u.id, 'u.id')}))
     ORDER BY c.owner_id = ? DESC, u.display_name
   `).all(book.id, u.id, u.id) as Array<Record<string, unknown>>;
   const reading = db.prepare('SELECT * FROM user_books WHERE user_id = ? AND book_id = ?').get(u.id, book.id) as ReadingRow | undefined;
@@ -448,7 +449,7 @@ export function seriesBooks(name: string, userId: number) {
     SELECT b.id AS bookId, b.title, b.subtitle, b.authors, b.year, b.pages, b.cover, b.series_index, ub.status,
            EXISTS (SELECT 1 FROM copies c WHERE c.book_id = b.id AND c.owner_id = :u AND c.removed_at IS NULL) AS owned,
            (SELECT COUNT(DISTINCT c.owner_id) FROM copies c JOIN users o ON o.id = c.owner_id
-             WHERE c.book_id = b.id AND c.owner_id != :u AND c.removed_at IS NULL AND o.shelf_visible = 1 AND o.disabled = 0) AS friends
+             WHERE c.book_id = b.id AND c.owner_id != :u AND c.removed_at IS NULL AND o.shelf_visible = 1 AND o.disabled = 0 AND ${friendSql(userId, 'o.id')}) AS friends
     FROM books b LEFT JOIN user_books ub ON ub.book_id = b.id AND ub.user_id = :u
     WHERE b.series = :s
     ORDER BY b.series_index IS NULL, b.series_index, b.year, b.title

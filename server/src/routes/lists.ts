@@ -6,6 +6,7 @@
  */
 import { HTTPException } from 'hono/http-exception';
 import { db, tx } from '../db.ts';
+import { friendSql, isFriend } from '../friends.ts';
 import { requireUser } from '../auth.ts';
 import { router, body, str, oneOf, idParam, notFound } from '../util.ts';
 import { bookBrief, getBook } from './books.ts';
@@ -41,12 +42,12 @@ export function listsOf(ownerId: number, includePrivate: boolean, includeShared 
 
 const isMember = (listId: number, userId: number) => !!db.prepare('SELECT 1 FROM list_members WHERE list_id = ? AND user_id = ?').get(listId, userId);
 
-/** Liste laden und Sichtbarkeit prüfen (privat: nur Besitzer*in und Mitglieder; Regal privat: Listen auch) */
+/** Liste laden und Sichtbarkeit prüfen (privat: nur Besitzer*in und Mitglieder; sonst Freund*innen bei sichtbarem Regal) */
 function visibleList(viewerId: number, id: number) {
   const l = db.prepare('SELECT l.*, u.shelf_visible, u.display_name, u.username, u.avatar FROM lists l JOIN users u ON u.id = l.user_id WHERE l.id = ? AND u.disabled = 0').get(id) as
     (ListRow & { shelf_visible: number; display_name: string; username: string; avatar: string | null }) | undefined;
   if (!l) throw notFound('Liste');
-  if (l.user_id !== viewerId && (l.visibility === 'private' || !l.shelf_visible) && !isMember(l.id, viewerId)) throw notFound('Liste');
+  if (l.user_id !== viewerId && (l.visibility === 'private' || !l.shelf_visible || !isFriend(viewerId, l.user_id)) && !isMember(l.id, viewerId)) throw notFound('Liste');
   return l;
 }
 
@@ -78,7 +79,7 @@ listRoutes.get('/users/:id/lists', c => {
   const id = idParam(c);
   const owner = db.prepare('SELECT shelf_visible FROM users WHERE id = ? AND disabled = 0').get(id) as { shelf_visible: number } | undefined;
   if (!owner) throw notFound('Konto');
-  if (!owner.shelf_visible && id !== u.id) return c.json([]);
+  if ((!owner.shelf_visible || !isFriend(u.id, id)) && id !== u.id) return c.json([]);
   return c.json(listsOf(id, id === u.id));
 });
 
@@ -209,7 +210,7 @@ listRoutes.get('/books/:id/lists', c => {
   // Listen anderer, in denen das Buch steht
   const others = db.prepare(`
     SELECT l.id, l.name, u.display_name AS ownerName FROM list_items li JOIN lists l ON l.id = li.list_id JOIN users u ON u.id = l.user_id
-    WHERE li.book_id = ? AND l.user_id != ? AND l.visibility = 'instance' AND u.shelf_visible = 1 AND u.disabled = 0
+    WHERE li.book_id = ? AND l.user_id != ? AND l.visibility = 'instance' AND u.shelf_visible = 1 AND u.disabled = 0 AND ${friendSql(u.id, 'u.id')}
       AND l.id NOT IN (SELECT list_id FROM list_members WHERE user_id = ?)
     ORDER BY l.updated_at DESC LIMIT 20
   `).all(bookId, u.id, u.id);
