@@ -155,7 +155,7 @@ async function capture(send, dev, lang, raw) {
 const STATUS = dev => dev.name === 'ipad' ? 24 : dev.name === 'android' ? 28 : 54;
 const SPINES = ['#e8a54b', '#c8553d', '#5b8c85', '#f3ece0', '#5fb0b3'];
 
-function statusBar(dev) {
+function statusBar(dev, lang) {
   const h = STATUS(dev), ipad = dev.name === 'ipad', android = dev.name === 'android';
   const time = android ? '9:41' : '9:41';
   const pad = ipad ? '0 22px' : android ? '0 18px' : '0 34px 0 46px';
@@ -165,7 +165,7 @@ function statusBar(dev) {
     '<path d="M31 4.5a10 10 0 0 1 14 0l-1.6 1.6a7.7 7.7 0 0 0-10.8 0zM34.2 7.7a5.5 5.5 0 0 1 7.6 0L38 11.5z"/>' +
     '<rect x="50" y="1.5" width="19" height="11" rx="3" fill="none" stroke="#f2f2f2" stroke-opacity=".5"/><rect x="52" y="3.5" width="14" height="7" rx="1.5"/><rect x="70" y="5" width="1.6" height="4" rx=".8" fill-opacity=".5"/></svg>';
   return `<div class="sb" style="height:${h}px;padding:${pad};font-size:${fs}px">` +
-    `<span>${time}</span>${ipad ? '<span class="ipdate">Do. 15. Okt.</span>' : ''}${android ? '' : ''}<span class="ic">${icons}</span></div>`;
+    `<span>${time}</span>${ipad ? `<span class="ipdate">${lang === 'de' ? 'Do. 15. Okt.' : 'Thu Oct 15'}</span>` : ''}${android ? '' : ''}<span class="ic">${icons}</span></div>`;
 }
 
 function composeHtml(dev, sc, lang, img, i) {
@@ -196,7 +196,7 @@ function composeHtml(dev, sc, lang, img, i) {
     .dev img{display:block;width:100%}
     </style><body><div class="head"><div class="spines">${[34, 46, 38, 52, 30].map((h, k) => `<i style="height:${phone ? h * .7 : h}px;background:${SPINES[(k + i) % 5]}"></i>`).join('')}</div>
     <h1>${title}</h1><p>${sub}</p></div>
-    <div class="dev">${statusBar(dev)}<img src="data:image/png;base64,${img.toString('base64')}"></div></body>`;
+    <div class="dev">${statusBar(dev, lang)}<img src="data:image/png;base64,${img.toString('base64')}"></div></body>`;
 }
 
 // ---------- Ablauf ----------
