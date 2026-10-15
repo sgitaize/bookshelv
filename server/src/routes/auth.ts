@@ -12,7 +12,7 @@ import { anonymizeBorrower } from './loans.ts';
 import { notify } from '../notify.ts';
 import { befriend } from '../friends.ts';
 import { setting } from '../federation.ts';
-import { operator } from './admin.ts';
+import { operator, openRegistration } from './admin.ts';
 import { avatarUrl, purgeAvatar } from './social.ts';
 import { retractFederatedReviews } from './reviews.ts';
 import { retractRemoteFriends } from './friends.ts';
@@ -36,6 +36,7 @@ export function ensureSetupToken() {
 }
 
 const publicUser = (u: User) => ({
+  ...(config.local ? { local: true } : {}),
   id: u.id, username: u.username, displayName: u.display_name, isAdmin: !!u.is_admin,
   shelfVisible: !!u.shelf_visible, createdAt: u.created_at, avatarUrl: avatarUrl(u.avatar), prefs: parsePrefs(u.prefs)
 });
@@ -48,7 +49,9 @@ function parsePrefs(raw: string | undefined) {
 }
 
 authRoutes.get('/status', c => c.json({
-  needsSetup: userCount() === 0, version: config.version, node: process.version,
+  needsSetup: !config.local && userCount() === 0, version: config.version, node: process.version,
+  ...(config.local ? { local: true } : {}),
+  openRegistration: !config.local && openRegistration(),
   // Impressum der betreibenden Person (Admin → Instanz); Datenschutzhinweis liefert die App selbst (/privacy)
   imprintUrl: setting('imprint_url'),
   hasOperator: !!operator().name
@@ -212,16 +215,19 @@ authRoutes.post('/register', async c => {
   const { username, password } = validateCredentials(b.username, b.password);
   const hash = await hashPassword(password);
   const id = tx(() => {
-    const inv = findInvite(String(b.token ?? ''));
-    if (!inv) throw new HTTPException(403, { message: 'Einladung ungültig oder abgelaufen' });
+    const inv = b.token ? findInvite(String(b.token)) : undefined;
+    if (b.token && !inv) throw new HTTPException(403, { message: 'Einladung ungültig oder abgelaufen' });
+    if (!inv && !openRegistration()) throw new HTTPException(403, { message: 'Registrierung nur mit Einladung' });
     if (db.prepare('SELECT 1 FROM users WHERE username = ?').get(username))
       throw new HTTPException(409, { message: 'Anmeldename ist schon vergeben' });
     const id = Number(db.prepare('INSERT INTO users (username, display_name, pw_hash, invited_by) VALUES (?, ?, ?, ?)')
-      .run(username, str(b.displayName, 60) ?? username, hash, inv.createdBy).lastInsertRowid);
-    db.prepare(`UPDATE invites SET used_by = ?, used_at = datetime('now') WHERE id = ?`).run(id, inv.id);
-    // Einladung = Freundschaft mit der einladenden Person
-    befriend(id, inv.createdBy);
-    notify(inv.createdBy, 'invite_accepted', id);
+      .run(username, str(b.displayName, 60) ?? username, hash, inv?.createdBy ?? null).lastInsertRowid);
+    if (inv) {
+      db.prepare(`UPDATE invites SET used_by = ?, used_at = datetime('now') WHERE id = ?`).run(id, inv.id);
+      // Einladung = Freundschaft mit der einladenden Person
+      befriend(id, inv.createdBy);
+      notify(inv.createdBy, 'invite_accepted', id);
+    }
     return id;
   });
   startSession(c, id);

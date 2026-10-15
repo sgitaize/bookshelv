@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "node --watch --experimental-strip-types src/main.ts",
     "build": "node build.mjs",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "build:mobile": "node build-mobile.mjs"
   },
   "engines": {
     "node": ">=22.13"

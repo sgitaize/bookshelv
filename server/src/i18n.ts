@@ -4,6 +4,8 @@
  */
 const EN: Record<string, string> = {
   'Interner Fehler': 'Internal error',
+  'Nur mit Konto auf einer Instanz möglich': 'Only available with an account on an instance',
+  'Registrierung nur mit Einladung': 'Sign-up is by invitation only',
   'Dieser Import wurde schon rückgängig gemacht': 'This import has already been undone',
   'Das Ende liegt vor dem Beginn': 'The end date is before the start date',
   'Datum liegt in der Zukunft': 'The date is in the future',

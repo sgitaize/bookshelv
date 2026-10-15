@@ -14,10 +14,14 @@ const KEYS = {
   reviews: ['id'],
   wishlist: ['user_id', 'book_id'],
   lists: ['id'],
-  list_items: ['list_id', 'book_id']
+  list_items: ['list_id', 'book_id'],
+  // Zusammenführen aus der App (Lokal-Bibliothek → Konto)
+  loans: ['id'],
+  user_book_lang: ['user_id', 'book_id'],
+  author_follows: ['user_id', 'author']
 } as const;
 export type Tbl = keyof typeof KEYS;
-type Key = Record<string, number>;
+type Key = Record<string, number | string>;
 
 const where = (tbl: Tbl) => KEYS[tbl].map(k => `${k} = :${k}`).join(' AND ');
 const keyOf = (tbl: Tbl, key: Key) => JSON.stringify(Object.fromEntries(KEYS[tbl].map(k => [k, key[k]])));
@@ -58,12 +62,12 @@ export function undo(importId: number): { reverted: number; skipped: number; rev
     for (const ch of changes) {
       if (!(ch.tbl in KEYS)) continue;
       const key = JSON.parse(ch.key) as Key;
-      if (ch.tbl === 'books') { if (!ch.before) books.push(key.id); continue; } // am Ende, wenn nichts mehr darauf zeigt
+      if (ch.tbl === 'books') { if (!ch.before) books.push(Number(key.id)); continue; } // am Ende, wenn nichts mehr darauf zeigt
       const cur = db.prepare(`SELECT * FROM ${ch.tbl} WHERE ${where(ch.tbl)}`).get(key) as Record<string, unknown> | undefined;
       if (ch.tbl === 'copies' && db.prepare('SELECT 1 FROM loans WHERE copy_id = ?').get(key.id)) { skipped++; continue; } // Verleih-Historie nicht zerstören
       if (ch.tbl === 'reviews') {
         const r = (ch.before ? JSON.parse(ch.before) : cur) as { book_id: number; user_id: number; visibility: string } | undefined;
-        if (r) reviewBooks.push({ bookId: r.book_id, userId: r.user_id, prevId: cur && (cur as { visibility: string }).visibility === 'federated' ? key.id : null });
+        if (r) reviewBooks.push({ bookId: r.book_id, userId: r.user_id, prevId: cur && (cur as { visibility: string }).visibility === 'federated' ? Number(key.id) : null });
       }
       if (!ch.before) {
         if (cur) db.prepare(`DELETE FROM ${ch.tbl} WHERE ${where(ch.tbl)}`).run(key);

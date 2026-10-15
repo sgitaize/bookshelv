@@ -24,6 +24,7 @@ import { adminRoutes } from './routes/admin.ts';
 import { friendRoutes } from './routes/friends.ts';
 import { router } from './util.ts';
 import { translate } from './i18n.ts';
+import { localGuard } from './local.ts';
 
 export const app = router();
 
@@ -44,6 +45,7 @@ app.use(secureHeaders({
 }));
 app.use('/api/*', csrf());
 app.use('/api/*', loadUser);
+app.use('/api/*', localGuard);
 
 app.route('/api', authRoutes);
 app.route('/api', bookRoutes);

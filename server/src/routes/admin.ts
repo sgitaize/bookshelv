@@ -143,13 +143,17 @@ export type Operator = Partial<Record<keyof typeof OPERATOR_FIELDS, string>>;
 export function operator(): Operator {
   try { return JSON.parse(setting('operator') ?? '{}') as Operator; } catch { return {}; }
 }
-adminRoutes.get('/instance', c => { requireAdmin(c); return c.json({ imprintUrl: setting('imprint_url') ?? '', operator: operator() }); });
+/** Registrierung ohne Einladungslink (z. B. für die App); Standard: aus */
+export const openRegistration = () => setting('open_registration') === '1';
+const instanceJson = () => ({ imprintUrl: setting('imprint_url') ?? '', operator: operator(), openRegistration: openRegistration() });
+adminRoutes.get('/instance', c => { requireAdmin(c); return c.json(instanceJson()); });
 adminRoutes.patch('/instance', async c => {
   requireAdmin(c);
   const b = await body(c);
   const url = typeof b.imprintUrl === 'string' ? b.imprintUrl.trim() : '';
   if (url && !/^https?:\/\/[^\s]+$/i.test(url)) throw new HTTPException(400, { message: 'Ungültige Adresse' });
-  setSetting('imprint_url', url.slice(0, 300));
+  if (typeof b.imprintUrl === 'string') setSetting('imprint_url', url.slice(0, 300));
+  if (typeof b.openRegistration === 'boolean') setSetting('open_registration', b.openRegistration ? '1' : '0');
   if (b.operator && typeof b.operator === 'object') {
     const src = b.operator as Record<string, unknown>;
     const next: Operator = {};
@@ -161,5 +165,5 @@ adminRoutes.patch('/instance', async c => {
     if (next.website && !/^https?:\/\/[^\s]+$/i.test(next.website)) throw new HTTPException(400, { message: 'Ungültige Adresse' });
     setSetting('operator', JSON.stringify(next));
   }
-  return c.json({ imprintUrl: setting('imprint_url') ?? '', operator: operator() });
+  return c.json(instanceJson());
 });

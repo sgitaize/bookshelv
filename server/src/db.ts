@@ -7,7 +7,8 @@ fs.mkdirSync(path.join(config.dataDir, 'covers'), { recursive: true });
 
 export const db = new DatabaseSync(path.join(config.dataDir, 'bookshelv.db'));
 // WAL + busy_timeout: Passenger kann mehrere Prozesse starten, die gleichzeitig auf die Datei zugreifen
-db.exec('PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000; PRAGMA foreign_keys = ON;');
+const PRAGMAS = 'PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000; PRAGMA foreign_keys = ON;';
+db.exec(PRAGMAS);
 
 /** Schema-Migrationen; Index + 1 = PRAGMA user_version nach Ausführung. Nur anhängen, nie ändern. */
 const migrations: string[] = [
@@ -468,6 +469,21 @@ function migrate() {
   }
 }
 migrate();
+
+/**
+ * Nur App (Wiederherstellung aus der iCloud-Sicherung): Datei schließen, `replace` tauscht sie aus,
+ * danach wieder öffnen und auf den aktuellen Stand migrieren. Der Shim (mobile/sqlite.ts) kann das, node:sqlite nicht.
+ */
+export function swapDatabase(replace: () => void) {
+  const d = db as unknown as { detach?: () => void; attach?: () => void };
+  if (!d.detach || !d.attach) throw new Error('swapDatabase: nur im App-Bundle');
+  d.detach();
+  try { replace(); } finally {
+    d.attach();
+    db.exec(PRAGMAS);
+    migrate();
+  }
+}
 
 export function tx<T>(fn: () => T): T {
   db.exec('BEGIN IMMEDIATE');

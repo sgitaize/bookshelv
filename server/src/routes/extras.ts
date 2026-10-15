@@ -17,6 +17,7 @@ import { setReading } from './reading.ts';
 import { imageType } from './social.ts';
 import { federate } from './reviews.ts';
 import { selfUrl } from '../federation.ts';
+import { applyAppExtras, applyFollows, type AppExtras } from '../appsync.ts';
 
 export const extraRoutes = router();
 
@@ -81,12 +82,14 @@ extraRoutes.post('/books/:id/cover', async c => {
 
 // ---------- Import ----------
 
-type ListRef = string | { name: string; createdAt?: string | null; addedAt?: string | null };
+type ListRef = string | { name: string; createdAt?: string | null; addedAt?: string | null; description?: string | null };
 type ImportItem = {
   isbn?: string; title?: string; authors?: string[]; status?: string; rating?: number | null; review?: string | null;
   spoiler?: boolean; finishedAt?: string | null; startedAt?: string | null; addedAt?: string | null;
   owned?: boolean; format?: string; binding?: string | null; resolve?: string[]; lists?: ListRef[];
   favorite?: boolean; wishlist?: boolean; dateUnknown?: boolean; policy?: string;
+  /** nur aus der App (lokale Bibliothek → Konto): alles, was die CSV-Formate nicht kennen */
+  app?: AppExtras;
 };
 
 const isDate = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
@@ -173,6 +176,8 @@ extraRoutes.post('/imports/jobs', async c => {
     throw new HTTPException(409, { message: 'Es läuft schon ein Import – bitte warte, bis er fertig ist' });
   const r = db.prepare(`INSERT INTO imports (user_id, source, filename, total, status, options, queue, results) VALUES (?, ?, ?, ?, 'running', ?, ?, ?)`)
     .run(u.id, str(b.source, 40) ?? 'csv', str(b.filename, 200), items.length, JSON.stringify(b.options ?? {}), JSON.stringify(items), JSON.stringify(emptyResults()));
+  // App-Bibliothek: gefolgte Autor*innen gehören zum selben Import (Rückgängig nimmt sie mit)
+  if (b.source === 'bookshelv-app') applyFollows(u.id, b.follows, Number(r.lastInsertRowid));
   const host = c.req.header('x-forwarded-host') ?? c.req.header('host');
   if (host) seenUrl = `${c.req.header('x-forwarded-proto') ?? new URL(c.req.url).protocol.replace(':', '')}://${host}`;
   kickImports();
@@ -416,7 +421,8 @@ async function importItems(u: User, items: ImportItem[], o: ImportOptions, imp: 
           let list = db.prepare('SELECT id FROM lists WHERE user_id = ? AND lower(name) = lower(?)').get(u.id, name) as { id: number } | undefined;
           if (!list) {
             const t = stamp((r as { createdAt?: string }).createdAt);
-            list = { id: Number(db.prepare("INSERT INTO lists (user_id, name, visibility, created_at, updated_at) VALUES (?, ?, 'private', COALESCE(?, datetime('now')), datetime('now'))").run(u.id, name, t).lastInsertRowid) };
+            const desc = typeof (r as { description?: unknown }).description === 'string' ? ((r as { description: string }).description.trim().slice(0, 500) || null) : null;
+            list = { id: Number(db.prepare("INSERT INTO lists (user_id, name, description, visibility, created_at, updated_at) VALUES (?, ?, ?, 'private', COALESCE(?, datetime('now')), datetime('now'))").run(u.id, name, desc, t).lastInsertRowid) };
             journal.created(imp, 'lists', { id: list.id });
           }
           const pos = (db.prepare('SELECT COALESCE(MAX(position), 0) + 1 AS p FROM list_items WHERE list_id = ?').get(list.id) as { p: number }).p;
@@ -427,6 +433,7 @@ async function importItems(u: User, items: ImportItem[], o: ImportOptions, imp: 
           }
         }
       }
+      if (it.app && typeof it.app === 'object') done.push(...applyAppExtras(u.id, book, it.app, imp));
       const extra = shelved ? { onShelf: true } : {};
       if (conflicts.length) { results.push({ title: book.title, bookId: book.id, result: 'conflict', done, conflicts, ...extra }); continue; }
       results.push({ title: book.title, bookId: book.id, result: done.length ? 'ok' : 'exists', done, ...extra });

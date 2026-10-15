@@ -3,7 +3,7 @@ import { getRequestListener } from '@hono/node-server';
 import { app } from './app.ts';
 import { config } from './config.ts';
 import { ensureSetupToken } from './routes/auth.ts';
-import { purgeExpiredSessions } from './auth.ts';
+import { purgeExpiredSessions, localUser } from './auth.ts';
 import { prunePreviews } from './catalog.ts';
 import { deliver } from './federation.ts';
 import { db } from './db.ts';
@@ -13,12 +13,14 @@ import { canonicalSeries } from './routes/books.ts';
 import { checkAuthors } from './routes/authors.ts';
 import { snapshot } from './snapshot.ts';
 
-ensureSetupToken();
+// Lokal-Modus (App): die eine Person gleich anlegen, keine Ersteinrichtung, keine Föderation
+if (config.local) localUser();
+else ensureSetupToken();
 purgeExpiredSessions();
 prunePreviews();
 setInterval(() => { purgeExpiredSessions(); prunePreviews(); }, 6 * 3600_000).unref();
 // Föderation: Warteschlange regelmäßig abarbeiten
-setInterval(() => { deliver().catch(() => {}); }, 60_000).unref();
+if (!config.local) setInterval(() => { deliver().catch(() => {}); }, 60_000).unref();
 // Importe im Hintergrund: nach einem Neustart weitermachen, und zur Sicherheit jede Minute anstoßen
 kickImports();
 setInterval(kickImports, 60_000).unref();
@@ -70,6 +72,8 @@ const server = http.createServer(getRequestListener(app.fetch));
 // Unter Plesk/Passenger wird nicht auf einen Port gehört, sondern auf den von Passenger vergebenen Socket
 declare const PhusionPassenger: unknown;
 const passenger = typeof PhusionPassenger !== 'undefined';
-server.listen(passenger ? 'passenger' : config.port, () => {
+const started = () => {
   console.log(`bookshelv ${config.version} läuft ${passenger ? 'unter Passenger' : `auf http://localhost:${config.port}`} (Node ${process.version}, Daten: ${config.dataDir})`);
-});
+};
+if (passenger) server.listen('passenger', started);
+else server.listen(config.port, config.host, started);
