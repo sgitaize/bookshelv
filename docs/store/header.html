@@ -1,0 +1,62 @@
+<!doctype html>
+<!-- App-Store-Kopfzeile (Produktseite). Rendern: siehe README.md („Kopfzeile“), ?lang=en für Englisch.
+     Wichtiges bleibt mittig – Apple beschneidet je nach Gerät. -->
+<html lang="de"><head><meta charset="utf-8"><title>bookshelv – Kopfzeile</title>
+<style>
+  @font-face{font-family:SE;src:url(../../node_modules/@fontsource/special-elite/files/special-elite-latin-400-normal.woff2)}
+  @font-face{font-family:SE;src:url(../../node_modules/@fontsource/special-elite/files/special-elite-latin-ext-400-normal.woff2);unicode-range:U+0100-024F}
+  @font-face{font-family:CP;src:url(../../node_modules/@fontsource/courier-prime/files/courier-prime-latin-400-normal.woff2)}
+  @font-face{font-family:CP;font-weight:700;src:url(../../node_modules/@fontsource/courier-prime/files/courier-prime-latin-700-normal.woff2)}
+  html,body{margin:0;height:100%;overflow:hidden}
+  body{background:radial-gradient(ellipse 75% 95% at 50% 40%,#252c2e 0%,#171b1c 50%,#0d1011 100%);color:#f3ece0;font-family:CP,Courier,monospace;
+    display:flex;align-items:center;justify-content:center;position:relative}
+  /* warmes Leselicht von oben */
+  body:before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 40% 55% at 38% 18%,rgba(232,165,75,.13),transparent 70%);pointer-events:none}
+  /* feines Papierkorn */
+  body:after{content:"";position:absolute;inset:0;background:repeating-radial-gradient(circle at 30% 20%,rgba(255,255,255,.014) 0 1px,transparent 1px 4px);pointer-events:none}
+  .stage{position:relative;display:flex;align-items:flex-end;gap:7vh;transform:translateY(2vh)}
+  .shelf{position:relative;display:flex;align-items:flex-end;gap:.9vh;padding:0 3vh}
+  .shelf:after{content:"";position:absolute;left:0;right:0;bottom:-3.2vh;height:3.2vh;border-radius:1vh;
+    background:linear-gradient(#b3a58f,#8d7f69);box-shadow:0 3vh 5vh rgba(0,0,0,.55)}
+  .b{position:relative;width:var(--w);height:var(--h);background:var(--c);border-radius:.7vh .7vh .3vh .3vh;
+    box-shadow:inset -.8vh 0 0 rgba(0,0,0,.16),inset .5vh 0 0 rgba(255,255,255,.12),0 1.2vh 2vh rgba(0,0,0,.35);transform-origin:bottom right}
+  .b:before,.b:after{content:"";position:absolute;left:18%;right:18%;height:.55vh;background:rgba(0,0,0,.22);border-radius:.3vh}
+  .b:before{top:12%}.b:after{bottom:12%}
+  .b span{position:absolute;inset:22% 0;display:flex;align-items:center;justify-content:center;writing-mode:vertical-rl;transform:rotate(180deg);
+    font-family:SE,serif;font-size:2.3vh;letter-spacing:.06em;color:rgba(0,0,0,.55);white-space:nowrap;overflow:hidden}
+  .lean{transform:rotate(-9deg);margin-left:2.6vh}
+  .text{max-width:84vh;padding-bottom:1vh}
+  .mark{display:flex;align-items:flex-end;gap:.8vh;margin-bottom:3vh}
+  .mark i{display:block;width:2.4vh;border-radius:.4vh}
+  h1{font-family:SE,serif;font-weight:400;font-size:15vh;line-height:.95;margin:0 0 2.6vh;letter-spacing:-.01em;color:#fbf6ec;
+    text-shadow:0 .6vh 2.4vh rgba(0,0,0,.35)}
+  p{font-size:3.9vh;line-height:1.35;margin:0 0 3.4vh;color:rgba(243,236,224,.85)}
+  .chips{display:flex;flex-wrap:wrap;gap:1.4vh}
+  .chip{font-size:2.4vh;font-weight:700;padding:1vh 2vh;border-radius:9vh;background:rgba(95,176,179,.16);color:#8fd0d2;border:.2vh solid rgba(95,176,179,.4)}
+</style></head>
+<body>
+  <div class="stage">
+    <div class="shelf" id="shelf"></div>
+    <div class="text">
+      <div class="mark"><i style="height:4.6vh;background:#e8a54b"></i><i style="height:6vh;background:#c8553d"></i><i style="height:4.2vh;background:#5b8c85"></i><i style="height:5.2vh;background:#f3ece0;transform:rotate(-10deg);transform-origin:bottom right"></i></div>
+      <h1>bookshelv</h1>
+      <p id="claim"></p>
+      <div class="chips" id="chips"></div>
+    </div>
+  </div>
+<script>
+  const en = new URLSearchParams(location.search).get('lang') === 'en';
+  document.documentElement.lang = en ? 'en' : 'de';
+  document.getElementById('claim').textContent = en ? 'Your books. Read, lent, loved.' : 'Deine Bücher. Gelesen, geliehen, geliebt.';
+  document.getElementById('chips').innerHTML = (en ? ['Scan ISBNs', 'Reading log', 'Lending', 'No account needed']
+    : ['ISBN scannen', 'Lesestand', 'Verleih', 'Ohne Konto']).map(t => `<span class="chip">${t}</span>`).join('');
+  // Buchrücken: Farbe, Breite, Höhe (vh), Titel
+  const books = [
+    ['#5b8c85', 5.2, 40, 'Altes Land'], ['#e8a54b', 6.4, 46, 'Momo'], ['#c8553d', 4.6, 37, 'Tschick'], ['#f3ece0', 7.2, 50, 'Der Zauberberg'],
+    ['#5fb0b3', 5.0, 42, 'Herkunft'], ['#3e4a63', 6.0, 47, 'Die Wand'], ['#d8c3a0', 4.4, 35, 'Kairos'], ['#a8574a', 6.8, 48, 'Unterleuten'],
+    ['#e8a54b', 5.4, 41, 'Der Hobbit'], ['#7a8f5b', 4.8, 44, 'Mittagsstunde']
+  ];
+  document.getElementById('shelf').innerHTML = books.map((b, i) =>
+    `<div class="b${i === books.length - 1 ? ' lean' : ''}" style="--c:${b[0]};--w:${b[1]}vh;--h:${b[2]}vh"><span>${b[3]}</span></div>`).join('');
+</script>
+</body></html>

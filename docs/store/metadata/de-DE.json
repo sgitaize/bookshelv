@@ -1,0 +1,15 @@
+{
+  "locale": "de-DE",
+  "name": "bookshelv",
+  "subtitle": "Bücher, Lesestand & Verleih",
+  "privacyPolicyUrl": "https://bookshelv.aize-it.de/privacy",
+  "supportUrl": "https://github.com/sgitaize/bookshelv/issues",
+  "marketingUrl": "https://github.com/sgitaize/bookshelv",
+  "promotionalText": "Deine Bibliothek in der Hosentasche: ISBN scannen, Lesestand festhalten, Verliehenes im Blick. Ohne Konto, ohne Werbung, ohne Tracking – und Open Source.",
+  "keywords": "bücher,bibliothek,lesen,isbn,scanner,leseliste,regal,verleihen,rezension,lesetagebuch,statistik",
+  "description": "bookshelv ist deine Bibliothek fürs Handy: alle Bücher an einem Ort, was du gerade liest, was du gelesen hast und wem du welches Buch geliehen hast.\n\nOHNE KONTO LOSLEGEN\n• Deine Bibliothek liegt auf deinem Gerät. Kein Konto, keine E-Mail-Adresse, kein Server nötig.\n• Buchdaten und Cover holt die App direkt bei der Deutschen Nationalbibliothek und Open Library.\n• Sicherung in deiner eigenen iCloud – oder als Datei, wohin du willst.\n\nBÜCHER ERFASSEN\n• ISBN scannen, auch viele Bücher hintereinander (Massen-Scan fürs ganze Regal).\n• Suchen nach Titel oder Autor*in, oder selbst eintragen – mit eigenem Cover.\n• Gedruckt, E-Book oder Hörbuch, Taschenbuch oder Hardcover, Farbschnitt ja oder nein.\n• Umzug leicht gemacht: Import aus Goodreads, StoryGraph, Booky oder CSV – einfach die Exportdatei mit bookshelv öffnen.\n\nLESEN UND BEWERTEN\n• Lesestand mit Seitenzahl, Lesedaten, „abgebrochen“ und Wunschliste.\n• Bewertungen mit halben Sternen, Stimmungen und Tempo.\n• Leselisten, Top 5 auf dem Holzregal, Reihen und Bände, Autor*innen folgen und Neuerscheinungen sehen.\n• Statistik: Bücher und Seiten pro Monat, Stimmungskurve, Genres, Formate, Sterne – und ein Jahresrückblick als Bild zum Teilen.\n\nVERLEIHEN OHNE VERGESSEN\n• Wem hast du was wann geliehen? Mit Rückgabedatum und Hinweis, wenn etwas überfällig ist.\n\nMIT FREUND*INNEN (OPTIONAL)\n• Mit einem Konto auf einer bookshelv-Instanz siehst du, was dein Freundeskreis liest, fragst Bücher zum Ausleihen an und startest Leserunden mit Spoilerschutz.\n• Die App hält deine Bibliothek auch dann offline bereit; Änderungen werden nachgereicht.\n• Deine lokale Bibliothek lässt sich jederzeit mit einem Konto verbinden – ohne doppelte Bücher.\n• bookshelv ist Open Source (MIT): Du kannst auch eine eigene Instanz für deinen Freundeskreis betreiben.\n\nFAIR UND PRIVAT\n• Keine Werbung, kein Tracking, keine Analyse-Dienste.\n• Konten brauchen nur einen Namen und ein Passwort und lassen sich in der App löschen.\n• bookshelv ist kostenlos. Wer mag, gibt ein Trinkgeld.\n\nQuellcode: github.com/sgitaize/bookshelv",
+  "screenshots": {
+    "APP_IPHONE_67": "screenshots/de/iphone",
+    "APP_IPAD_PRO_3GEN_129": "screenshots/de/ipad"
+  }
+}

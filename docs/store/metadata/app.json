@@ -1,0 +1,10 @@
+{
+  "bundleId": "de.sgitaize.bookshelv",
+  "sku": "bookshelv",
+  "primaryLocale": "de-DE",
+  "primaryCategory": "BOOKS",
+  "secondaryCategory": "LIFESTYLE",
+  "copyright": "2026 Simon Gutjahr",
+  "versionString": "1.0.0",
+  "contentRightsDeclaration": "USES_THIRD_PARTY_CONTENT"
+}

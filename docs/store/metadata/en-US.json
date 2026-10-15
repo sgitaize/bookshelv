@@ -1,0 +1,15 @@
+{
+  "locale": "en-US",
+  "name": "bookshelv",
+  "subtitle": "Books, reading log & lending",
+  "privacyPolicyUrl": "https://bookshelv.aize-it.de/privacy",
+  "supportUrl": "https://github.com/sgitaize/bookshelv/issues",
+  "marketingUrl": "https://github.com/sgitaize/bookshelv",
+  "promotionalText": "Your library in your pocket: scan ISBNs, track what you read, keep an eye on lent books. No account, no ads, no tracking – and open source.",
+  "keywords": "books,library,reading,tracker,isbn,scanner,bookshelf,lending,reviews,reading list,book log,stats",
+  "description": "bookshelv is your library on your phone: every book in one place, what you're reading, what you've read and who borrowed which book.\n\nSTART WITHOUT AN ACCOUNT\n• Your library lives on your device. No account, no email address, no server needed.\n• Book details and covers come straight from the German National Library and Open Library.\n• Back up to your own iCloud – or to a file, wherever you like.\n\nADD BOOKS\n• Scan the ISBN, even many books in a row (bulk scan for the whole shelf).\n• Search by title or author, or enter a book yourself – with your own cover.\n• Print, e-book or audiobook, paperback or hardcover, sprayed edges or not.\n• Moving is easy: import from Goodreads, StoryGraph, Booky or CSV – just open the export file with bookshelv.\n\nREAD AND RATE\n• Reading progress by page, reading dates, \"did not finish\" and a wishlist.\n• Reviews with half stars, moods and pace.\n• Reading lists, your top 5 on a wooden shelf, series, follow authors and see new releases.\n• Stats: books and pages per month, mood curve, genres, formats, ratings – and a year in review to share as an image.\n\nLEND WITHOUT FORGETTING\n• Who has which of your books, and since when? With due dates and a heads-up when something is overdue.\n\nWITH FRIENDS (OPTIONAL)\n• With an account on a bookshelv instance you see what your friends are reading, ask to borrow books and start buddy reads with spoiler protection.\n• The app keeps your library available offline; changes are sent later.\n• Connect your local library to an account at any time – without duplicate books.\n• bookshelv is open source (MIT): you can run your own instance for your circle of friends.\n\nFAIR AND PRIVATE\n• No ads, no tracking, no analytics.\n• Accounts only need a name and a password and can be deleted in the app.\n• bookshelv is free. Tips are welcome.\n\nSource code: github.com/sgitaize/bookshelv",
+  "screenshots": {
+    "APP_IPHONE_67": "screenshots/en/iphone",
+    "APP_IPAD_PRO_3GEN_129": "screenshots/en/ipad"
+  }
+}
