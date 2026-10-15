@@ -183,7 +183,7 @@
       <div class="card stack">
         {#if isLocal()}
           <p><strong>{t('appx.localTitle')}</strong></p>
-          <p class="muted small">{t('appx.localInfo')}</p>
+          <p class="muted small">{t(app.info?.platform === 'android' ? 'appx.localInfoAndroid' : 'appx.localInfo')}</p>
           <div class="btns">
             <button class="primary" onclick={() => openAppPanel('backup')}><Icon name="cloud" size={16} /> {t('appx.backup')}</button>
             <button onclick={() => openAppPanel('connect')}><Icon name="users" size={16} /> {t('appx.connect')}</button>
@@ -204,8 +204,8 @@
       </div>
       <div class="card stack">
         <h3>{t('appx.supportTitle')}</h3>
-        <p class="muted small">{t('appx.supportInfo')}</p>
-        <div class="btns"><button onclick={() => openAppPanel('support')}><Icon name="heart" size={16} /> {t('appx.support')}</button></div>
+        <p class="muted small">{t(app.info?.platform === 'android' ? 'appx.supportInfoAndroid' : 'appx.supportInfo')}</p>
+        <div class="btns"><button onclick={() => openAppPanel('support')}><Icon name="heart" size={16} /> {t(app.info?.platform === 'android' ? 'appx.supportAndroid' : 'appx.support')}</button></div>
       </div>
       <p class="muted small">bookshelv {app.info?.version}</p>
 

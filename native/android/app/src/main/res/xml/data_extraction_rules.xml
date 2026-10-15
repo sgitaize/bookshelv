@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+: Google-Sicherung und Gerätewechsel. Nur der Schnappschuss (files/backup), nie die offene Datenbank oder die Sitzung. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="file" path="backup/" />
+        <include domain="sharedpref" path="bookshelv.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="file" path="backup/" />
+        <include domain="sharedpref" path="bookshelv.xml" />
+    </device-transfer>
+</data-extraction-rules>

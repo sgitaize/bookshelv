@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Buchrücken wie web/public/icon.svg, verkleinert auf die Schutzzone des adaptiven Icons -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="512" android:viewportHeight="512">
+    <group android:pivotX="256" android:pivotY="256" android:scaleX="0.74" android:scaleY="0.74">
+        <group android:translateX="108" android:translateY="112">
+            <path android:fillColor="#e8a54b" android:pathData="M8,40h40a8,8 0,0 1,8 8v220a8,8 0,0 1,-8 8h-40a8,8 0,0 1,-8 -8v-220a8,8 0,0 1,8 -8z" />
+            <path android:fillColor="#c8553d" android:pathData="M76,0h48a8,8 0,0 1,8 8v260a8,8 0,0 1,-8 8h-48a8,8 0,0 1,-8 -8v-260a8,8 0,0 1,8 -8z" />
+            <path android:fillColor="#5b8c85" android:pathData="M152,56h34a8,8 0,0 1,8 8v204a8,8 0,0 1,-8 8h-34a8,8 0,0 1,-8 -8v-204a8,8 0,0 1,8 -8z" />
+            <group android:pivotX="286" android:pivotY="276" android:rotation="-10">
+                <path android:fillColor="#f3ece0" android:pathData="M242,40h36a8,8 0,0 1,8 8v220a8,8 0,0 1,-8 8h-36a8,8 0,0 1,-8 -8v-220a8,8 0,0 1,8 -8z" />
+            </group>
+            <path android:fillColor="#a99d8a" android:pathData="M-12,276h320a8,8 0,0 1,0 16h-320a8,8 0,0 1,0 -16z" />
+        </group>
+    </group>
+</vector>

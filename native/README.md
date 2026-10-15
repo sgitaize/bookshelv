@@ -1,4 +1,4 @@
-# bookshelv als App (iOS, später Android)
+# bookshelv als App (iOS und Android)
 
 Die App bringt den bookshelv-Server selbst mit ([nodejs-mobile](https://github.com/nodejs-mobile/nodejs-mobile), Node 18)
 und zeigt die normale Oberfläche in einer WebView. Dadurch funktioniert alles, was die Website kann, auch **ohne Konto
@@ -20,6 +20,7 @@ und ohne Server**.
 | `fetch` ohne WebAssembly (V8 läuft auf iOS ohne JIT) | `server/src/mobile/shims.ts` |
 | Brücke Weboberfläche ↔ App | `web/src/lib/app.svelte.ts` |
 | iOS-App (SwiftUI, XcodeGen) | `native/ios/` |
+| Android-App (Kotlin, Jetpack Compose, Gradle) | `native/android/` |
 
 Besonderheiten von nodejs-mobile: kein JIT (also kein WebAssembly → kein undici-`fetch`), kein ICU (keine `\p{…}` in
 Regexen – `build-mobile.mjs` bricht dann ab).
@@ -50,3 +51,36 @@ SERVER_JS=../native/build/test/server.js SERVER_NODE="/tmp/node-v18.20.4-darwin-
 
 `tests/app.mjs` (läuft mit, sobald `BOOKSHELV_SQLITE_ADDON` gesetzt ist) prüft Lokal-Modus, Proxy, Zusammenführen und Sicherung.
 Im Simulator lassen sich Seiten direkt öffnen: `xcrun simctl launch booted de.sgitaize.bookshelv -path /library` (nur Debug).
+
+## Android
+
+Gleicher Aufbau wie iOS: nodejs-mobile (Node 18) im APK, `server/host.js` mit denselben drei Ports, Oberfläche in einer
+WebView. SQLite bringt die App selbst mit (Amalgamation, das NDK hat keine öffentliche SQLite-API) – zusammen mit
+`native/shared/sqlite_napi.c` in `libbsnode.so`, das sich beim Laden als linked binding registriert.
+
+| iOS | Android |
+|---|---|
+| VisionKit-Scanner | CameraX + ML Kit (Modell im APK, läuft ohne Google Play) – `Scanner.kt` |
+| iCloud-Sicherung | Schnappschuss in `files/backup/` → Google-Sicherung des Geräts (`res/xml/data_extraction_rules.xml`), auf neuem Gerät automatisch übernommen – `Backup.kt` |
+| Datei-Sicherung (Teilen) | Speichern/Öffnen über die Dateiauswahl (Drive, Downloads …) |
+| StoreKit-Trinkgeld | kein Play Store: „Unterstützen“ mit Weiterempfehlen/GitHub, Spendenlink über `DONATE_URL` in `Panels.kt` |
+| „Öffnen in“ für CSV | Intent-Filter VIEW/SEND (text/csv …) |
+| Teilen-Dialog für Downloads | Blob-Downloads und `navigator.share` werden in der WebView abgefangen (`Web.kt`, SHIMS) und an den Android-Teilen-Dialog gegeben |
+
+```bash
+cd native/android
+scripts/fetch-deps.sh                   # einmalig: nodejs-mobile (~130 MB) + SQLite-Amalgamation
+echo "sdk.dir=$HOME/Library/Android/sdk" > local.properties
+export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+./gradlew assembleRelease               # baut vorher npm run build:app (mit -PskipWebBuild nur kopieren)
+# → app/build/outputs/apk/release/app-release.apk (nur arm64-v8a, signiert über signing.properties)
+```
+
+SDK-Pakete: `platforms;android-35`, `build-tools;35.0.0`, `ndk;27.2.12479018`, `cmake;3.22.1`.
+Signatur: `signing.properties` (nicht im Repo) zeigt auf den Keystore – Kopien in `~/.secrets/bookshelv-release.*` (Mac)
+und `/root/.secrets/bookshelv-release.*` (VPS). **Keystore nie verlieren**, sonst lassen sich installierte APKs nicht mehr
+aktualisieren. Zertifikat SHA-256: `62:9F:3E:BD:C6:4E:C0:02:85:F7:6A:22:A3:B7:C1:FA:3E:8A:50:35:3F:46:18:A8:98:56:90:96:77:EC:22:C9`.
+
+Testen im Emulator: Debug-Build enthält zusätzlich x86_64; WebView-DevTools per
+`adb forward tcp:9229 localabstract:webview_devtools_remote_$(adb shell pidof de.sgitaize.bookshelv)`.
+Eine Test-Instanz auf dem Mac erreicht der Emulator unter `http://10.0.2.2:<port>` (der Host erlaubt http nur für IP-Adressen/localhost).

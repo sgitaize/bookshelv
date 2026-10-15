@@ -99,7 +99,7 @@
         <p>Der ISBN-Scanner nutzt die Kamera nur, wenn du ihn öffnest und den Zugriff im Browser erlaubst. Das Bild wird ausschließlich auf deinem Gerät ausgewertet und nicht übertragen.</p>
 
         <h3>Die App für iPhone, iPad und Android</h3>
-        <p><b>Ohne Konto</b> (Standard) liegt deine Bibliothek ausschließlich auf deinem Gerät; wir erhalten davon nichts. Buchdaten und Cover fragt die App dann <b>direkt</b> bei der Deutschen Nationalbibliothek und Open Library an (dabei sehen diese Dienste die IP-Adresse deines Geräts, übermittelt werden nur ISBN bzw. Suchbegriff). Die Sicherung speichert die App in <b>deiner eigenen iCloud</b> (Apple) bzw. dort, wohin du sie exportierst – wir haben darauf keinen Zugriff.</p>
+        <p><b>Ohne Konto</b> (Standard) liegt deine Bibliothek ausschließlich auf deinem Gerät; wir erhalten davon nichts. Buchdaten und Cover fragt die App dann <b>direkt</b> bei der Deutschen Nationalbibliothek und Open Library an (dabei sehen diese Dienste die IP-Adresse deines Geräts, übermittelt werden nur ISBN bzw. Suchbegriff). Die Sicherung speichert die App in <b>deiner eigenen iCloud</b> (Apple) bzw. in der <b>Google-Sicherung deines Android-Geräts</b> oder dort, wohin du sie exportierst – wir haben darauf keinen Zugriff.</p>
         <p><b>Mit Konto</b> gilt für deine Daten diese Erklärung der jeweiligen Instanz. Die App merkt sich die Anmeldung auf dem Gerät und hält eine Kopie deiner Bibliothek für unterwegs vor. Die Kamera nutzt der Scanner nur auf dem Gerät. Trinkgelder laufen über Apple (In-App-Kauf); wir erhalten dabei keine persönlichen Daten. Die App enthält keine Werbung, keine Analyse- und keine Tracking-Dienste.</p>
 
         <h3>Speicherdauer und Löschen</h3>
@@ -139,7 +139,7 @@
         <h3>Camera</h3>
         <p>The ISBN scanner only uses the camera when you open it and allow access. The image is analysed on your device only and never uploaded.</p>
         <h3>The app for iPhone, iPad and Android</h3>
-        <p><b>Without an account</b> (the default) your library is stored only on your device; we receive nothing. The app then asks the German National Library and Open Library <b>directly</b> for book data and covers (these services see your device's IP address; only the ISBN or search term is sent). Backups go to <b>your own iCloud</b> (Apple) or wherever you export them – we have no access.</p>
+        <p><b>Without an account</b> (the default) your library is stored only on your device; we receive nothing. The app then asks the German National Library and Open Library <b>directly</b> for book data and covers (these services see your device's IP address; only the ISBN or search term is sent). Backups go to <b>your own iCloud</b> (Apple), your <b>Android device's Google backup</b> or wherever you export them – we have no access.</p>
         <p><b>With an account</b> the privacy policy of that instance applies. The app remembers your sign-in on the device and keeps a copy of your library for offline use. The scanner uses the camera on the device only. Tips are processed by Apple (in-app purchase); we receive no personal data. The app contains no ads, analytics or tracking.</p>
         <h3>Retention and deletion</h3>
         <p>Your data is kept as long as your account exists. Under Settings → My data you can export everything (JSON/CSV) and delete your account, which removes your data and profile picture; loans to you remain with the lender as “deleted account”. Database backups are kept only briefly and then overwritten.</p>

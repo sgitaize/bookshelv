@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 6–11: Auto Backup in die Google-Sicherung. Nur der konsistente Schnappschuss (files/backup, siehe Backup.kt). -->
+<full-backup-content>
+    <include domain="file" path="backup/" />
+    <include domain="sharedpref" path="bookshelv.xml" />
+</full-backup-content>
