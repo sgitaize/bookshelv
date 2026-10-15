@@ -34,16 +34,26 @@ final class BackupManager: ObservableObject {
 
     // MARK: Sichern
 
+    @MainActor private final class BackgroundTask {
+        var id: UIBackgroundTaskIdentifier = .invalid
+        func end() {
+            guard id != .invalid else { return }
+            UIApplication.shared.endBackgroundTask(id)
+            id = .invalid
+        }
+    }
+
     /// Automatisch: beim Verlassen der App, höchstens alle 15 Minuten
     func backupIfDue() {
         let model = AppModel.shared
         guard model.mode == .local, model.autoBackup, iCloudAvailable, !busy else { return }
         if let last = model.lastBackup, Date().timeIntervalSince(last) < 15 * 60 { return }
-        var task: UIBackgroundTaskIdentifier = .invalid
-        task = UIApplication.shared.beginBackgroundTask(withName: "backup") { UIApplication.shared.endBackgroundTask(task) }
+        // iOS gibt der App nach dem Verlassen noch etwas Zeit; läuft sie ab, wird die Sicherung beim nächsten Mal nachgeholt
+        let task = BackgroundTask()
+        task.id = UIApplication.shared.beginBackgroundTask(withName: "backup") { task.end() }
         Task {
             try? await backupNow()
-            UIApplication.shared.endBackgroundTask(task)
+            task.end()
         }
     }
 

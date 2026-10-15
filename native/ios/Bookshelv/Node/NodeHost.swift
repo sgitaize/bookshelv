@@ -37,10 +37,10 @@ final class NodeHost: ObservableObject {
     var remoteURL: URL { URL(string: "http://127.0.0.1:\(remotePort)/")! }
 
     /// Lokale Bibliothek (Datenbank, Cover) – Teil des Geräte-Backups
-    static let dataDir: URL = appSupport.appendingPathComponent("library", isDirectory: true)
+    nonisolated static let dataDir: URL = appSupport.appendingPathComponent("library", isDirectory: true)
     /// Host-Zustand (Sitzung der Instanz, Cover-Cache, Archiv)
-    static let varDir: URL = appSupport.appendingPathComponent("host", isDirectory: true)
-    private static var appSupport: URL {
+    nonisolated static let varDir: URL = appSupport.appendingPathComponent("host", isDirectory: true)
+    nonisolated private static var appSupport: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("bookshelv", isDirectory: true)
     }
 
