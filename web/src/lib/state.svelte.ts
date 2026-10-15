@@ -31,12 +31,13 @@ export async function loadSession() {
 
 // ---------- Instanz (Impressum-Link der betreibenden Person) ----------
 
-export const instance = $state({ imprintUrl: '', openRegistration: false, loaded: false });
+export const instance = $state({ imprintUrl: '', openRegistration: false, full: false, loaded: false });
 export async function loadInstance() {
   try {
-    const s = await api.get<{ imprintUrl: string | null; openRegistration?: boolean }>('/status');
+    const s = await api.get<{ imprintUrl: string | null; openRegistration?: boolean; full?: boolean }>('/status');
     instance.imprintUrl = s.imprintUrl ?? '';
     instance.openRegistration = !!s.openRegistration;
+    instance.full = !!s.full;
   } catch { /* offline */ } finally { instance.loaded = true; }
 }
 

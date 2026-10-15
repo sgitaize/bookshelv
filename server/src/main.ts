@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import http from 'node:http';
 import { getRequestListener } from '@hono/node-server';
 import { app } from './app.ts';
@@ -5,13 +7,29 @@ import { config } from './config.ts';
 import { ensureSetupToken } from './routes/auth.ts';
 import { purgeExpiredSessions, localUser } from './auth.ts';
 import { prunePreviews } from './catalog.ts';
-import { deliver } from './federation.ts';
+import { deliver, setSetting } from './federation.ts';
 import { db } from './db.ts';
 import { fetchCover, deleteCoverFile, dnbMarc, olSeries } from './catalog.ts';
 import { kickImports } from './routes/extras.ts';
 import { canonicalSeries } from './routes/books.ts';
 import { checkAuthors } from './routes/authors.ts';
 import { snapshot } from './snapshot.ts';
+
+/**
+ * Betrieb ohne Admin-Login (z. B. Shared Hosting ohne Shell-Werkzeuge): data/apply-settings.json, etwa
+ * {"open_registration": "1", "max_users": "200"}, wird beim Start übernommen und danach gelöscht.
+ * Nur diese Schlüssel; wer an den Datenordner kommt, kann ohnehin alles.
+ */
+const applyFile = path.join(config.dataDir, 'apply-settings.json');
+if (fs.existsSync(applyFile)) {
+  try {
+    const wanted = JSON.parse(fs.readFileSync(applyFile, 'utf8')) as Record<string, unknown>;
+    for (const key of ['open_registration', 'max_users'])
+      if (typeof wanted[key] === 'string' && /^\d{1,6}$/.test(wanted[key] as string)) setSetting(key, wanted[key] as string);
+    console.log('apply-settings.json übernommen');
+  } catch (e) { console.error('apply-settings.json', e); }
+  fs.rmSync(applyFile, { force: true });
+}
 
 // Lokal-Modus (App): die eine Person gleich anlegen, keine Ersteinrichtung, keine Föderation
 if (config.local) localUser();

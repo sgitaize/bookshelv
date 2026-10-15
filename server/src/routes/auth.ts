@@ -12,7 +12,7 @@ import { anonymizeBorrower } from './loans.ts';
 import { notify } from '../notify.ts';
 import { befriend } from '../friends.ts';
 import { setting } from '../federation.ts';
-import { operator, openRegistration } from './admin.ts';
+import { operator, openRegistration, instanceFull, capacity } from './admin.ts';
 import { avatarUrl, purgeAvatar } from './social.ts';
 import { retractFederatedReviews } from './reviews.ts';
 import { retractRemoteFriends } from './friends.ts';
@@ -51,7 +51,9 @@ function parsePrefs(raw: string | undefined) {
 authRoutes.get('/status', c => c.json({
   needsSetup: !config.local && userCount() === 0, version: config.version, node: process.version,
   ...(config.local ? { local: true } : {}),
-  openRegistration: !config.local && openRegistration(),
+  openRegistration: !config.local && openRegistration() && !instanceFull(),
+  ...(!config.local && instanceFull() ? { full: true } : {}),
+  ...(!config.local ? { capacity: capacity() } : {}),
   // Impressum der betreibenden Person (Admin → Instanz); Datenschutzhinweis liefert die App selbst (/privacy)
   imprintUrl: setting('imprint_url'),
   hasOperator: !!operator().name
@@ -210,14 +212,33 @@ authRoutes.get('/invites/check/:token', c => {
   return c.json(inv ? { valid: true, invitedBy: inv.invitedBy } : { valid: false });
 });
 
+/**
+ * Bremse für die offene Registrierung (ohne E-Mail lädt sie zu Massen-Konten ein): je IP höchstens 3 am Tag,
+ * insgesamt höchstens 20 pro Stunde. Einladungen zählen nicht (die kommen von bekannten Leuten).
+ * Pro Prozess im Speicher – reicht als Bremse.
+ */
+const signups: { ip: string; at: number }[] = [];
+function checkSignupRate(ip: string, invited: boolean) {
+  if (invited) return;
+  const now = Date.now();
+  while (signups.length && now - signups[0].at > 86400_000) signups.shift();
+  if (signups.filter(s => s.ip === ip).length >= 3)
+    throw new HTTPException(429, { message: 'Zu viele neue Konten von diesem Anschluss – bitte morgen erneut versuchen' });
+  if (signups.filter(s => now - s.at < 3600_000).length >= 20)
+    throw new HTTPException(429, { message: 'Gerade melden sich sehr viele an – bitte in einer Stunde erneut versuchen' });
+}
+
 authRoutes.post('/register', async c => {
   const b = await body(c);
+  const ip = c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? 'local';
+  checkSignupRate(ip, !!b.token);
   const { username, password } = validateCredentials(b.username, b.password);
   const hash = await hashPassword(password);
   const id = tx(() => {
     const inv = b.token ? findInvite(String(b.token)) : undefined;
     if (b.token && !inv) throw new HTTPException(403, { message: 'Einladung ungültig oder abgelaufen' });
     if (!inv && !openRegistration()) throw new HTTPException(403, { message: 'Registrierung nur mit Einladung' });
+    if (instanceFull()) throw new HTTPException(403, { message: 'Diese Instanz nimmt gerade keine neuen Konten auf' });
     if (db.prepare('SELECT 1 FROM users WHERE username = ?').get(username))
       throw new HTTPException(409, { message: 'Anmeldename ist schon vergeben' });
     const id = Number(db.prepare('INSERT INTO users (username, display_name, pw_hash, invited_by) VALUES (?, ?, ?, ?)')
@@ -230,6 +251,7 @@ authRoutes.post('/register', async c => {
     }
     return id;
   });
+  if (!b.token) signups.push({ ip, at: Date.now() });
   startSession(c, id);
   return c.json({ ok: true });
 });

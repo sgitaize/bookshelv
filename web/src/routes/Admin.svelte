@@ -15,10 +15,19 @@
   let imprintUrl = $state('');
   let op = $state<Operator>({});
   let openReg = $state(false);
+  let maxUsers = $state(200);
+  let userTotal = $state(0);
   $effect(() => {
-    api.get<{ imprintUrl: string; operator: Operator; openRegistration?: boolean }>('/admin/instance')
-      .then(r => { imprintUrl = r.imprintUrl; op = r.operator; openReg = !!r.openRegistration; }).catch(toastError);
+    api.get<{ imprintUrl: string; operator: Operator; openRegistration?: boolean; maxUsers?: number; users?: number }>('/admin/instance')
+      .then(r => { imprintUrl = r.imprintUrl; op = r.operator; openReg = !!r.openRegistration; maxUsers = r.maxUsers ?? 200; userTotal = r.users ?? 0; }).catch(toastError);
   });
+  async function saveMaxUsers() {
+    try {
+      const r = await api.patch<{ maxUsers: number; users: number }>('/admin/instance', { maxUsers: Number(maxUsers) || 0 });
+      maxUsers = r.maxUsers; userTotal = r.users;
+      toast(t('admin.saved'));
+    } catch (err) { toastError(err); }
+  }
   /** Registrierung ohne Einladung (z. B. für die App) – sofort speichern */
   async function saveOpenReg() {
     try {
@@ -109,6 +118,13 @@
   <div class="card stack">
     <label class="row check"><input type="checkbox" bind:checked={openReg} onchange={saveOpenReg} /> {t('admin.openRegistration')}</label>
     <p class="muted small">{t('admin.openRegistrationInfo')}</p>
+    <label class="field"><span>{t('admin.maxUsers')}</span>
+      <div class="row">
+        <input type="number" min="0" max="100000" bind:value={maxUsers} onchange={saveMaxUsers} style="max-width: 9rem" />
+        <span class="muted small">{t('admin.maxUsersNow', { n: userTotal })}</span>
+      </div>
+      <small class="muted">{t('admin.maxUsersInfo')}</small>
+    </label>
   </div>
 
   {#if stats}

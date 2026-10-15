@@ -1072,4 +1072,10 @@ export default {
   "scan.nativeHint": "Point the camera at the barcode on the back of the book (ISBN, starts with 978 or 979).",
   "scan.nativeHintMulti": "The scanner stays open: one book after another, each goes straight onto your shelf.",
   "appx.myLibrary": "My library",
+  "admin.maxUsers": "Maximum accounts",
+  "admin.maxUsersNow": "{n} accounts so far",
+  "admin.maxUsersInfo": "Once reached, the instance accepts no new accounts – not even by invitation. 0 = unlimited.",
+  "auth.fullTitle": "No new accounts right now",
+  "auth.fullText": "This instance is full. You can use bookshelv in the app without an account or choose another instance.",
+  "auth.closedTitle": "Sign-up by invitation only",
 } satisfies Record<keyof typeof import('./de.ts').default, string>;

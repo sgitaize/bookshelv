@@ -62,6 +62,24 @@ check('open registration', (await admin('PATCH', '/admin/instance', { openRegist
 check('status says open', (await guest('GET', '/status')).data.openRegistration === true);
 check('register without invite', (await guest('POST', '/register', { username: 'zoe', password: 'geheim1234', displayName: 'Zoe' })).status === 200);
 check('imprint kept', (await admin('GET', '/admin/instance')).data.imprintUrl === '');
+// Höchstzahl Konten + Bremse für die offene Registrierung
+check('default limit', (await admin('GET', '/admin/instance')).data.maxUsers === 200);
+check('set limit', (await admin('PATCH', '/admin/instance', { maxUsers: 2 })).data.maxUsers === 2);
+let st0 = (await guest('GET', '/status')).data;
+check('status full', st0.full === true && st0.openRegistration === false && st0.capacity === 'full', JSON.stringify(st0));
+check('register blocked when full', (await client(`http://localhost:${IP}/api`, `http://localhost:${IP}`)('POST', '/register', { username: 'voll', password: 'geheim1234' })).status === 403);
+check('unlimited', (await admin('PATCH', '/admin/instance', { maxUsers: 0 })).data.maxUsers === 0 && !(await guest('GET', '/status')).data.full && (await guest('GET', '/status')).data.capacity === 'ok');
+const ipReg = n => client(`http://localhost:${IP}/api`, `http://localhost:${IP}`)('POST', '/register', { username: `spam${n}`, password: 'geheim1234' }, { 'x-forwarded-for': '203.0.113.9' });
+check('3 per ip ok', (await ipReg(1)).status === 200 && (await ipReg(2)).status === 200 && (await ipReg(3)).status === 200);
+check('4th per ip throttled', (await ipReg(4)).status === 429);
+// 5 Konten (admin, zoe, spam1–3) + 4 per Einladung (zählen nicht zur Bremse) = 9 von 10 → fast voll
+for (let i = 0; i < 4; i++) {
+  const tok = (await admin('POST', '/invites', {})).data.token;
+  await client(`http://localhost:${IP}/api`, `http://localhost:${IP}`)('POST', '/register', { token: tok, username: `inv${i}`, password: 'geheim1234' }, { 'x-forwarded-for': '203.0.113.9' });
+}
+await admin('PATCH', '/admin/instance', { maxUsers: 10 });
+check('nearly full', (await guest('GET', '/status')).data.capacity === 'nearly' && (await guest('GET', '/status')).data.openRegistration === true);
+await admin('PATCH', '/admin/instance', { maxUsers: 200 });
 
 // ---------- Steuerung ----------
 check('control needs token', (await fetch(`http://127.0.0.1:${C}/state`)).status === 403);

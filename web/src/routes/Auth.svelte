@@ -67,6 +67,10 @@
     {:else if mode === 'register'}
       {#if invite === null}
         <div class="spinner"></div>
+      {:else if !invite.valid && !inviteToken}
+        <h2>{instance.full ? t('auth.fullTitle') : t('auth.closedTitle')}</h2>
+        <p class="muted">{instance.full ? t('auth.fullText') : t('auth.noAccount')}</p>
+        <a href="/" class="btn">{t('auth.toLogin')}</a>
       {:else if !invite.valid}
         <h2>{t('auth.inviteInvalid')}</h2>
         <p class="muted">{t('auth.inviteInvalidText')}</p>

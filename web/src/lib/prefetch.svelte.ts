@@ -4,7 +4,8 @@
  * nutzen; der API-Client legt jede Antwort in den Lesecache (offline.svelte.ts), Cover speichert der App-Host.
  *
  * Leicht (Start, Regal, Listen, Statistik …): beim Start und nach der Rückkehr in die App, höchstens alle 10 Minuten.
- * Voll (jede Buchseite + Cover): höchstens einmal am Tag oder auf Knopfdruck. Schonend: 3 Anfragen gleichzeitig.
+ * Voll (jede Buchseite + Cover): höchstens alle 3 Tage oder auf Knopfdruck – schont kleine Instanzen (Shared Hosting).
+ * Schonend: 3 Anfragen gleichzeitig.
  */
 import { api, type ShelfItem, type ReadingListSummary } from './api.ts';
 import { session } from './state.svelte.ts';
@@ -20,7 +21,7 @@ function save(s: Saved) { try { localStorage.setItem(KEY, JSON.stringify(s)); } 
 
 export const offlineSync = $state({ running: false, done: 0, total: 0, last: saved().full ? new Date(saved().full).toISOString() : '' });
 
-const LIGHT_EVERY = 10 * 60_000, FULL_EVERY = 24 * 3600_000;
+const LIGHT_EVERY = 10 * 60_000, FULL_EVERY = 3 * 24 * 3600_000;
 
 async function pool<T>(items: T[], n: number, fn: (x: T) => Promise<unknown>) {
   let i = 0;

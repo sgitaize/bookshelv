@@ -1072,4 +1072,10 @@ export default {
   "scan.nativeHint": "Halte die Kamera auf den Barcode hinten auf dem Buch (ISBN, beginnt mit 978 oder 979).",
   "scan.nativeHintMulti": "Der Scanner bleibt offen: ein Buch nach dem anderen, jedes landet sofort im Regal.",
   "appx.myLibrary": "Meine Bibliothek",
+  "admin.maxUsers": "Höchstzahl Konten",
+  "admin.maxUsersNow": "{n} Konten bisher",
+  "admin.maxUsersInfo": "Ist sie erreicht, nimmt die Instanz keine neuen Konten mehr an – auch nicht per Einladung. 0 = unbegrenzt.",
+  "auth.fullTitle": "Gerade keine neuen Konten",
+  "auth.fullText": "Diese Instanz ist voll. Du kannst bookshelv in der App ohne Konto nutzen oder eine andere Instanz wählen.",
+  "auth.closedTitle": "Registrierung nur mit Einladung",
 } as const;
