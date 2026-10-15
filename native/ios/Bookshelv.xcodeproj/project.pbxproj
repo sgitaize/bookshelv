@@ -1,0 +1,554 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		00B4898420FBB0462782FA27 /* NodeStarter.c in Sources */ = {isa = PBXBuildFile; fileRef = 212708AD84F75C49EDCCC0B4 /* NodeStarter.c */; };
+		1BE1DF3B87DEA8870343A6CF /* TipJar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27A72AF9116DA9FE654F206D /* TipJar.swift */; };
+		22D238D4E89FDDF4E8DDB7E3 /* NodeMobile.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D0D22980A7E191B366141868 /* NodeMobile.xcframework */; };
+		3CEFB01B7924BB00CF281A13 /* AccountFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66206613845BFC3839ACB956 /* AccountFlow.swift */; };
+		4CB96968A1DA3232CDBE379D /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4E6A090984DD3730EE2EF6 /* OnboardingView.swift */; };
+		61EAF9EBC90F805F3394334B /* BookshelvApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB3D04B1CADE440449A978DB /* BookshelvApp.swift */; };
+		6202EC2B02A2D78B98BD2FC3 /* ConnectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 703C7AA218270FFAB2E52C80 /* ConnectView.swift */; };
+		63C02DE741E64E216DA9B1DE /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36F3AFADC5F24904B21C7A46 /* L10n.swift */; };
+		6A85AA0338903E2BE0B9F6C6 /* ScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F46903FB2127C10DCE629D0B /* ScannerView.swift */; };
+		7F0E7C02992AF58500A89887 /* Bookshelv.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 974917DC3063C4C9DB68EEFC /* Bookshelv.storekit */; };
+		7FCD5D77D563B9605BE13F7E /* BackupManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A190FA164FD548288565E8BF /* BackupManager.swift */; };
+		9E1573FF77317C5B4D74963D /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D15393BB2631052B1D23019A /* StoreKit.framework */; };
+		B2AD57B6C56F8E6C7015F3C0 /* NodeMobile.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = D0D22980A7E191B366141868 /* NodeMobile.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		B9625762CA05A307100CF298 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1825FFA73E9B925544436DC8 /* AppModel.swift */; };
+		C4E6A26F754445E02A00DE88 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CE9350AF12C757FB20DC8C5 /* libsqlite3.tbd */; };
+		C6463DD6C0CC00D547EF29D8 /* AppPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B311E95DDC18EAD92BABA92 /* AppPanel.swift */; };
+		D9D4D7A5BB8A0C2F6DDDB9EF /* LibraryWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6CDD30CE7397924CE6F5A08 /* LibraryWebView.swift */; };
+		E17798D3799E59EFBD55573B /* NodeHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FFD24277DF5D0E16BC8F4B6 /* NodeHost.swift */; };
+		E2F7B3A5D914A7D16C672ECF /* VisionKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 55E20A1C5067E8E8D0403E67 /* VisionKit.framework */; };
+		E4350DEDBE9AB8113A454878 /* sqlite_napi.c in Sources */ = {isa = PBXBuildFile; fileRef = D82F462530830187BF7A9FD3 /* sqlite_napi.c */; };
+		ED9338AF42DD471C7279B821 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E6BE972285DCE36325FE2D20 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		73102E2A957CCBD659EA40EC /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				B2AD57B6C56F8E6C7015F3C0 /* NodeMobile.xcframework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		1825FFA73E9B925544436DC8 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		212708AD84F75C49EDCCC0B4 /* NodeStarter.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = NodeStarter.c; sourceTree = "<group>"; };
+		27A72AF9116DA9FE654F206D /* TipJar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TipJar.swift; sourceTree = "<group>"; };
+		36F3AFADC5F24904B21C7A46 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
+		481933AD712FEF6BCB2CC614 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
+		55E20A1C5067E8E8D0403E67 /* VisionKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = VisionKit.framework; path = System/Library/Frameworks/VisionKit.framework; sourceTree = SDKROOT; };
+		5CE9350AF12C757FB20DC8C5 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
+		63CB96D2DDEAF2BE8FB8EB9A /* Bookshelv.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Bookshelv.entitlements; sourceTree = "<group>"; };
+		66206613845BFC3839ACB956 /* AccountFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountFlow.swift; sourceTree = "<group>"; };
+		68EF1A306D2D759B24244BBD /* NodeStarter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NodeStarter.h; sourceTree = "<group>"; };
+		703C7AA218270FFAB2E52C80 /* ConnectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectView.swift; sourceTree = "<group>"; };
+		77BEADD54339E206C51C25D8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		7B311E95DDC18EAD92BABA92 /* AppPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPanel.swift; sourceTree = "<group>"; };
+		7FFD24277DF5D0E16BC8F4B6 /* NodeHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeHost.swift; sourceTree = "<group>"; };
+		974917DC3063C4C9DB68EEFC /* Bookshelv.storekit */ = {isa = PBXFileReference; path = Bookshelv.storekit; sourceTree = "<group>"; };
+		9B4E6A090984DD3730EE2EF6 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		A110322BDECE782BD3678BCE /* Bookshelv-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Bookshelv-Bridging-Header.h"; sourceTree = "<group>"; };
+		A190FA164FD548288565E8BF /* BackupManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupManager.swift; sourceTree = "<group>"; };
+		C83FDD15083D7F6BA39CB425 /* Bookshelv.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Bookshelv.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CB3D04B1CADE440449A978DB /* BookshelvApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookshelvApp.swift; sourceTree = "<group>"; };
+		D0D22980A7E191B366141868 /* NodeMobile.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = NodeMobile.xcframework; path = Vendor/NodeMobile.xcframework; sourceTree = "<group>"; };
+		D15393BB2631052B1D23019A /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
+		D82F462530830187BF7A9FD3 /* sqlite_napi.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = sqlite_napi.c; path = ../../../shared/sqlite_napi.c; sourceTree = "<group>"; };
+		E6BE972285DCE36325FE2D20 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		E6CDD30CE7397924CE6F5A08 /* LibraryWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryWebView.swift; sourceTree = "<group>"; };
+		F46903FB2127C10DCE629D0B /* ScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScannerView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D5449620A8531ABFD48091FB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				22D238D4E89FDDF4E8DDB7E3 /* NodeMobile.xcframework in Frameworks */,
+				C4E6A26F754445E02A00DE88 /* libsqlite3.tbd in Frameworks */,
+				9E1573FF77317C5B4D74963D /* StoreKit.framework in Frameworks */,
+				E2F7B3A5D914A7D16C672ECF /* VisionKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		125909F2F1FBC84588059798 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				1825FFA73E9B925544436DC8 /* AppModel.swift */,
+				CB3D04B1CADE440449A978DB /* BookshelvApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		274F3FFEFFCB4B23377A539B /* Backup */ = {
+			isa = PBXGroup;
+			children = (
+				A190FA164FD548288565E8BF /* BackupManager.swift */,
+			);
+			path = Backup;
+			sourceTree = "<group>";
+		};
+		2E5146399363D6EB83BB4B87 /* Web */ = {
+			isa = PBXGroup;
+			children = (
+				E6CDD30CE7397924CE6F5A08 /* LibraryWebView.swift */,
+			);
+			path = Web;
+			sourceTree = "<group>";
+		};
+		389997B38386F4CA89A08037 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C83FDD15083D7F6BA39CB425 /* Bookshelv.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4614400F5E057CE51611FADC /* Store */ = {
+			isa = PBXGroup;
+			children = (
+				974917DC3063C4C9DB68EEFC /* Bookshelv.storekit */,
+				27A72AF9116DA9FE654F206D /* TipJar.swift */,
+			);
+			path = Store;
+			sourceTree = "<group>";
+		};
+		4634F5F328EC5071E9B5A48C /* Node */ = {
+			isa = PBXGroup;
+			children = (
+				A110322BDECE782BD3678BCE /* Bookshelv-Bridging-Header.h */,
+				7FFD24277DF5D0E16BC8F4B6 /* NodeHost.swift */,
+				212708AD84F75C49EDCCC0B4 /* NodeStarter.c */,
+				68EF1A306D2D759B24244BBD /* NodeStarter.h */,
+				D82F462530830187BF7A9FD3 /* sqlite_napi.c */,
+			);
+			path = Node;
+			sourceTree = "<group>";
+		};
+		4BC0101BAF76D7FB51654F7B /* Panels */ = {
+			isa = PBXGroup;
+			children = (
+				7B311E95DDC18EAD92BABA92 /* AppPanel.swift */,
+				703C7AA218270FFAB2E52C80 /* ConnectView.swift */,
+			);
+			path = Panels;
+			sourceTree = "<group>";
+		};
+		4DBCE47E8F9FE487B1759866 = {
+			isa = PBXGroup;
+			children = (
+				A98AD7B3009B3C31708D78D3 /* Bookshelv */,
+				C11AC9F2FC5E0EE9E74F4EC5 /* Config */,
+				C51C57D1C7481568C8BF626E /* Frameworks */,
+				389997B38386F4CA89A08037 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		81C352A25AB78C5DD17683B3 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				66206613845BFC3839ACB956 /* AccountFlow.swift */,
+				9B4E6A090984DD3730EE2EF6 /* OnboardingView.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		A98AD7B3009B3C31708D78D3 /* Bookshelv */ = {
+			isa = PBXGroup;
+			children = (
+				E6BE972285DCE36325FE2D20 /* Assets.xcassets */,
+				63CB96D2DDEAF2BE8FB8EB9A /* Bookshelv.entitlements */,
+				77BEADD54339E206C51C25D8 /* Info.plist */,
+				125909F2F1FBC84588059798 /* App */,
+				274F3FFEFFCB4B23377A539B /* Backup */,
+				4634F5F328EC5071E9B5A48C /* Node */,
+				81C352A25AB78C5DD17683B3 /* Onboarding */,
+				4BC0101BAF76D7FB51654F7B /* Panels */,
+				BDD895C0ADC9ADA9395863C2 /* Scanner */,
+				4614400F5E057CE51611FADC /* Store */,
+				BAAA63AAF792061AD2532992 /* Support */,
+				2E5146399363D6EB83BB4B87 /* Web */,
+			);
+			path = Bookshelv;
+			sourceTree = "<group>";
+		};
+		BAAA63AAF792061AD2532992 /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				36F3AFADC5F24904B21C7A46 /* L10n.swift */,
+			);
+			path = Support;
+			sourceTree = "<group>";
+		};
+		BDD895C0ADC9ADA9395863C2 /* Scanner */ = {
+			isa = PBXGroup;
+			children = (
+				F46903FB2127C10DCE629D0B /* ScannerView.swift */,
+			);
+			path = Scanner;
+			sourceTree = "<group>";
+		};
+		C11AC9F2FC5E0EE9E74F4EC5 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				481933AD712FEF6BCB2CC614 /* Base.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		C51C57D1C7481568C8BF626E /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				5CE9350AF12C757FB20DC8C5 /* libsqlite3.tbd */,
+				D0D22980A7E191B366141868 /* NodeMobile.xcframework */,
+				D15393BB2631052B1D23019A /* StoreKit.framework */,
+				55E20A1C5067E8E8D0403E67 /* VisionKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		7ED3C75A127E5F8060A18323 /* Bookshelv */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AFC6A82CADC369D63A979B42 /* Build configuration list for PBXNativeTarget "Bookshelv" */;
+			buildPhases = (
+				A0A1646B571A9007A1C4939B /* Oberfläche und App-Host bündeln (native/build/server → server/) */,
+				986F676BCE7267139C78F609 /* Sources */,
+				8B58260BE2C5BA216A76A5CF /* Resources */,
+				D5449620A8531ABFD48091FB /* Frameworks */,
+				73102E2A957CCBD659EA40EC /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Bookshelv;
+			packageProductDependencies = (
+			);
+			productName = Bookshelv;
+			productReference = C83FDD15083D7F6BA39CB425 /* Bookshelv.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		5EF8DE854411D88027039356 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					7ED3C75A127E5F8060A18323 = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = FBF603F86C26E6EAE7D2EB75 /* Build configuration list for PBXProject "Bookshelv" */;
+			developmentRegion = de;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				de,
+			);
+			mainGroup = 4DBCE47E8F9FE487B1759866;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 389997B38386F4CA89A08037 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				7ED3C75A127E5F8060A18323 /* Bookshelv */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		8B58260BE2C5BA216A76A5CF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				ED9338AF42DD471C7279B821 /* Assets.xcassets in Resources */,
+				7F0E7C02992AF58500A89887 /* Bookshelv.storekit in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A0A1646B571A9007A1C4939B /* Oberfläche und App-Host bündeln (native/build/server → server/) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Oberfläche und App-Host bündeln (native/build/server → server/)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/Scripts/bundle-server.sh\"";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		986F676BCE7267139C78F609 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3CEFB01B7924BB00CF281A13 /* AccountFlow.swift in Sources */,
+				B9625762CA05A307100CF298 /* AppModel.swift in Sources */,
+				C6463DD6C0CC00D547EF29D8 /* AppPanel.swift in Sources */,
+				7FCD5D77D563B9605BE13F7E /* BackupManager.swift in Sources */,
+				61EAF9EBC90F805F3394334B /* BookshelvApp.swift in Sources */,
+				6202EC2B02A2D78B98BD2FC3 /* ConnectView.swift in Sources */,
+				63C02DE741E64E216DA9B1DE /* L10n.swift in Sources */,
+				D9D4D7A5BB8A0C2F6DDDB9EF /* LibraryWebView.swift in Sources */,
+				E17798D3799E59EFBD55573B /* NodeHost.swift in Sources */,
+				00B4898420FBB0462782FA27 /* NodeStarter.c in Sources */,
+				4CB96968A1DA3232CDBE379D /* OnboardingView.swift in Sources */,
+				6A85AA0338903E2BE0B9F6C6 /* ScannerView.swift in Sources */,
+				1BE1DF3B87DEA8870343A6CF /* TipJar.swift in Sources */,
+				E4350DEDBE9AB8113A454878 /* sqlite_napi.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		20CB42AB003F4B9C368B9D44 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		8DD5554C922985314350DFD3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 481933AD712FEF6BCB2CC614 /* Base.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Bookshelv/Bookshelv.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = NO;
+				ENABLE_BITCODE = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"Vendor\"",
+				);
+				GCC_PREPROCESSOR_DEFINITIONS = "$(inherited) NAPI_VERSION=8";
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/../shared/include";
+				INFOPLIST_FILE = Bookshelv/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BS_BUNDLE_ID)";
+				PRODUCT_NAME = Bookshelv;
+				SDKROOT = iphoneos;
+				SWIFT_OBJC_BRIDGING_HEADER = "Bookshelv/Node/Bookshelv-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		900F4DC1C09D95251BA8E85C /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 481933AD712FEF6BCB2CC614 /* Base.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Bookshelv/Bookshelv.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = NO;
+				ENABLE_BITCODE = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"Vendor\"",
+				);
+				GCC_PREPROCESSOR_DEFINITIONS = "$(inherited) NAPI_VERSION=8";
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/../shared/include";
+				INFOPLIST_FILE = Bookshelv/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BS_BUNDLE_ID)";
+				PRODUCT_NAME = Bookshelv;
+				SDKROOT = iphoneos;
+				SWIFT_OBJC_BRIDGING_HEADER = "Bookshelv/Node/Bookshelv-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		BD6C5D8B743E39B3F756F2FE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AFC6A82CADC369D63A979B42 /* Build configuration list for PBXNativeTarget "Bookshelv" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8DD5554C922985314350DFD3 /* Debug */,
+				900F4DC1C09D95251BA8E85C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		FBF603F86C26E6EAE7D2EB75 /* Build configuration list for PBXProject "Bookshelv" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BD6C5D8B743E39B3F756F2FE /* Debug */,
+				20CB42AB003F4B9C368B9D44 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 5EF8DE854411D88027039356 /* Project object */;
+}

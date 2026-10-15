@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { isLocal } from '../lib/state.svelte.ts';
   import { api, type ReadingListSummary, type ListVisibility } from '../lib/api.ts';
   import { toastError } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
@@ -9,7 +10,7 @@
 
   let lists = $state<ReadingListSummary[] | null>(null);
   let creating = $state(false);
-  let form = $state({ name: '', description: '', visibility: 'instance' as ListVisibility });
+  let form = $state({ name: '', description: '', visibility: (isLocal() ? 'private' : 'instance') as ListVisibility });
 
   $effect(() => { api.get<ReadingListSummary[]>('/lists').then(r => (lists = r)).catch(toastError); });
 
@@ -39,7 +40,7 @@
         <div class="section-head">
           <a class="lname" href="/lists/{l.id}">
             <h2>{l.name}</h2>
-            <span class="muted small">{tn('list.books', l.count)}{#if l.visibility === 'private'} · {t('vis.private')}{/if}{#if l.owner} · {t('list.byOwner', { name: l.owner.displayName })}{:else if l.shared} · {t('list.sharedBadge')}{/if}</span>
+            <span class="muted small">{tn('list.books', l.count)}{#if l.visibility === 'private' && !isLocal()} · {t('vis.private')}{/if}{#if l.owner} · {t('list.byOwner', { name: l.owner.displayName })}{:else if l.shared} · {t('list.sharedBadge')}{/if}</span>
           </a>
           <a href="/lists/{l.id}" aria-label={l.name}><Icon name="arrow" size={22} /></a>
         </div>
@@ -64,10 +65,12 @@
   <form class="stack" onsubmit={create}>
     <label class="field"><span>{t('list.name')}</span><input bind:value={form.name} required maxlength="80" placeholder={t('list.namePh')} /></label>
     <label class="field"><span>{t('list.description')}</span><textarea bind:value={form.description} maxlength="1000" rows="3"></textarea></label>
+    {#if !isLocal()}
     <div class="segmented">
       <button type="button" class:active={form.visibility === 'instance'} onclick={() => (form.visibility = 'instance')}>{t('list.visPublic')}</button>
       <button type="button" class:active={form.visibility === 'private'} onclick={() => (form.visibility = 'private')}>{t('vis.private')}</button>
     </div>
+    {/if}
     <button class="primary">{t('list.create')}</button>
   </form>
 </Sheet>

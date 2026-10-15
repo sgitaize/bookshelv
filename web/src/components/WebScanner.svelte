@@ -1,0 +1,227 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import Icon from './Icon.svelte';
+  import { t } from '../lib/i18n.svelte.ts';
+  import { haptic } from '../lib/haptic.ts';
+
+  // ok: hochzählen, sobald ein Scan fertig verarbeitet ist → großer Haken + Haptik
+  let { onscan, paused = false, ok = 0 }: { onscan: (isbn: string) => void; paused?: boolean; ok?: number } = $props();
+
+  let done = $state(false);
+  let doneTimer: ReturnType<typeof setTimeout>;
+  $effect(() => {
+    if (!ok) return;
+    done = true;
+    haptic([40, 60, 40]);
+    clearTimeout(doneTimer);
+    doneTimer = setTimeout(() => (done = false), 1100);
+  });
+
+  let video: HTMLVideoElement;
+  let error = $state<string | null>(null);
+  let starting = $state(true);
+  let torch = $state(false);
+  let torchAvailable = $state(false);
+  let flash = $state(false);
+
+  let stream: MediaStream | null = null;
+  let stopped = false;
+  let lastCode = '';
+  let lastAt = 0;
+
+  type Detect = (source: HTMLVideoElement) => Promise<string | null>;
+
+  /** Natives BarcodeDetector (Chrome/Android) oder zxing-wasm als Fallback (Safari/iOS, Firefox) */
+  async function createDetector(): Promise<Detect> {
+    const BD = (window as unknown as { BarcodeDetector?: any }).BarcodeDetector;
+    if (BD && (await BD.getSupportedFormats?.())?.includes('ean_13')) {
+      const detector = new BD({ formats: ['ean_13'] });
+      return async src => (await detector.detect(src))[0]?.rawValue ?? null;
+    }
+    const [{ prepareZXingModule, readBarcodes }, { default: wasmUrl }] = await Promise.all([
+      import('zxing-wasm/reader'),
+      import('zxing-wasm/reader/zxing_reader.wasm?url')
+    ]);
+    // WASM vom eigenen Server statt vom CDN (DSGVO)
+    prepareZXingModule({
+      overrides: { locateFile: (p: string, prefix: string) => (p.endsWith('.wasm') ? wasmUrl : prefix + p) }
+    });
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+    return async src => {
+      // nur das mittlere Band auswerten – schneller und der Barcode liegt ohnehin im Rahmen
+      const w = src.videoWidth, h = src.videoHeight;
+      if (!w || !h) return null;
+      const bandH = Math.round(h * 0.45);
+      canvas.width = w;
+      canvas.height = bandH;
+      ctx.drawImage(src, 0, (h - bandH) / 2, w, bandH, 0, 0, w, bandH);
+      const res = await readBarcodes(ctx.getImageData(0, 0, w, bandH), { formats: ['EAN13'], tryHarder: true, maxNumberOfSymbols: 1 });
+      return res[0]?.text ?? null;
+    };
+  }
+
+  let detectP: Promise<Detect> | null = null;
+  // Kamera aus (Akku sparen, z. B. beim Umräumen des Regals); Stream wird dabei komplett beendet
+  let off = $state(false);
+  let run = 0;
+
+  async function start() {
+    const my = ++run;
+    starting = true;
+    error = null;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      error = t('scan.noCamera');
+      starting = false;
+      return;
+    }
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
+      });
+      if (stopped || my !== run) return s.getTracks().forEach(t => t.stop());
+      stream = s;
+      video.srcObject = stream;
+      await video.play();
+      const track = stream.getVideoTracks()[0];
+      torchAvailable = !!(track.getCapabilities?.() as { torch?: boolean })?.torch;
+      torch = false;
+      const detect = await (detectP ??= createDetector());
+      if (my !== run) return;
+      starting = false;
+      loop(detect, my);
+    } catch (e) {
+      if (my !== run) return;
+      starting = false;
+      error = (e as Error).name === 'NotAllowedError'
+        ? t('scan.denied')
+        : t('scan.failed');
+    }
+  }
+
+  function stopStream() {
+    run++;
+    stream?.getTracks().forEach(t => t.stop());
+    stream = null;
+    if (video) video.srcObject = null;
+    torchAvailable = false;
+  }
+
+  function toggleCamera() {
+    off = !off;
+    if (off) stopStream();
+    else start();
+  }
+
+  onMount(() => {
+    start();
+    return () => {
+      stopped = true;
+      stopStream();
+    };
+  });
+
+  async function loop(detect: Detect, my: number) {
+    while (!stopped && my === run) {
+      if (!paused && video.readyState >= 2) {
+        try {
+          const code = await detect(video);
+          // nur Buch-EANs (Bookland 978/979); gleichen Code nicht mehrfach hintereinander melden
+          if (code && /^97[89]\d{10}$/.test(code) && (code !== lastCode || Date.now() - lastAt > 4000)) {
+            lastCode = code;
+            lastAt = Date.now();
+            flash = true;
+            setTimeout(() => (flash = false), 350);
+            navigator.vibrate?.(60);
+            onscan(code);
+          }
+        } catch { /* einzelner Frame fehlgeschlagen */ }
+      }
+      await new Promise(r => setTimeout(r, 180));
+    }
+  }
+
+  async function toggleTorch() {
+    const track = stream?.getVideoTracks()[0];
+    if (!track) return;
+    torch = !torch;
+    await track.applyConstraints({ advanced: [{ torch } as MediaTrackConstraintSet] }).catch(() => (torch = false));
+  }
+</script>
+
+<div class="scanner" class:flash>
+  <!-- svelte-ignore a11y_media_has_caption -->
+  <video bind:this={video} playsinline muted></video>
+  <div class="frame"><span class="laser"></span></div>
+  {#if off}
+    <button class="overlay resume" onclick={toggleCamera}><Icon name="camera" size={32} /><span>{t('scan.cameraOff')}</span></button>
+  {:else if starting}
+    <div class="overlay"><div class="spinner"></div><span>{t('scan.starting')}</span></div>
+  {:else if error}
+    <div class="overlay"><Icon name="camera" size={32} /><span>{error}</span></div>
+  {/if}
+  {#if done}
+    <div class="done" aria-live="polite"><span><Icon name="check" size={64} /></span></div>
+  {/if}
+  {#if !off}
+    <button class="camoff" onclick={toggleCamera}><Icon name="camera" size={16} /> {t('scan.cameraPause')}</button>
+  {/if}
+  {#if torchAvailable && !off}
+    <button class="torch icon" class:on={torch} onclick={toggleTorch} aria-label={t('scan.torch')}>
+      <Icon name="sparkle" />
+    </button>
+  {/if}
+</div>
+
+<style>
+  .scanner {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    max-height: 55dvh;
+    width: 100%;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: #000;
+    box-shadow: var(--shadow);
+  }
+  video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .frame {
+    position: absolute;
+    inset: 27% 10%;
+    border-radius: 12px;
+    box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.45);
+    border: 2px solid rgb(255 255 255 / 0.85);
+    transition: border-color 0.2s;
+  }
+  .flash .frame { border-color: var(--ok); }
+  .laser {
+    position: absolute;
+    left: 6%; right: 6%; top: 50%;
+    height: 2px;
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--accent);
+    animation: sweep 1.8s ease-in-out infinite alternate;
+  }
+  @keyframes sweep { from { top: 18%; } to { top: 82%; } }
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 0.8rem;
+    padding: 2rem;
+    text-align: center;
+    color: #eee;
+    background: rgb(0 0 0 / 0.6);
+  }
+  .torch { position: absolute; right: 12px; bottom: 12px; background: rgb(0 0 0 / 0.5); color: #fff; border-color: transparent; }
+  .resume { border: 0; border-radius: 0; width: 100%; font: inherit; cursor: pointer; background: rgb(0 0 0 / 0.85); }
+  .camoff { position: absolute; left: 12px; bottom: 12px; display: inline-flex; gap: 0.4em; align-items: center; padding: 0.45em 0.8em; font-size: 0.85rem; background: rgb(0 0 0 / 0.5); color: #fff; border-color: transparent; }
+  .done { position: absolute; inset: 0; display: grid; place-items: center; background: rgb(0 0 0 / 0.35); pointer-events: none; animation: fade 1.1s ease-out forwards; }
+  .done span { display: grid; place-items: center; width: 112px; height: 112px; border-radius: 50%; background: var(--ok); color: #fff; box-shadow: 0 0 0 8px color-mix(in srgb, var(--ok) 35%, transparent); animation: pop 0.35s cubic-bezier(.2, 1.6, .4, 1); }
+  @keyframes pop { from { transform: scale(0.4); } }
+  @keyframes fade { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+  .torch.on { background: var(--accent); color: var(--accent-ink); }
+</style>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { isLocal } from '../lib/state.svelte.ts';
   // Bild in der gewählten App-Schrift zeichnen
   const font = () => getComputedStyle(document.documentElement).getPropertyValue('--font').trim() || 'sans-serif';
   import { api, type Stats, type BookBrief } from '../lib/api.ts';
@@ -85,7 +86,7 @@
     ctx.fillText(t('wrap.title', { y: year }), 70, 130);
     ctx.fillStyle = C.muted;
     ctx.font = `400 32px ${font()}`;
-    ctx.fillText(`@${s.user.username} · bookshelv`, 70, 180);
+    ctx.fillText((isLocal() ? [s.user.displayName, 'bookshelv'].filter(Boolean).join(' · ') : `@${s.user.username} · bookshelv`), 70, 180);
 
     // Vier Cover: erstes, letztes, längstes, kürzestes
     const h = s.highlights;

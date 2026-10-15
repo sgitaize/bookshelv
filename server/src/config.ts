@@ -10,6 +10,15 @@ const appDir = process.env.BOOKSHELV_APP_DIR ?? (built ? __dirname : process.cwd
 export const config = {
   version: built ? __VERSION__ : 'dev',
   port: Number(process.env.PORT) || 3000,
+  /** Nur an diese Adresse binden (App: 127.0.0.1); leer = alle */
+  host: process.env.HOST || undefined,
+  /**
+   * Lokal-Modus der iOS/Android-App: eine Bibliothek nur auf dem Gerät, ohne Konto und ohne Server.
+   * Es gibt genau eine Person; angemeldet ist, wer das App-Token mitschickt (Cookie bs_app, setzt die App).
+   * Alles, was andere Menschen braucht (Freund*innen, Leihanfragen, Leserunden, Föderation), ist abgeschaltet.
+   */
+  local: process.env.BOOKSHELV_LOCAL === '1',
+  appToken: process.env.BOOKSHELV_APP_TOKEN ?? '',
   /** Datenbank, Cover-Cache und Setup-Token – niemals im öffentlichen Webroot */
   dataDir: process.env.BOOKSHELV_DATA_DIR ?? path.join(appDir, 'data'),
   /** Gebautes Frontend */

@@ -1,4 +1,5 @@
 import { t, i18n } from './i18n.svelte.ts';
+import { publicOrigin } from './app.svelte.ts';
 import { net, isNetworkError, QUEUEABLE, QueuedError, queueWrite, cacheGet, cachedGet } from './offline.svelte.ts';
 
 export class ApiError extends Error {
@@ -57,7 +58,8 @@ export const api = {
 
 // ---------- Typen ----------
 
-export type Me = { id: number; username: string; displayName: string; isAdmin: boolean; shelfVisible: boolean; createdAt: string; avatarUrl: string | null; prefs: import('./theme.ts').Prefs };
+/** local: App im Lokal-Modus (eine Person, nichts Soziales) */
+export type Me = { local?: boolean; id: number; username: string; displayName: string; isAdmin: boolean; shelfVisible: boolean; createdAt: string; avatarUrl: string | null; prefs: import('./theme.ts').Prefs };
 
 export type Book = {
   id: number; isbn13: string | null; title: string; subtitle: string | null; authors: string[];
@@ -214,7 +216,7 @@ export const labels = {
 export const percent = (progress: number | null, pages: number | null) =>
   progress ? Math.min(100, Math.round((progress / (pages || 100)) * 100)) : 0;
 
-export const inviteUrl = (token: string) => `${location.origin}/invite/${token}`;
+export const inviteUrl = (token: string) => `${publicOrigin()}/invite/${token}`;
 
 export type StatGroup<N extends string = string> = { name: N; n: number; ids: number[] };
 export type Stats = {

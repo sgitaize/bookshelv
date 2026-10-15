@@ -71,7 +71,11 @@ export function endSession(c: Context) {
 export const loadUser: MiddlewareHandler = async (c, next) => {
   const token = getCookie(c, COOKIE);
   let user: User | null = null;
-  if (token) {
+  if (config.local) {
+    const app = getCookie(c, 'bs_app') ?? c.req.header('x-bookshelv-app') ?? '';
+    if (config.appToken && app.length === config.appToken.length && crypto.timingSafeEqual(Buffer.from(app), Buffer.from(config.appToken)))
+      user = localUser();
+  } else if (token) {
     user = (db.prepare(`
       SELECT u.id, u.username, u.display_name, u.is_admin, u.shelf_visible, u.avatar, u.prefs, u.created_at
       FROM sessions s JOIN users u ON u.id = s.user_id
@@ -81,6 +85,17 @@ export const loadUser: MiddlewareHandler = async (c, next) => {
   c.set('user', user);
   await next();
 };
+
+const USER_COLUMNS = 'id, username, display_name, is_admin, shelf_visible, avatar, prefs, created_at';
+
+/** Lokal-Modus: die eine Person auf dem Gerät (wird beim ersten Start angelegt) */
+export function localUser(): User {
+  const u = db.prepare(`SELECT ${USER_COLUMNS} FROM users ORDER BY id LIMIT 1`).get() as User | undefined;
+  if (u) return u;
+  // kein Passwort: Anmeldung gibt es lokal nicht ("!" passt zu keinem scrypt-Hash)
+  db.prepare("INSERT INTO users (username, display_name, pw_hash, is_admin) VALUES ('me', ?, '!', 1)").run(process.env.BOOKSHELV_LOCAL_NAME || ''); // ohne Namen: die Oberfläche lässt ihn einfach weg
+  return localUser();
+}
 
 export function requireUser(c: Context): User {
   const user = c.get('user') as User | null;

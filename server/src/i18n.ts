@@ -4,6 +4,11 @@
  */
 const EN: Record<string, string> = {
   'Interner Fehler': 'Internal error',
+  'Nur mit Konto auf einer Instanz möglich': 'Only available with an account on an instance',
+  'Registrierung nur mit Einladung': 'Sign-up is by invitation only',
+  'Diese Instanz nimmt gerade keine neuen Konten auf': 'This instance is not accepting new accounts right now',
+  'Zu viele neue Konten von diesem Anschluss – bitte morgen erneut versuchen': 'Too many new accounts from this connection – please try again tomorrow',
+  'Gerade melden sich sehr viele an – bitte in einer Stunde erneut versuchen': 'Lots of sign-ups right now – please try again in an hour',
   'Dieser Import wurde schon rückgängig gemacht': 'This import has already been undone',
   'Das Ende liegt vor dem Beginn': 'The end date is before the start date',
   'Datum liegt in der Zukunft': 'The date is in the future',

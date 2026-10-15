@@ -4,7 +4,7 @@
   import FeedList from '../components/FeedList.svelte';
   import type { FeedItem } from '../lib/api.ts';
   import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
-  import { session, toastError } from '../lib/state.svelte.ts';
+  import { session, toastError, isLocal } from '../lib/state.svelte.ts';
   import Cover from '../components/Cover.svelte';
   import Icon from '../components/Icon.svelte';
   import { pending } from '../lib/offline.svelte.ts';
@@ -32,7 +32,7 @@
   <div class="spinner"></div>
 {:else}
   <section class="hello">
-    <h1>{t(greeting as 'home.hello')}, {session.me?.displayName}</h1>
+    <h1>{t(greeting as 'home.hello')}{#if session.me?.displayName}, {session.me.displayName}{/if}</h1>
     {#if pending.items.length}<a class="card pendinghint" href="/add"><Icon name="scan" size={18} /> {t('offline.homeHint', { n: pending.items.length })}</a>{/if}
     <div class="stats">
       <a href="/library"><b>{home.counts.books}</b><span>{t('home.onShelf')}</span></a>
@@ -125,7 +125,7 @@
   {#if feed.length}
     <section>
       <div class="section-head">
-        <h2>{t('feed.title')}</h2>
+        <h2>{t(isLocal() ? 'feed.recent' : 'feed.title')}</h2>
         <a href="/feed" aria-label={t('feed.all')}><Icon name="arrow" /></a>
       </div>
       <FeedList items={feed} />

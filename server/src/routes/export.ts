@@ -6,6 +6,7 @@
 import { db } from '../db.ts';
 import { requireUser } from '../auth.ts';
 import { router, oneOf } from '../util.ts';
+import { appExport } from '../appsync.ts';
 
 export const exportRoutes = router();
 
@@ -107,3 +108,6 @@ exportRoutes.get('/me/export.csv', c => {
   // BOM, damit Excel Umlaute richtig liest
   return c.body('﻿' + text);
 });
+
+/** Vollständige Bibliothek für die Übernahme in ein Konto (App: lokale Bibliothek → Instanz) */
+exportRoutes.get('/me/export.json', c => c.json(appExport(requireUser(c).id)));

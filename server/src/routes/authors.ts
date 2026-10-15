@@ -10,7 +10,7 @@
 import { HTTPException } from 'hono/http-exception';
 import { db } from '../db.ts';
 import { requireUser } from '../auth.ts';
-import { router, body, str } from '../util.ts';
+import { router, body, str, lettersOnly } from '../util.ts';
 import { dnbQuery, type BookData } from '../catalog.ts';
 import { notifyRemote } from '../notify.ts';
 import { getBookByIsbn } from './books.ts';
@@ -20,8 +20,8 @@ export const authorRoutes = router();
 const MAX_FOLLOWS = 100;
 const year = () => new Date().getFullYear();
 
-export const normTitle = (t: string) => t.toLocaleLowerCase('de').replace(/\([^)]*\)/g, ' ').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
-const normName = (n: string) => n.toLocaleLowerCase('de').replace(/[^\p{L}]+/gu, ' ').trim();
+export const normTitle = (t: string) => lettersOnly(t.toLocaleLowerCase('de').replace(/\([^)]*\)/g, ' '));
+const normName = (n: string) => lettersOnly(n.toLocaleLowerCase('de'), false);
 const VARIANT = /(bundle|2in1|sammelband|lesung|hörbuch|hörspiel|graphic novel|limitiert|sonderausgabe|schuber|box|kalender|socken|tasse|poster|puzzle|notizbuch)/i;
 
 const hasAuthor = (b: BookData, author: string) => {

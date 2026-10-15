@@ -5,7 +5,7 @@ import { db } from '../db.ts';
 import { config } from '../config.ts';
 import { requireAdmin, hashPassword, randomToken } from '../auth.ts';
 import { deleteCoverFile, prunePreviews, dnbGenres } from '../catalog.ts';
-import { router, body, idParam, notFound } from '../util.ts';
+import { router, body, int, idParam, notFound } from '../util.ts';
 import { anonymizeBorrower } from './loans.ts';
 import { purgeAvatar } from './social.ts';
 import { retractFederatedReviews } from './reviews.ts';
@@ -143,13 +143,37 @@ export type Operator = Partial<Record<keyof typeof OPERATOR_FIELDS, string>>;
 export function operator(): Operator {
   try { return JSON.parse(setting('operator') ?? '{}') as Operator; } catch { return {}; }
 }
-adminRoutes.get('/instance', c => { requireAdmin(c); return c.json({ imprintUrl: setting('imprint_url') ?? '', operator: operator() }); });
+/** Registrierung ohne Einladungslink (z. B. für die App); Standard: aus */
+export const openRegistration = () => setting('open_registration') === '1';
+
+/**
+ * Höchstzahl der Konten (Schutz für kleines Hosting, z. B. Shared Hosting mit Fair-Use-CPU). Gilt für jede neue
+ * Registrierung, auch per Einladung; Admins können sie anheben. Standard 200 bzw. BOOKSHELV_MAX_USERS, 0 = unbegrenzt.
+ */
+export const maxUsers = () => {
+  const v = Number(setting('max_users') ?? process.env.BOOKSHELV_MAX_USERS ?? 200);
+  return Number.isInteger(v) && v >= 0 ? v : 200;
+};
+export const userCount = () => (db.prepare('SELECT COUNT(*) AS n FROM users').get() as { n: number }).n;
+export const instanceFull = () => maxUsers() > 0 && userCount() >= maxUsers();
+/** Für die Überwachung (healthchecks.io): ok | nearly (ab 90 %) | full – ohne genaue Zahlen nach außen */
+export const capacity = (): 'ok' | 'nearly' | 'full' => {
+  const max = maxUsers();
+  if (!max) return 'ok';
+  const n = userCount();
+  return n >= max ? 'full' : n >= Math.ceil(max * 0.9) ? 'nearly' : 'ok';
+};
+
+const instanceJson = () => ({ imprintUrl: setting('imprint_url') ?? '', operator: operator(), openRegistration: openRegistration(), maxUsers: maxUsers(), users: userCount() });
+adminRoutes.get('/instance', c => { requireAdmin(c); return c.json(instanceJson()); });
 adminRoutes.patch('/instance', async c => {
   requireAdmin(c);
   const b = await body(c);
   const url = typeof b.imprintUrl === 'string' ? b.imprintUrl.trim() : '';
   if (url && !/^https?:\/\/[^\s]+$/i.test(url)) throw new HTTPException(400, { message: 'Ungültige Adresse' });
-  setSetting('imprint_url', url.slice(0, 300));
+  if (typeof b.imprintUrl === 'string') setSetting('imprint_url', url.slice(0, 300));
+  if (typeof b.openRegistration === 'boolean') setSetting('open_registration', b.openRegistration ? '1' : '0');
+  if (b.maxUsers !== undefined) setSetting('max_users', String(int(b.maxUsers, 0, 100000) ?? 0));
   if (b.operator && typeof b.operator === 'object') {
     const src = b.operator as Record<string, unknown>;
     const next: Operator = {};
@@ -161,5 +185,5 @@ adminRoutes.patch('/instance', async c => {
     if (next.website && !/^https?:\/\/[^\s]+$/i.test(next.website)) throw new HTTPException(400, { message: 'Ungültige Adresse' });
     setSetting('operator', JSON.stringify(next));
   }
-  return c.json({ imprintUrl: setting('imprint_url') ?? '', operator: operator() });
+  return c.json(instanceJson());
 });

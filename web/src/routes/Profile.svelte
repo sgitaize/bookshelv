@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { isLocal } from '../lib/state.svelte.ts';
   import { api, type Profile, type FeedItem, type ReadingListSummary } from '../lib/api.ts';
   import TopSheet from '../components/TopSheet.svelte';
   import FeedList from '../components/FeedList.svelte';
@@ -34,9 +35,14 @@
   <div class="spinner"></div>
 {:else}
   <section class="profile">
-    <div class="bigav"><Avatar name={p.displayName} url={p.avatarUrl} size={88} /></div>
-    <h1>@{p.username}</h1>
-    {#if p.displayName !== p.username}<p class="muted name">{p.displayName}</p>{/if}
+    <div class="bigav"><Avatar name={p.displayName || 'b'} url={p.avatarUrl} size={88} /></div>
+    {#if isLocal()}
+      <!-- App ohne Konto: kein @handle, nur der (optionale) Name -->
+      <h1>{p.displayName || t('appx.myLibrary')}</h1>
+    {:else}
+      <h1>@{p.username}</h1>
+      {#if p.displayName !== p.username}<p class="muted name">{p.displayName}</p>{/if}
+    {/if}
     <!-- Top 5 als Untertitel, jeder Titel verlinkt -->
     {#if p.top.length}
       <p class="top">
@@ -108,13 +114,13 @@
         <a class="btn" href="/stats"><Icon name="chart" size={16} /> {t('stats.title')}</a>
         <a class="btn" href="/lists"><Icon name="list" size={16} /> {t('list.title')}</a>
         <a class="btn" href="/loans"><Icon name="users" size={16} /> {t('loan.title')}</a>
-        <a class="btn" href="/reads"><Icon name="message" size={16} /> {t('reads.title')}</a>
+        {#if !isLocal()}<a class="btn" href="/reads"><Icon name="message" size={16} /> {t('reads.title')}</a>{/if}
         <a class="btn" href="/series"><Icon name="library" size={16} /> {t('series.mine')}</a>
         <a class="btn" href="/authors"><Icon name="bell" size={16} /> {t('authors.title')}</a>
         <a class="btn" href="/history"><Icon name="book" size={16} /> {t('hist.title')}</a>
         <a class="btn" href="/wishlist"><Icon name="bookmark" size={16} /> {t('wish.count', { n: p.wishlistCount })}</a>
         <a class="btn" href="/settings"><Icon name="settings" size={16} /> {t('settings.title')}</a>
-        {#if session.me?.isAdmin}<a class="btn" href="/admin"><Icon name="shield" size={16} /> Admin</a>{/if}
+        {#if session.me?.isAdmin && !isLocal()}<a class="btn" href="/admin"><Icon name="shield" size={16} /> Admin</a>{/if}
       {:else if p.shelfVisible}
         <a class="btn dark" href="/people/{p.id}/shelf"><Icon name="library" size={16} /> {t('profile.toShelf')}</a>
         {#if p.wishlistCount}<a class="btn" href="/people/{p.id}/wishlist"><Icon name="bookmark" size={16} /> {t('wish.count', { n: p.wishlistCount })}</a>{/if}

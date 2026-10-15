@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { isLocal } from '../lib/state.svelte.ts';
+  import { incoming } from '../lib/app.svelte.ts';
   import { api } from '../lib/api.ts';
   import { session, toast, toastError } from '../lib/state.svelte.ts';
   import { t, fmtDate, type Key } from '../lib/i18n.svelte.ts';
@@ -34,7 +36,7 @@
   let reviews = $state(true);
   let wishlist = $state(true);
   let lists = $state(true);
-  let visibility = $state<'instance' | 'private'>(session.me?.prefs?.reviewVisibility === 'private' ? 'private' : 'instance');
+  let visibility = $state<'instance' | 'private'>(isLocal() || session.me?.prefs?.reviewVisibility === 'private' ? 'private' : 'instance');
   let conflict = $state<'ask' | 'mine' | 'theirs'>('ask');
   let running = $state(false);
   let done = $state(0);
@@ -62,7 +64,16 @@
   async function pick(e: Event) {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
-    rows = parseCsv(await file.text());
+    load(file.name, await file.text());
+  }
+  // in der App per „Teilen → bookshelv“ geöffnete Datei
+  $effect(() => {
+    if (incoming.file) { const f = incoming.file; incoming.file = null; load(f.name, f.text); }
+  });
+
+  function load(name: string, text: string) {
+    const file = { name };
+    rows = parseCsv(text);
     const r = convert(rows);
     source = r.source;
     parsed = r.items;
@@ -242,7 +253,7 @@
       {#if counts.listed && source !== 'booky'}<label class="row check"><input type="checkbox" bind:checked={lists} /> {t('imp.lists')}</label>{/if}
       {#if counts.rated}
         <label class="row check"><input type="checkbox" bind:checked={reviews} /> {t('imp.reviews')}</label>
-        {#if reviews}
+        {#if reviews && !isLocal()}
           <div class="segmented">
             <button class:active={visibility === 'instance'} onclick={() => (visibility = 'instance')}>{t('vis.instance')}</button>
             <button class:active={visibility === 'private'} onclick={() => (visibility = 'private')}>{t('vis.private')}</button>

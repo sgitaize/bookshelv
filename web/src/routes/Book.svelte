@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { isLocal } from '../lib/state.svelte.ts';
   import { QueuedError } from '../lib/offline.svelte.ts';
   import { api, labels, emptyCopy, percent, type Book, type Copy, type CopyValues, type Reading, type ReadStatus, type BuddyRead } from '../lib/api.ts';
   import ProgressSheet from '../components/ProgressSheet.svelte';
@@ -78,7 +79,7 @@
   const load = () => Promise.all([
     api.get<typeof data>(`/books/${id}`).then(r => (data = r)),
     api.get<{ events: HistoryEvent[] }>(`/history?book=${id}`).then(r => (history = r.events)),
-    api.get<BuddyRead[]>(`/reads?book=${id}`).then(r => (reads = r)).catch(() => {})
+    isLocal() ? null : api.get<BuddyRead[]>(`/reads?book=${id}`).then(r => (reads = r)).catch(() => {})
   ]).catch(toastError);
   let reads = $state<BuddyRead[]>([]);
   let startRead = $state(false);
@@ -333,7 +334,7 @@
     {/if}
   </section>
 
-  <section class="stack reads">
+  {#if !isLocal()}<section class="stack reads">
     <h2>{t('reads.title')}</h2>
     {#each reads as r (r.id)}
       <a class="card readrow" href="/reads/{r.id}">
@@ -343,7 +344,7 @@
       </a>
     {/each}
     <button class="lendbtn small readbtn" onclick={() => (startRead = true)}><Icon name="message" size={14} /> {t('reads.start')}</button>
-  </section>
+  </section>{/if}
 
   {#if data.archived.length}
     <section class="stack archived">

@@ -1,6 +1,10 @@
 import { setPrefs } from './theme.ts';
+import { scanner, scanFeedback } from './app.svelte.ts';
 import { api, ApiError, type Me } from './api.ts';
 import { net, isNetworkError, rememberMe, cachedMe, forgetMe, loadPending, loadWrites, warmOfflineCache, QueuedError } from './offline.svelte.ts';
+
+/** App im Lokal-Modus: Bibliothek nur auf dem Gerät – alles, was andere Menschen braucht, bleibt ausgeblendet */
+export const isLocal = () => !!session.me?.local;
 
 /** Angemeldeter Nutzer; undefined = wird noch geladen, null = nicht angemeldet */
 export const session = $state<{ me: Me | null | undefined; needsSetup: boolean }>({ me: undefined, needsSetup: false });
@@ -27,9 +31,14 @@ export async function loadSession() {
 
 // ---------- Instanz (Impressum-Link der betreibenden Person) ----------
 
-export const instance = $state({ imprintUrl: '' });
+export const instance = $state({ imprintUrl: '', openRegistration: false, full: false, loaded: false });
 export async function loadInstance() {
-  try { instance.imprintUrl = (await api.get<{ imprintUrl: string | null }>('/status')).imprintUrl ?? ''; } catch { /* offline */ }
+  try {
+    const s = await api.get<{ imprintUrl: string | null; openRegistration?: boolean; full?: boolean }>('/status');
+    instance.imprintUrl = s.imprintUrl ?? '';
+    instance.openRegistration = !!s.openRegistration;
+    instance.full = !!s.full;
+  } catch { /* offline */ } finally { instance.loaded = true; }
 }
 
 // ---------- Benachrichtigungen (Zähler für die Glocke) ----------
@@ -51,6 +60,8 @@ export const toasts = $state<Toast[]>([]);
 let nextId = 1;
 
 export function toast(text: string, kind: Toast['kind'] = 'ok') {
+  // Massen-Scan in der App: Rückmeldung direkt im nativen Scanner zeigen (die Seite ist dann verdeckt)
+  if (scanner.open) scanFeedback(text, kind === 'error' ? 'error' : 'ok');
   const id = nextId++;
   toasts.push({ id, text, kind });
   setTimeout(() => {

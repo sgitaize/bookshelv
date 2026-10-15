@@ -1,7 +1,7 @@
 <script lang="ts">
   import { fly } from 'svelte/transition';
   import { router } from './lib/router.svelte.ts';
-  import { session, loadSession, loadInstance, toasts, toast, pollNotifications } from './lib/state.svelte.ts';
+  import { session, loadSession, loadInstance, toasts, toast, pollNotifications, isLocal } from './lib/state.svelte.ts';
   import { api } from './lib/api.ts';
   import Nav from './components/Nav.svelte';
   import Auth from './routes/Auth.svelte';
@@ -32,8 +32,22 @@
   import ReadView from './routes/ReadView.svelte';
   import Stats from './routes/Stats.svelte';
   import Wrapup from './routes/Wrapup.svelte';
-  import { t } from './lib/i18n.svelte.ts';
+  import { t, i18n } from './lib/i18n.svelte.ts';
   import { net, writes, flushWrites } from './lib/offline.svelte.ts';
+  import { app, onAppEvent, incoming, post, openAppPanel } from './lib/app.svelte.ts';
+  import Icon from './components/Icon.svelte';
+  import { syncNow } from './lib/prefetch.svelte.ts';
+
+  // App: Ereignisse der nativen Seite (zurück im Vordergrund, geteilte Datei, Sprung zu einer Seite)
+  onAppEvent(ev => {
+    if (ev.type === 'refresh') loadSession().then(() => { sync(); syncNow(); }).catch(() => {});
+    else if (ev.type === 'navigate') router.go(ev.path);
+    else if (ev.type === 'file') { incoming.file = { name: ev.name, text: ev.text }; router.go('/import'); }
+  });
+  // Konto in der App: eigenen Stand für unterwegs vorhalten
+  $effect(() => { if (session.me && net.online && app.info?.mode === 'remote') syncNow(); });
+  // der App mitteilen, ob jemand angemeldet ist (Startbildschirm, Konto-Anzeige) und welche Sprache gilt
+  $effect(() => { if (app.info && session.me !== undefined) post('session', { user: session.me ? { name: session.me.displayName, username: session.me.username } : null, lang: i18n.lang }); });
 
   loadSession().catch(() => (session.me = null));
   loadInstance();
@@ -76,6 +90,8 @@
 {:else if session.me === null}
   {#if invite}
     <Auth mode="register" inviteToken={invite.token} />
+  {:else if router.path === '/signup'}
+    <Auth mode="register" />
   {:else if session.needsSetup}
     <Auth mode="setup" />
   {:else}
@@ -87,7 +103,14 @@
   <main>
     {#key router.path + router.query.toString()}
       <div in:fly={{ y: 8, duration: 180 }}>
-        {#if router.path === '/'}<Home />
+        {#if isLocal() && (router.path.startsWith('/people') || router.path.startsWith('/reads') || router.path === '/admin')}
+          <!-- App ohne Konto: Freund*innen, Leserunden und Verwaltung gibt es erst mit einer Instanz -->
+          <div class="empty">
+            <h2>{t('appx.needsAccount')}</h2>
+            <p>{t('appx.needsAccountText')}</p>
+            <button class="primary" onclick={() => openAppPanel('connect')}><Icon name="users" size={16} /> {t('appx.connect')}</button>
+          </div>
+        {:else if router.path === '/'}<Home />
         {:else if router.path === '/library'}<Shelf />
         {:else if router.path === '/me'}<Profile />
         {:else if router.path === '/add'}<Add />

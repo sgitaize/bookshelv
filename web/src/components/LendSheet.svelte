@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { isLocal } from '../lib/state.svelte.ts';
   import { api } from '../lib/api.ts';
   import { session, toast, toastError } from '../lib/state.svelte.ts';
   import { t } from '../lib/i18n.svelte.ts';
@@ -20,6 +21,8 @@
   $effect(() => {
     if (copyId === null) return;
     borrower = ''; name = ''; due = ''; note = ''; handle = '';
+    // lokal (App ohne Konto) gibt es nur Namen
+    if (isLocal()) { borrower = 'other'; return; }
     api.get<Person[]>('/users').then(r => (people = r.filter(p => p.id !== session.me?.id))).catch(toastError);
     api.get<typeof instances>('/federation/instances').then(r => (instances = r)).catch(() => {});
   });
@@ -55,7 +58,7 @@
 <Sheet open={copyId !== null} {onclose} title={t('loan.lendTitle')}>
   <form class="stack" onsubmit={save}>
     <p class="muted small book">{title}</p>
-    <label class="field">
+    {#if !isLocal()}<label class="field">
       <span>{t('loan.to')}</span>
       <select bind:value={borrower} required>
         <option value="" disabled>{t('loan.pick')}</option>
@@ -63,13 +66,13 @@
         <option value="other">{t('loan.other')}</option>
         {#if instances.length}<option value="remote">{t('loan.remote')}</option>{/if}
       </select>
-    </label>
+    </label>{/if}
     {#if borrower === 'other'}
       <label class="field">
         <span>{t('loan.name')}</span>
         <!-- svelte-ignore a11y_autofocus -->
-        <input bind:value={name} required maxlength="80" placeholder={t('loan.namePh')} autofocus />
-        <small>{t('loan.nameHint')}</small>
+        <input bind:value={name} required maxlength="80" placeholder={t('loan.namePh')} autofocus={!isLocal()} />
+        {#if !isLocal()}<small>{t('loan.nameHint')}</small>{/if}
       </label>
     {/if}
     {#if borrower === 'remote'}

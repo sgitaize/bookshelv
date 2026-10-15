@@ -9,3 +9,10 @@ data/
 INTERN.md
 LOG.md
 tests/node_modules/
+# App-Builds (Bundle, Testserver, Xcode)
+native/build/
+native/ios/Vendor/
+native/ios/build/
+native/ios/Config/Local.xcconfig
+native/ios/*.xcodeproj/xcuserdata/
+native/ios/*.xcodeproj/project.xcworkspace/xcuserdata/

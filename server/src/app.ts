@@ -24,6 +24,7 @@ import { adminRoutes } from './routes/admin.ts';
 import { friendRoutes } from './routes/friends.ts';
 import { router } from './util.ts';
 import { translate } from './i18n.ts';
+import { localGuard } from './local.ts';
 
 export const app = router();
 
@@ -44,6 +45,7 @@ app.use(secureHeaders({
 }));
 app.use('/api/*', csrf());
 app.use('/api/*', loadUser);
+app.use('/api/*', localGuard);
 
 app.route('/api', authRoutes);
 app.route('/api', bookRoutes);
@@ -69,6 +71,15 @@ app.onError((err, c) => {
   console.error(err);
   return c.json({ error: translate('Interner Fehler', lang) }, 500);
 });
+
+// ---------- Apps ----------
+
+/**
+ * Passwort-AutoFill in der iOS-App (webcredentials): verknüpft gespeicherte Zugangsdaten dieser Instanz mit der App.
+ * Standard ist die offizielle App; eigene Builds über BOOKSHELV_APPLE_APP_IDS (TEAMID.bundle.id, Komma-getrennt).
+ */
+const appleAppIds = (process.env.BOOKSHELV_APPLE_APP_IDS ?? 'V7GQKCH73F.de.sgitaize.bookshelv').split(',').map(s => s.trim()).filter(Boolean);
+app.get('/.well-known/apple-app-site-association', c => c.json({ webcredentials: { apps: appleAppIds } }));
 
 // ---------- Cover & Frontend ----------
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { isLocal } from '../lib/state.svelte.ts';
   import { api, labels, type ReadingList, type ListVisibility, type ListMember } from '../lib/api.ts';
   import { session, toast, toastError } from '../lib/state.svelte.ts';
   import Avatar from '../components/Avatar.svelte';
@@ -81,11 +82,11 @@
       <div class="head">
         <h1>{l.name}</h1>
         <p class="muted small">
-          {#if !l.mine}<a href="/people/{l.owner.id}">{l.owner.displayName}</a> · {/if}{tn('list.books', l.items.length)} · {l.visibility === 'private' ? t('vis.private') : t('list.visPublic')} · {t('list.updated', { d: fmtDate(l.updatedAt) })}
+          {#if !l.mine}<a href="/people/{l.owner.id}">{l.owner.displayName}</a> · {/if}{tn('list.books', l.items.length)}{#if !isLocal()} · {l.visibility === 'private' ? t('vis.private') : t('list.visPublic')}{/if} · {t('list.updated', { d: fmtDate(l.updatedAt) })}
         </p>
       </div>
       <div class="row">
-        <button class="icon ghost" onclick={openShare} aria-label={t('list.share')}><Icon name="users" /></button>
+        {#if !isLocal()}<button class="icon ghost" onclick={openShare} aria-label={t('list.share')}><Icon name="users" /></button>{/if}
       {#if l.mine}
           <button class="icon ghost" onclick={openEdit} aria-label={t('common.edit')}><Icon name="edit" /></button>
           <button class="icon ghost" onclick={remove} aria-label={t('common.delete')}><Icon name="trash" /></button>
@@ -133,10 +134,12 @@
     <form class="stack" onsubmit={save}>
       <label class="field"><span>{t('list.name')}</span><input bind:value={form.name} required maxlength="80" /></label>
       <label class="field"><span>{t('list.description')}</span><textarea bind:value={form.description} maxlength="1000" rows="3"></textarea></label>
+      {#if !isLocal()}
       <div class="segmented">
         <button type="button" class:active={form.visibility === 'instance'} onclick={() => (form.visibility = 'instance')}>{t('list.visPublic')}</button>
         <button type="button" class:active={form.visibility === 'private'} onclick={() => (form.visibility = 'private')}>{t('vis.private')}</button>
       </div>
+      {/if}
       <button class="primary">{t('common.save')}</button>
     </form>
   </Sheet>
