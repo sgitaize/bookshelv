@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { isLocal } from '../lib/state.svelte.ts';
   import { QueuedError } from '../lib/offline.svelte.ts';
   import { api, visibilityLabel, MOODS, PACES, type Mood, type Pace, type BookReviews, type Review, type Visibility } from '../lib/api.ts';
   import { session, toast, toastError } from '../lib/state.svelte.ts';
@@ -24,7 +25,8 @@
     if (!open) return;
     rating = existing?.rating ?? null;
     text = existing?.text ?? '';
-    visibility = existing?.visibility ?? session.me?.prefs?.reviewVisibility ?? 'instance';
+    // lokal sieht ohnehin nur man selbst; „privat“ bleibt beim späteren Verbinden mit einem Konto privat
+    visibility = isLocal() ? 'private' : existing?.visibility ?? session.me?.prefs?.reviewVisibility ?? 'instance';
     spoiler = existing?.spoiler ?? false;
     moods = existing?.moods ?? [];
     pace = existing?.pace ?? null;
@@ -77,14 +79,14 @@
       </div>
     </div>
     <label class="row check"><input type="checkbox" bind:checked={spoiler} /> {t('review.spoiler')}</label>
-    <label class="field">
+    {#if !isLocal()}<label class="field">
       <span>{t('review.whoSees')}</span>
       <select bind:value={visibility}>
         <option value="instance">{visibilityLabel.instance}</option>
         <option value="private">{visibilityLabel.private}</option>
         <option value="federated">{visibilityLabel.federated}</option>
       </select>
-    </label>
+    </label>{/if}
     <div class="row">
       <button class="primary grow" disabled={busy}>{t('common.save')}</button>
       {#if existing}<button type="button" class="ghost danger" onclick={remove}>{t('common.delete')}</button>{/if}

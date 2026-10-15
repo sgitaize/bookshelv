@@ -1,0 +1,5 @@
+// Gemeinsame Einstellungen. Team und eigene Bundle-ID in Config/Local.xcconfig (nicht im Repo), z. B.:
+//   DEVELOPMENT_TEAM = XXXXXXXXXX
+//   BS_BUNDLE_ID = com.example.bookshelv
+BS_BUNDLE_ID = de.sgitaize.bookshelv
+#include? "Local.xcconfig"

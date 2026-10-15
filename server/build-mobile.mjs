@@ -24,6 +24,12 @@ await build({
   logLevel: 'info'
 });
 
+// nodejs-mobile hat kein ICU: Unicode-Property-Escapes in Regexen brechen schon beim Laden ab
+if (/\\p\{/.test(readFileSync(new URL('host.js', out), 'utf8'))) {
+  console.error('✗ host.js enthält \\p{…} in einem RegExp – auf iOS/Android ohne ICU nicht lauffähig (siehe util.ts lettersOnly)');
+  process.exit(1);
+}
+
 // Testserver: normaler Server mit denselben Ersatzteilen (für tests/run.sh mit Node 18 --jitless)
 if (process.argv.includes('--test-server')) await build({
   entryPoints: ['src/mobile/server18.ts'],

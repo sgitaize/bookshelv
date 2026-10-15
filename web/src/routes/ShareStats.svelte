@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { isLocal } from '../lib/state.svelte.ts';
   // Statistik als teilbares Bild (Instagram): Zeitraum Monat/Quartal/Jahr, Vorlage bzw. eigene Auswahl an Bausteinen,
   // Format Story/Post/Quadrat, Farbschema. Gezeichnet auf ein Canvas in der App-Schrift, gespeichert als PNG.
   import { api, type Stats, type BookBrief, type StatGroup } from '../lib/api.ts';
@@ -194,7 +195,7 @@
     ctx.fillStyle = P.text; ctx.font = `400 72px ${headFont()}`;
     ctx.fillText(fit(ctx, titleFor(st.period ?? period), CW), X, y + 64);
     ctx.fillStyle = P.muted; ctx.font = `400 32px ${font()}`;
-    ctx.fillText(`@${st.user.username} · bookshelv`, X, y + 116);
+    ctx.fillText((isLocal() ? [st.user.displayName, 'bookshelv'].filter(Boolean).join(' · ') : `@${st.user.username} · bookshelv`), X, y + 116);
     y += 160;
 
     const footerY = H - bottom + 40;

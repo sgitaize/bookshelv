@@ -93,7 +93,7 @@ export function localUser(): User {
   const u = db.prepare(`SELECT ${USER_COLUMNS} FROM users ORDER BY id LIMIT 1`).get() as User | undefined;
   if (u) return u;
   // kein Passwort: Anmeldung gibt es lokal nicht ("!" passt zu keinem scrypt-Hash)
-  db.prepare("INSERT INTO users (username, display_name, pw_hash, is_admin) VALUES ('me', ?, '!', 1)").run(process.env.BOOKSHELV_LOCAL_NAME || 'Ich');
+  db.prepare("INSERT INTO users (username, display_name, pw_hash, is_admin) VALUES ('me', ?, '!', 1)").run(process.env.BOOKSHELV_LOCAL_NAME || ''); // ohne Namen: die Oberfläche lässt ihn einfach weg
   return localUser();
 }
 

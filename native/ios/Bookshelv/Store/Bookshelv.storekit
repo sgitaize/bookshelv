@@ -1,0 +1,21 @@
+{
+  "identifier" : "B00C5E1F",
+  "nonRenewingSubscriptions" : [ ],
+  "products" : [
+    { "displayPrice" : "1.99", "familyShareable" : false, "internalID" : "6741000001", "localizations" : [
+        { "description" : "Ein Kaffee für die Entwicklung", "displayName" : "Kleines Trinkgeld", "locale" : "de" },
+        { "description" : "A coffee for development", "displayName" : "Small tip", "locale" : "en_US" } ],
+      "productID" : "de.sgitaize.bookshelv.tip.small", "referenceName" : "Tip small", "type" : "Consumable" },
+    { "displayPrice" : "4.99", "familyShareable" : false, "internalID" : "6741000002", "localizations" : [
+        { "description" : "Ein Taschenbuch für die Entwicklung", "displayName" : "Mittleres Trinkgeld", "locale" : "de" },
+        { "description" : "A paperback for development", "displayName" : "Medium tip", "locale" : "en_US" } ],
+      "productID" : "de.sgitaize.bookshelv.tip.medium", "referenceName" : "Tip medium", "type" : "Consumable" },
+    { "displayPrice" : "9.99", "familyShareable" : false, "internalID" : "6741000003", "localizations" : [
+        { "description" : "Ein gebundenes Buch für die Entwicklung", "displayName" : "Großes Trinkgeld", "locale" : "de" },
+        { "description" : "A hardcover for development", "displayName" : "Large tip", "locale" : "en_US" } ],
+      "productID" : "de.sgitaize.bookshelv.tip.large", "referenceName" : "Tip large", "type" : "Consumable" }
+  ],
+  "settings" : { "_failTransactionsEnabled" : false, "_locale" : "de", "_storefront" : "DEU" },
+  "subscriptionGroups" : [ ],
+  "version" : { "major" : 4, "minor" : 0 }
+}

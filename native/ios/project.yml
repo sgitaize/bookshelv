@@ -1,0 +1,83 @@
+# XcodeGen-Spezifikation. Projekt erzeugen:  cd native/ios && Scripts/fetch-nodejs-mobile.sh && xcodegen
+# Vorher einmal Oberfläche + App-Host bauen:  npm run build:app   (im Repo-Hauptordner)
+name: Bookshelv
+options:
+  developmentLanguage: de
+  bundleIdPrefix: de.sgitaize
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+targets:
+  Bookshelv:
+    type: application
+    platform: iOS
+    sources:
+      - Bookshelv
+      - path: ../shared/sqlite_napi.c
+        group: Bookshelv/Node
+    dependencies:
+      - framework: Vendor/NodeMobile.xcframework
+        embed: true
+        codeSign: true
+      - sdk: libsqlite3.tbd
+      - sdk: StoreKit.framework
+      - sdk: VisionKit.framework
+    configFiles:
+      Debug: Config/Base.xcconfig
+      Release: Config/Base.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(BS_BUNDLE_ID)
+        PRODUCT_NAME: Bookshelv
+        CODE_SIGN_ENTITLEMENTS: Bookshelv/Bookshelv.entitlements
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_BITCODE: NO
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        SWIFT_OBJC_BRIDGING_HEADER: Bookshelv/Node/Bookshelv-Bridging-Header.h
+        HEADER_SEARCH_PATHS: $(SRCROOT)/../shared/include
+        GCC_PREPROCESSOR_DEFINITIONS: $(inherited) NAPI_VERSION=8
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        # der statische Konstruktor in sqlite_napi.c darf nicht wegoptimiert werden
+        DEAD_CODE_STRIPPING: NO
+    info:
+      path: Bookshelv/Info.plist
+      properties:
+        CFBundleDisplayName: bookshelv
+        CFBundleDevelopmentRegion: de
+        CFBundleLocalizations: [de, en]
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
+        LSApplicationCategoryType: public.app-category.books
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIApplicationSupportsIndirectInputEvents: true
+        UIRequiresFullScreen: false
+        UIStatusBarStyle: UIStatusBarStyleLightContent
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        NSCameraUsageDescription: "Zum Scannen der ISBN auf der Buchrückseite. Das Bild wird nur auf dem Gerät ausgewertet."
+        NSPhotoLibraryUsageDescription: "Für eigene Buchcover und dein Profilbild."
+        # „Öffnen in bookshelv“ für Exporte anderer Lese-Apps (Booky, Goodreads, StoryGraph …)
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: "CSV"
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [public.comma-separated-values-text, public.tab-separated-values-text, public.plain-text]
+        LSSupportsOpeningDocumentsInPlace: false
+        NSUbiquitousContainers:
+          iCloud.de.sgitaize.bookshelv:
+            NSUbiquitousContainerIsDocumentScopePublic: true
+            NSUbiquitousContainerName: bookshelv
+            NSUbiquitousContainerSupportedFolderLevels: Any
+    preBuildScripts:
+      - name: Oberfläche und App-Host bündeln (native/build/server → server/)
+        script: "\"${SRCROOT}/Scripts/bundle-server.sh\""
+        basedOnDependencyAnalysis: false

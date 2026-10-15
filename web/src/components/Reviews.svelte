@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { isLocal } from '../lib/state.svelte.ts';
   import { api, ago, fmtRating, type BookReviews, type Review } from '../lib/api.ts';
   import { toastError } from '../lib/state.svelte.ts';
   import Stars from './Stars.svelte';
@@ -107,11 +108,11 @@
     {#if r.moods?.length || r.pace}
       <p class="tags">{#each r.moods ?? [] as m}<span>{t(`mood.${m}`)}</span>{/each}{#if r.pace}<span class="pace">{t('review.paceIs', { p: t(`pace.${r.pace}`) })}</span>{/if}</p>
     {/if}
-    <footer>
+    {#if !isLocal()}<footer>
       <button class="ghost small" onclick={() => (openComments = toggle(openComments, r.id))}>
         💬 {r.comments.length ? tn('n.comments', r.comments.length) : t('comment.add')}
       </button>
-    </footer>
+    </footer>{/if}
     {#if openComments.has(r.id)}
       <div class="comments">
         {#each r.comments as c (c.id)}

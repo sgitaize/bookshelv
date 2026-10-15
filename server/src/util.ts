@@ -41,3 +41,21 @@ export function oneOf<T extends string>(v: unknown, values: readonly T[], fallba
 }
 
 export const notFound = (what = 'Eintrag') => new HTTPException(404, { message: `${what} nicht gefunden` });
+
+/**
+ * Alles außer Buchstaben (und optional Ziffern) durch Leerzeichen ersetzen – wie /[^\p{L}\p{N}]+/gu, aber ohne
+ * Unicode-Property-Escapes: nodejs-mobile (App) ist ohne ICU gebaut und lehnt \p{…} schon beim Laden ab.
+ * Buchstabe = hat Groß-/Kleinform oder gehört zu einer Schrift ohne Groß-/Kleinschreibung (CJK, Kana, Hangul, Arabisch, Hebräisch …).
+ */
+export function lettersOnly(s: string, digits = true): string {
+  let out = '', gap = false;
+  for (const ch of s) {
+    const cp = ch.codePointAt(0)!;
+    const letter = ch.toLowerCase() !== ch.toUpperCase() || ch === 'ß'
+      || (cp >= 0x0590 && cp <= 0x06ff) || (cp >= 0x0e00 && cp <= 0x0e7f) || (cp >= 0x3040 && cp <= 0x30ff)
+      || (cp >= 0x3400 && cp <= 0x9fff) || (cp >= 0xac00 && cp <= 0xd7af) || (cp >= 0x20000 && cp <= 0x2fa1f);
+    if (letter || (digits && ch >= '0' && ch <= '9')) { if (gap && out) out += ' '; out += ch; gap = false; }
+    else gap = true;
+  }
+  return out;
+}

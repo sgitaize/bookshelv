@@ -1,10 +1,11 @@
 <script lang="ts">
   import { api } from '../lib/api.ts';
-  import { loadSession, session } from '../lib/state.svelte.ts';
+  import { loadSession, session, instance } from '../lib/state.svelte.ts';
+  import { inApp, openAppPanel, publicHost } from '../lib/app.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
   import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
 
-  // login | setup (erster Admin) | register (per Einladungslink)
+  // login | setup (erster Admin) | register (per Einladungslink; ohne Token: offene Registrierung, falls die Instanz sie erlaubt)
   let { mode, inviteToken = '' }: { mode: 'login' | 'setup' | 'register'; inviteToken?: string } = $props();
 
   let username = $state('');
@@ -17,7 +18,8 @@
   let invite = $state<{ valid: boolean; invitedBy?: string } | null>(null);
 
   $effect(() => {
-    if (mode === 'register') api.get<typeof invite>(`/invites/check/${encodeURIComponent(inviteToken)}`).then(r => (invite = r));
+    if (mode === 'register' && inviteToken) api.get<typeof invite>(`/invites/check/${encodeURIComponent(inviteToken)}`).then(r => (invite = r));
+    else if (mode === 'register') invite = instance.loaded ? { valid: instance.openRegistration } : null;
   });
 
   async function submit(e: SubmitEvent) {
@@ -35,7 +37,7 @@
     try {
       if (mode === 'login') await api.post('/login', { username, password });
       else if (mode === 'setup') await api.post('/setup', { token: setupToken.trim(), username, displayName, password });
-      else await api.post('/register', { token: inviteToken, username, displayName, password });
+      else await api.post('/register', { ...(inviteToken ? { token: inviteToken } : {}), username, displayName, password });
       await loadSession();
       router.go('/', true);
     } catch (err) {
@@ -71,7 +73,8 @@
         <a href="/" class="btn">{t('auth.toLogin')}</a>
       {:else}
         <h2>{t('auth.welcome')}</h2>
-        <p class="muted small">{t('auth.invitedBy', { n: invite.invitedBy ?? '' })}</p>
+        {#if invite.invitedBy}<p class="muted small">{t('auth.invitedBy', { n: invite.invitedBy })}</p>
+        {:else}<p class="muted small">{t('auth.signupInfo', { host: publicHost() })}</p>{/if}
       {/if}
     {:else}
       <h2>{t('auth.signIn')}</h2>
@@ -95,10 +98,20 @@
         {mode === 'login' ? t('auth.signIn') : mode === 'setup' ? t('auth.createAdmin') : t('auth.createAccount')}
       </button>
       {#if mode === 'login' && !session.needsSetup}
-        <p class="muted small center">{t('auth.noAccount')}</p>
+        {#if instance.openRegistration}
+          <p class="muted small center">{t('auth.noAccountYet')} <a href="/signup">{t('auth.createAccount')}</a></p>
+        {:else}
+          <p class="muted small center">{t('auth.noAccount')}</p>
+        {/if}
+      {:else if mode === 'register' && !inviteToken}
+        <p class="muted small center"><a href="/">{t('auth.haveAccount')}</a></p>
       {/if}
     {/if}
   </form>
+
+  {#if inApp()}
+    <p class="center"><button class="ghost other" onclick={() => openAppPanel('switch')}>{t('auth.otherPlace', { host: publicHost() })}</button></p>
+  {/if}
 
   <footer class="muted small">
     <a href="https://github.com/sgitaize/bookshelv" target="_blank" rel="noopener">bookshelv</a> – {t('auth.footer')}
@@ -136,4 +149,5 @@
   .err { color: var(--danger); margin: 0; font-size: 0.9rem; }
   .center { text-align: center; margin: 0; }
   code { font-size: 0.85em; background: var(--surface-2); padding: 0.1em 0.35em; border-radius: 5px; }
+  .other { white-space: normal; max-width: 100%; }
 </style>

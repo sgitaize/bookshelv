@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { router } from '../lib/router.svelte.ts';
-  import { notifications } from '../lib/state.svelte.ts';
+  import { notifications, isLocal } from '../lib/state.svelte.ts';
   import { pending, writes } from '../lib/offline.svelte.ts';
   // Glocke zählt ungelesene Benachrichtigungen plus Offline-Scans, die noch auf dem Gerät warten
   const badge = $derived(notifications.unread + pending.items.length + writes.items.length);
@@ -11,8 +11,11 @@
     { href: '/', icon: 'home', label: t('nav.home'), active: router.path === '/' },
     { href: '/library', icon: 'library', label: t('nav.library'), active: router.path === '/library' },
     { href: '/add', icon: 'scan', label: t('nav.add'), active: router.path === '/add' },
-    { href: '/people', icon: 'users', label: t('nav.friends'), active: router.path.startsWith('/people') },
-    { href: '/me', icon: 'user', label: t('nav.profile'), active: ['/me', '/settings', '/admin', '/loans', '/history', '/wishlist', '/import', '/stats', '/wrapup'].includes(router.path) }
+    // Lokal (App ohne Konto) gibt es keine Freund*innen – dort steht die Statistik an der Stelle
+    isLocal()
+      ? { href: '/stats', icon: 'chart', label: t('nav.stats'), active: ['/stats', '/wrapup', '/share'].includes(router.path) }
+      : { href: '/people', icon: 'users', label: t('nav.friends'), active: router.path.startsWith('/people') },
+    { href: '/me', icon: 'user', label: t('nav.profile'), active: ['/me', '/settings', '/admin', '/loans', '/history', '/wishlist', '/import', ...(isLocal() ? [] : ['/stats', '/wrapup'])].includes(router.path) }
   ]);
 
   let q = $state('');

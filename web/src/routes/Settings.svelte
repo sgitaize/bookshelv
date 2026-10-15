@@ -1,7 +1,9 @@
 <script lang="ts">
   import { forgetMe } from '../lib/offline.svelte.ts';
   import { api, inviteUrl, type Invite } from '../lib/api.ts';
-  import { session, loadSession, toast, toastError } from '../lib/state.svelte.ts';
+  import { session, loadSession, toast, toastError, isLocal } from '../lib/state.svelte.ts';
+  import { app, inApp, openAppPanel, publicHost } from '../lib/app.svelte.ts';
+  import { offlineSync, syncNow } from '../lib/prefetch.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
   import Icon from '../components/Icon.svelte';
   import { t, tn, i18n, fmtDate, type Key } from '../lib/i18n.svelte.ts';
@@ -51,7 +53,7 @@
   }
 
   const loadInvites = () => api.get<Invite[]>('/invites').then(r => (invites = r)).catch(toastError);
-  $effect(() => { loadInvites(); });
+  $effect(() => { if (!isLocal()) loadInvites(); });
 
   async function saveProfile(e: SubmitEvent) {
     e.preventDefault();
@@ -69,7 +71,8 @@
   }
 
   /** Übersicht → Bereich per ?s=…; am Handy entweder Menü oder Bereich, am Desktop beides nebeneinander */
-  const SECTIONS = [
+  const ALL = [
+    { id: 'app', icon: 'phone', label: 'appx.title' },
     { id: 'profile', icon: 'user', label: 'settings.secProfile' },
     { id: 'privacy', icon: 'shield', label: 'settings.secPrivacy' },
     { id: 'appearance', icon: 'sparkle', label: 'settings.appearance' },
@@ -77,9 +80,11 @@
     { id: 'data', icon: 'download', label: 'settings.secData' },
     { id: 'account', icon: 'settings', label: 'settings.secAccount' },
   ] as const;
-  type Sec = typeof SECTIONS[number]['id'];
+  type Sec = typeof ALL[number]['id'];
+  // App: eigener Bereich oben; lokal ohne Konto entfallen Sichtbarkeit, Einladungen und Konto
+  const SECTIONS = $derived(ALL.filter(s => s.id === 'app' ? inApp() : !(isLocal() && ['privacy', 'invites', 'account'].includes(s.id))));
   const picked = $derived(router.query.get('s') as Sec | null);
-  const sec = $derived<Sec>(SECTIONS.some(s => s.id === picked) ? picked! : 'profile');
+  const sec = $derived<Sec>(SECTIONS.some(s => s.id === picked) ? picked! : SECTIONS[0].id);
   const openInvites = $derived(invites.filter(i => !i.usedBy && new Date(i.expiresAt) > new Date()).length);
   const visLabel = (v: string) => t(`vis.${v}` as Key);
   function summary(id: Sec): string {
@@ -90,6 +95,7 @@
       case 'invites': return tn('settings.openInvites', openInvites);
       case 'data': return t('settings.secDataSub');
       case 'account': return `@${session.me?.username ?? ''}`;
+      case 'app': return isLocal() ? t('appx.localShort') : t('appx.remoteShort', { host: publicHost() });
     }
   }
 
@@ -161,7 +167,7 @@
         </li>
       {/each}
     </ul>
-    <button class="ghost logout" onclick={logout}><Icon name="logout" size={16} /> {t('settings.logout')}</button>
+    {#if !isLocal()}<button class="ghost logout" onclick={logout}><Icon name="logout" size={16} /> {t('settings.logout')}</button>{/if}
     <p class="muted small about">
       {t('settings.free')} · <a href="https://github.com/sgitaize/bookshelv" target="_blank" rel="noopener">{t('settings.source')}</a>
       · {t('settings.builtBy')} <a href="https://simongutjahr.de" target="_blank" rel="noopener">Simon Gutjahr</a>
@@ -172,7 +178,38 @@
   <div class="content stack">
     <a class="backlink" href="/settings"><Icon name="back" size={18} /> {t('settings.title')}</a>
 
-    {#if sec === 'profile'}
+    {#if sec === 'app'}
+      <h2 class="sec-title">{t('appx.title')}</h2>
+      <div class="card stack">
+        {#if isLocal()}
+          <p><strong>{t('appx.localTitle')}</strong></p>
+          <p class="muted small">{t('appx.localInfo')}</p>
+          <div class="btns">
+            <button class="primary" onclick={() => openAppPanel('backup')}><Icon name="cloud" size={16} /> {t('appx.backup')}</button>
+            <button onclick={() => openAppPanel('connect')}><Icon name="users" size={16} /> {t('appx.connect')}</button>
+          </div>
+          <p class="muted small">{t('appx.connectInfo')}</p>
+        {:else}
+          <p><strong>{t('appx.remoteTitle', { host: publicHost() })}</strong></p>
+          <p class="muted small">{t('appx.remoteInfo')}</p>
+          <div class="btns">
+            <button onclick={() => syncNow(true)} disabled={offlineSync.running}><Icon name="download" size={16} />
+              {offlineSync.running ? t('appx.syncing', { n: offlineSync.done, total: offlineSync.total }) : t('appx.syncNow')}</button>
+          </div>
+          {#if offlineSync.last}<p class="muted small">{t('appx.syncedAt', { d: fmtDate(offlineSync.last) })}</p>{/if}
+        {/if}
+        <div class="btns">
+          <button class="ghost" onclick={() => openAppPanel('switch')}><Icon name="link" size={16} /> {t('appx.switch')}</button>
+        </div>
+      </div>
+      <div class="card stack">
+        <h3>{t('appx.supportTitle')}</h3>
+        <p class="muted small">{t('appx.supportInfo')}</p>
+        <div class="btns"><button onclick={() => openAppPanel('support')}><Icon name="heart" size={16} /> {t('appx.support')}</button></div>
+      </div>
+      <p class="muted small">bookshelv {app.info?.version}</p>
+
+    {:else if sec === 'profile'}
       <h2 class="sec-title">{t('settings.secProfile')}</h2>
       <div class="card stack">
         <div class="row avrow">
@@ -191,11 +228,13 @@
         <label class="field"><span>{t('auth.displayName')}</span><input bind:value={displayName} maxlength="60" required /></label>
         <button class="primary" disabled={displayName.trim() === session.me?.displayName}>{t('common.save')}</button>
       </form>
-      <div class="card handle">
-        <span class="muted small">{t('fed.myHandle')}</span>
-        <code>@{session.me?.username}@{location.host}</code>
-        <span class="muted small">{t('fed.myHandleInfo')}</span>
-      </div>
+      {#if !isLocal()}
+        <div class="card handle">
+          <span class="muted small">{t('fed.myHandle')}</span>
+          <code>@{session.me?.username}@{publicHost()}</code>
+          <span class="muted small">{t('fed.myHandleInfo')}</span>
+        </div>
+      {/if}
 
     {:else if sec === 'privacy'}
       <h2 class="sec-title">{t('settings.secPrivacy')}</h2>
@@ -361,7 +400,7 @@
   label.btn { cursor: pointer; }
   label.btn.disabled { opacity: 0.5; pointer-events: none; }
   .btns { display: grid; gap: 0.5rem; justify-items: start; }
-  .btns .btn { max-width: 100%; white-space: normal; text-align: left; }
+  .btns .btn, .btns button { max-width: 100%; white-space: normal; text-align: left; }
   .themes { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
   .theme { display: grid; grid-template-columns: 1fr; justify-content: stretch; gap: 0.35rem; justify-items: stretch; padding: 0.45rem; border-radius: 12px; font-size: 0.85rem; white-space: normal; }
   .theme.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }

@@ -67,7 +67,7 @@ if (!process.env.BOOKSHELV_NO_BACKFILL) {
 }
 if (!process.env.BOOKSHELV_NO_BACKFILL) setTimeout(() => { backfillSeries().catch(e => console.error('Reihen-Nachladen:', e)); }, 15000).unref();
 
-const server = http.createServer(getRequestListener(app.fetch));
+export const server = http.createServer(getRequestListener(app.fetch));
 
 // Unter Plesk/Passenger wird nicht auf einen Port gehört, sondern auf den von Passenger vergebenen Socket
 declare const PhusionPassenger: unknown;

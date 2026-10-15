@@ -281,7 +281,7 @@
         </div>
       {/if}
     </div>
-    <Scanner onscan={onScan} paused={busy || !!selected || !!notFound} ok={scanOk} />
+    <Scanner onscan={onScan} paused={busy || !!selected || !!notFound} ok={scanOk} multi={target === 'mass'} />
     <p class="muted small center">
       {#if lookupIsbn}<span class="row inline"><span class="spinner sm"></span> {t('add.looking', { isbn: lookupIsbn })}</span>
       {:else if !net.online && lastQueued}{t('offline.lastSaved', { isbn: lastQueued, n: pending.items.length })}

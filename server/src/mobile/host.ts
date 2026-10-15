@@ -17,6 +17,7 @@ import path from 'node:path';
 import http from 'node:http';
 import https from 'node:https';
 import crypto from 'node:crypto';
+import net from 'node:net';
 import { nodeFetch } from './shims.ts';
 
 const env = (k: string, fallback?: string) => {
@@ -100,6 +101,7 @@ const splitCookies = (h: string) => h.split(/,(?=\s*[A-Za-z0-9_-]+=)/);
 // ---------- Lokaler Server (erst bei Bedarf) ----------
 
 let local: Promise<void> | null = null;
+let localServer: http.Server | null = null;
 function startLocal(name?: string): Promise<void> {
   if (local) return local;
   process.env.BOOKSHELV_LOCAL = '1';
@@ -111,7 +113,7 @@ function startLocal(name?: string): Promise<void> {
   process.env.HOST = '127.0.0.1';
   if (name) process.env.BOOKSHELV_LOCAL_NAME = name;
   local = (async () => {
-    require('../main.ts');
+    localServer = (require('../main.ts') as typeof import('../main.ts')).server;
     for (let i = 0; i < 100; i++) {
       try { if ((await nodeFetch(`http://127.0.0.1:${LOCAL_PORT}/api/status`)).ok) return; } catch { /* startet noch */ }
       await new Promise(r => setTimeout(r, 100));
@@ -304,7 +306,7 @@ async function readBody(req: http.IncomingMessage): Promise<Buffer> {
 }
 const safeEqual = (a: string, b: string) => a.length === b.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
-http.createServer(async (req, res) => {
+const controlServer = http.createServer(async (req, res) => {
   if (!safeEqual(String(req.headers['x-bs-token'] ?? ''), TOKEN)) return json(res, 403, { error: 'forbidden' });
   const route = routes[`${req.method} ${(req.url ?? '').split('?')[0]}`];
   if (!route) return json(res, 404, { error: 'unknown' });
@@ -316,7 +318,8 @@ http.createServer(async (req, res) => {
     log(req.url, e);
     json(res, 400, { error: e instanceof Error ? e.message : String(e) });
   }
-}).listen(CONTROL_PORT, '127.0.0.1', () => log(`Steuerung auf ${CONTROL_PORT}`));
+});
+controlServer.listen(CONTROL_PORT, '127.0.0.1', () => log(`Steuerung auf ${CONTROL_PORT}`));
 
 // ---------- Instanz-Port: Oberfläche aus dem Bundle, API zur Instanz ----------
 
@@ -376,12 +379,34 @@ function proxy(req: http.IncomingMessage, res: http.ServerResponse) {
   req.pipe(out);
 }
 
-http.createServer((req, res) => {
+const remoteServer = http.createServer((req, res) => {
   const p = (req.url ?? '/').split('?')[0];
   if (p.startsWith('/api/') || cacheable(p)) return proxy(req, res);
   if (req.method !== 'GET' && req.method !== 'HEAD') return json(res, 405, { error: 'method' });
   serveStatic(req, res);
-}).listen(REMOTE_PORT, '127.0.0.1', () => log(`Instanz-Port ${REMOTE_PORT} → ${remote.url ?? '(keine)'}`));
+});
+remoteServer.listen(REMOTE_PORT, '127.0.0.1', () => log(`Instanz-Port ${REMOTE_PORT} → ${remote.url ?? '(keine)'}`));
+
+/*
+ * Selbstheilung: iOS nimmt horchende Sockets einer pausierten App still weg (nach dem Aufwachen antwortet der Port nicht).
+ * Alle 2 s verbindet sich der Host mit sich selbst; antwortet ein Port nicht, wird er neu geöffnet.
+ */
+function alive(port: number, cb: (ok: boolean) => void) {
+  const s = net.connect(port, '127.0.0.1');
+  let done = false;
+  const fin = (ok: boolean) => { if (done) return; done = true; s.destroy(); cb(ok); };
+  s.once('connect', () => fin(true)); s.once('error', () => fin(false)); s.setTimeout(1000, () => fin(false));
+}
+function relisten(srv: http.Server, port: number, what: string) {
+  log(`Port ${port} (${what}) neu geöffnet`);
+  try { srv.close(); } catch { /* war schon zu */ }
+  try { srv.listen(port, '127.0.0.1'); } catch (e) { log(what, e); }
+}
+setInterval(() => {
+  alive(CONTROL_PORT, ok => { if (!ok) relisten(controlServer, CONTROL_PORT, 'Steuerung'); });
+  alive(REMOTE_PORT, ok => { if (!ok) relisten(remoteServer, REMOTE_PORT, 'Instanz'); });
+  if (localServer) alive(LOCAL_PORT, ok => { if (!ok && localServer) relisten(localServer, LOCAL_PORT, 'Lokal'); });
+}, 2000).unref();
 
 // Lokale Bibliothek vorhanden → gleich starten (dann ist sie da, wenn die WebView lädt)
 if (process.env.BS_START_LOCAL === '1') startLocal().catch(e => log('Lokal-Start', e));
