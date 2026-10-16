@@ -82,7 +82,7 @@
   ] as const;
   type Sec = typeof ALL[number]['id'];
   // App: eigener Bereich oben; lokal ohne Konto entfallen Sichtbarkeit, Einladungen und Konto
-  const SECTIONS = $derived(ALL.filter(s => s.id === 'app' ? inApp() : !(isLocal() && ['privacy', 'invites', 'account'].includes(s.id))));
+  const SECTIONS = $derived(ALL.filter(s => s.id === 'app' ? true : !(isLocal() && ['privacy', 'invites', 'account'].includes(s.id))));
   const picked = $derived(router.query.get('s') as Sec | null);
   const sec = $derived<Sec>(SECTIONS.some(s => s.id === picked) ? picked! : SECTIONS[0].id);
   const openInvites = $derived(invites.filter(i => !i.usedBy && new Date(i.expiresAt) > new Date()).length);
@@ -95,7 +95,7 @@
       case 'invites': return tn('settings.openInvites', openInvites);
       case 'data': return t('settings.secDataSub');
       case 'account': return `@${session.me?.username ?? ''}`;
-      case 'app': return isLocal() ? t('appx.localShort') : t('appx.remoteShort', { host: publicHost() });
+      case 'app': return !inApp() ? t('appx.getShort') : isLocal() ? t('appx.localShort') : t('appx.remoteShort', { host: publicHost() });
     }
   }
 
@@ -178,7 +178,15 @@
   <div class="content stack">
     <a class="backlink" href="/settings"><Icon name="back" size={18} /> {t('settings.title')}</a>
 
-    {#if sec === 'app'}
+    {#if sec === 'app' && !inApp()}
+      <h2 class="sec-title">{t('appx.get')}</h2>
+      <div class="card stack">
+        <p class="muted small">{t('appx.getInfo')}</p>
+        <div class="btns"><a class="btn primary" href="https://github.com/sgitaize/bookshelv/releases/latest/download/bookshelv.apk"><Icon name="download" size={16} /> {t('appx.android')}</a></div>
+        <p class="muted small">{t('appx.androidHint')}</p>
+        <p class="muted small">{t('appx.iosSoon')}</p>
+      </div>
+    {:else if sec === 'app'}
       <h2 class="sec-title">{t('appx.title')}</h2>
       <div class="card stack">
         {#if isLocal()}

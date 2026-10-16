@@ -115,6 +115,8 @@
 
   {#if inApp()}
     <p class="center"><button class="ghost other" onclick={() => openAppPanel('switch')}>{t('auth.otherPlace', { host: publicHost() })}</button></p>
+  {:else}
+    <p class="center muted small getapp">{t('appx.get')}: <a href="https://github.com/sgitaize/bookshelv/releases/latest/download/bookshelv.apk">{t('appx.android')}</a> · {t('appx.iosSoon')}</p>
   {/if}
 
   <footer class="muted small">
@@ -154,4 +156,5 @@
   .center { text-align: center; margin: 0; }
   code { font-size: 0.85em; background: var(--surface-2); padding: 0.1em 0.35em; border-radius: 5px; }
   .other { white-space: normal; max-width: 100%; }
+  .getapp { max-width: 420px; }
 </style>
