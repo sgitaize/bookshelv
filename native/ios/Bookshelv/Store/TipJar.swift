@@ -67,19 +67,20 @@ struct SupportView: View {
                 if jar.loading {
                     ProgressView()
                 } else if jar.products.isEmpty {
+                    #if DEBUG
+                    // Review-Screenshot der In-App-Käufe im Simulator (dort liefert der Store nichts): -tipPreview YES
+                    if UserDefaults.standard.bool(forKey: "tipPreview") {
+                        ForEach(Self.preview, id: \.0) { p in row(emoji: emoji(p.0), name: p.1, description: T("Danke! Schaltet nichts frei, hilft einfach.", "Thank you! Unlocks nothing, it just helps."), price: p.2) }
+                    } else {
+                        Text(T("Trinkgeld ist gerade nicht verfügbar.", "Tips are not available right now.")).foregroundStyle(.secondary)
+                    }
+                    #else
                     Text(T("Trinkgeld ist gerade nicht verfügbar.", "Tips are not available right now.")).foregroundStyle(.secondary)
+                    #endif
                 } else {
                     ForEach(jar.products, id: \.id) { p in
                         Button { Task { await jar.buy(p) } } label: {
-                            HStack {
-                                Text(emoji(p.id)).font(.title2)
-                                VStack(alignment: .leading) {
-                                    Text(p.displayName).foregroundStyle(.primary)
-                                    if !p.description.isEmpty { Text(p.description).font(.footnote).foregroundStyle(.secondary) }
-                                }
-                                Spacer()
-                                Text(p.displayPrice).bold()
-                            }
+                            row(emoji: emoji(p.id), name: p.displayName, description: p.description, price: p.displayPrice)
                         }
                     }
                 }
@@ -92,6 +93,22 @@ struct SupportView: View {
         .navigationTitle(T("Unterstützen", "Support"))
         .task { await jar.load() }
     }
+
+    private func row(emoji: String, name: String, description: String, price: String) -> some View {
+        HStack {
+            Text(emoji).font(.title2)
+            VStack(alignment: .leading) {
+                Text(name).foregroundStyle(.primary)
+                if !description.isEmpty { Text(description).font(.footnote).foregroundStyle(.secondary) }
+            }
+            Spacer()
+            Text(price).bold()
+        }
+    }
+
+    #if DEBUG
+    private static let preview = [("small", T("Ein Kaffee", "A coffee"), "0,99 €"), ("medium", T("Ein Taschenbuch", "A paperback"), "2,99 €"), ("large", T("Ein Hardcover", "A hardcover"), "4,99 €")]
+    #endif
 
     private func emoji(_ id: String) -> String {
         id.hasSuffix("small") ? "☕️" : id.hasSuffix("medium") ? "📚" : "💛"
