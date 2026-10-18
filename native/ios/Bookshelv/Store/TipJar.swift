@@ -72,10 +72,10 @@ struct SupportView: View {
                     if UserDefaults.standard.bool(forKey: "tipPreview") {
                         ForEach(Self.preview, id: \.0) { p in row(emoji: emoji(p.0), name: p.1, description: T("Danke! Schaltet nichts frei, hilft einfach.", "Thank you! Unlocks nothing, it just helps."), price: p.2) }
                     } else {
-                        Text(T("Trinkgeld ist gerade nicht verfügbar.", "Tips are not available right now.")).foregroundStyle(.secondary)
+                        unavailable
                     }
                     #else
-                    Text(T("Trinkgeld ist gerade nicht verfügbar.", "Tips are not available right now.")).foregroundStyle(.secondary)
+                    unavailable
                     #endif
                 } else {
                     ForEach(jar.products, id: \.id) { p in
@@ -92,6 +92,15 @@ struct SupportView: View {
         }
         .navigationTitle(T("Unterstützen", "Support"))
         .task { await jar.load() }
+    }
+
+    /// Der App Store hat (noch) keine Produkte geliefert – z. B. ohne Netz: erklären und neu laden lassen
+    private var unavailable: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(T("Die Trinkgeld-Optionen konnten gerade nicht vom App Store geladen werden.", "The tip options could not be loaded from the App Store right now."))
+                .foregroundStyle(.secondary)
+            Button { Task { await jar.load() } } label: { Label(T("Erneut versuchen", "Try again"), systemImage: "arrow.clockwise") }
+        }.padding(.vertical, 4)
     }
 
     private func row(emoji: String, name: String, description: String, price: String) -> some View {

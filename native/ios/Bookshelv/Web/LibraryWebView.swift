@@ -209,7 +209,15 @@ struct LibraryWebView: UIViewRepresentable {
             }
         }
 
-        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { retries = 0 }
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            retries = 0
+            #if DEBUG
+            // Testen/Screenshots: xcrun simctl launch … -js 'window.scrollTo(0, 1e6)' (nach jedem Laden, kurz verzögert)
+            if let js = UserDefaults.standard.string(forKey: "js"), !js.isEmpty {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { webView.evaluateJavaScript(js) }
+            }
+            #endif
+        }
 
         func webViewWebContentProcessDidTerminate(_ webView: WKWebView) { webView.reload() }
 

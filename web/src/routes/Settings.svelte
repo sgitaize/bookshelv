@@ -84,6 +84,7 @@
   // App: eigener Bereich oben; lokal ohne Konto entfallen Sichtbarkeit, Einladungen und Konto
   const SECTIONS = $derived(ALL.filter(s => s.id === 'app' ? true : !(isLocal() && ['privacy', 'invites', 'account'].includes(s.id))));
   const picked = $derived(router.query.get('s') as Sec | null);
+  const android = $derived(app.info?.platform === 'android');
   const sec = $derived<Sec>(SECTIONS.some(s => s.id === picked) ? picked! : SECTIONS[0].id);
   const openInvites = $derived(invites.filter(i => !i.usedBy && new Date(i.expiresAt) > new Date()).length);
   const visLabel = (v: string) => t(`vis.${v}` as Key);
@@ -153,6 +154,16 @@
   const fmt = (d: string) => fmtDate(d);
 </script>
 
+{#snippet row(panel: 'backup' | 'connect' | 'switch' | 'support', icon: 'cloud' | 'users' | 'link' | 'heart', label: string, sub: string)}
+  <li>
+    <button class="rowbtn" onclick={() => openAppPanel(panel)}>
+      <span class="ic"><Icon name={icon} size={18} /></span>
+      <span class="txt"><strong>{label}</strong><span class="muted small">{sub}</span></span>
+      <Icon name="chevron" size={18} />
+    </button>
+  </li>
+{/snippet}
+
 <section class="wrap" class:picked={!!picked}>
   <nav class="menu stack">
     <h1>{t('settings.title')}</h1>
@@ -166,6 +177,16 @@
           </a>
         </li>
       {/each}
+      {#if inApp()}
+        <!-- Trinkgeld direkt aus der Übersicht (App Review fand es unter „App“ nicht) -->
+        <li>
+          <button class="rowbtn" onclick={() => openAppPanel('support')}>
+            <span class="ic"><Icon name="heart" size={18} /></span>
+            <span class="txt"><strong>{t('appx.supportTitle')}</strong><span class="muted small">{t(android ? 'appx.supportShortAndroid' : 'appx.supportShort')}</span></span>
+            <Icon name="chevron" size={18} />
+          </button>
+        </li>
+      {/if}
     </ul>
     {#if !isLocal()}<button class="ghost logout" onclick={logout}><Icon name="logout" size={16} /> {t('settings.logout')}</button>{/if}
     <p class="muted small about">
@@ -192,11 +213,6 @@
         {#if isLocal()}
           <p><strong>{t('appx.localTitle')}</strong></p>
           <p class="muted small">{t(app.info?.platform === 'android' ? 'appx.localInfoAndroid' : 'appx.localInfo')}</p>
-          <div class="btns">
-            <button class="primary" onclick={() => openAppPanel('backup')}><Icon name="cloud" size={16} /> {t('appx.backup')}</button>
-            <button onclick={() => openAppPanel('connect')}><Icon name="users" size={16} /> {t('appx.connect')}</button>
-          </div>
-          <p class="muted small">{t('appx.connectInfo')}</p>
         {:else}
           <p><strong>{t('appx.remoteTitle', { host: publicHost() })}</strong></p>
           <p class="muted small">{t('appx.remoteInfo')}</p>
@@ -206,15 +222,16 @@
           </div>
           {#if offlineSync.last}<p class="muted small">{t('appx.syncedAt', { d: fmtDate(offlineSync.last) })}</p>{/if}
         {/if}
-        <div class="btns">
-          <button class="ghost" onclick={() => openAppPanel('switch')}><Icon name="link" size={16} /> {t('appx.switch')}</button>
-        </div>
       </div>
-      <div class="card stack">
-        <h3>{t('appx.supportTitle')}</h3>
-        <p class="muted small">{t(app.info?.platform === 'android' ? 'appx.supportInfoAndroid' : 'appx.supportInfo')}</p>
-        <div class="btns"><button onclick={() => openAppPanel('support')}><Icon name="heart" size={16} /> {t(app.info?.platform === 'android' ? 'appx.supportAndroid' : 'appx.support')}</button></div>
-      </div>
+      <!-- Alle nativen Bereiche als gleiche Zeilen wie die Übersicht (statt unterschiedlich breiter Knöpfe) -->
+      <ul class="card list">
+        {#if isLocal()}
+          {@render row('backup', 'cloud', t('appx.backup'), t(android ? 'appx.backupShortAndroid' : 'appx.backupShort'))}
+          {@render row('connect', 'users', t('appx.connect'), t('appx.connectShort'))}
+        {/if}
+        {@render row('switch', 'link', t('appx.switchRow'), t('appx.switchShort'))}
+        {@render row('support', 'heart', t('appx.supportTitle'), t(android ? 'appx.supportShortAndroid' : 'appx.supportShort'))}
+      </ul>
       <p class="muted small">bookshelv {app.info?.version}</p>
 
     {:else if sec === 'profile'}
@@ -371,13 +388,16 @@
 <style>
   .wrap { max-width: 1000px; margin: 0 auto; display: grid; gap: 1.5rem; }
   .menu, .content { min-width: 0; align-content: start; }
-  .list { list-style: none; margin: 0; padding: 0.3rem 0; }
+  .list { list-style: none; margin: 0; padding: 0.3rem 0; min-width: 0; overflow: hidden; }
   .list li + li { border-top: 1px solid var(--line); }
   .list a { display: flex; align-items: center; gap: 0.8rem; padding: 0.75rem 1rem; color: var(--text); }
   .list a:hover { text-decoration: none; background: var(--surface-2); }
+  .list .rowbtn { display: flex; align-items: center; gap: 0.8rem; width: 100%; padding: 0.75rem 1rem; color: var(--text);
+    background: none; border: 0; border-radius: 0; font: inherit; text-align: left; cursor: pointer; box-shadow: none; min-height: 0; min-width: 0; }
+  .list .rowbtn:hover { background: var(--surface-2); }
   .ic { display: grid; place-items: center; width: 34px; height: 34px; flex: none; border-radius: 10px; background: var(--surface-2); color: var(--accent); }
   .txt { display: grid; flex: 1; min-width: 0; }
-  .txt .small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .txt .small, .txt strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .logout { justify-self: start; }
   .about { text-align: center; margin-top: 0.5rem; }
   .backlink { display: inline-flex; align-items: center; gap: 0.3rem; justify-self: start; font-weight: 550; }
