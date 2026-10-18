@@ -9,6 +9,7 @@ import { bookBrief, getBook, shelf } from './books.ts';
 import { avatarUrl } from './social.ts';
 import { topOf } from './lists.ts';
 import { relationOf } from '../friends.ts';
+import { MOODS, PACES, parseMoods } from './reviews.ts';
 
 export const readingRoutes = router();
 
@@ -114,6 +115,46 @@ readingRoutes.get('/home', c => {
       readThisYear: (db.prepare("SELECT COUNT(*) AS n FROM user_books WHERE user_id = ? AND status = 'read' AND finished_at LIKE ?").get(u.id, `${year}%`) as { n: number }).n
     }
   });
+});
+
+/** Seitenzahl-Klassen für „Was lese ich als Nächstes?“ */
+const LENGTHS = { short: [0, 250], medium: [250, 450], long: [450, 1e9] } as const;
+
+/**
+ * Zufälliges ungelesenes Buch aus dem eigenen Stapel (eigene Exemplare, Status ungelesen).
+ * Stimmung/Tempo stammen aus allen sichtbaren Bewertungen des Buchs (eigene und die der Instanz), das Buch selbst ist ja noch ungelesen.
+ * ?skip=1,2,3 lässt schon gezeigte Vorschläge aus (Würfeln ohne Wiederholung, bis der Stapel durch ist).
+ */
+readingRoutes.get('/home/next', c => {
+  const u = requireUser(c);
+  const mood = c.req.query('mood') || null, pace = c.req.query('pace') || null, length = c.req.query('length') || null;
+  if (mood && !MOODS.includes(mood)) throw new HTTPException(400, { message: `Erlaubt: ${MOODS.join(', ')}` });
+  if (pace && !PACES.includes(pace)) throw new HTTPException(400, { message: `Erlaubt: ${PACES.join(', ')}` });
+  if (length && !(length in LENGTHS)) throw new HTTPException(400, { message: `Erlaubt: ${Object.keys(LENGTHS).join(', ')}` });
+  const skip = new Set((c.req.query('skip') ?? '').split(',').map(Number).filter(n => Number.isInteger(n) && n > 0));
+  const rows = db.prepare(`
+    SELECT DISTINCT b.id AS bookId, b.title, b.subtitle, b.authors, b.year, b.pages, b.cover
+    FROM copies c JOIN books b ON b.id = c.book_id
+    LEFT JOIN user_books ub ON ub.user_id = c.owner_id AND ub.book_id = b.id
+    WHERE c.owner_id = ? AND c.removed_at IS NULL AND COALESCE(ub.status, 'unread') = 'unread'
+  `).all(u.id) as Array<Record<string, unknown> & { bookId: number; pages: number | null }>;
+  const reviews = db.prepare("SELECT moods, pace FROM reviews WHERE book_id = ? AND (user_id = ? OR visibility != 'private')");
+  const matching = rows.filter(r => {
+    if (length) {
+      const [lo, hi] = LENGTHS[length as keyof typeof LENGTHS];
+      if (!r.pages || r.pages < lo || r.pages >= hi) return false;
+    }
+    if (!mood && !pace) return true;
+    const rv = reviews.all(r.bookId, u.id) as { moods: string; pace: string | null }[];
+    if (mood && !rv.some(x => parseMoods(x.moods).includes(mood))) return false;
+    if (pace && !rv.some(x => x.pace === pace)) return false;
+    return true;
+  });
+  const fresh = matching.filter(r => !skip.has(r.bookId));
+  // alle schon gezeigt → von vorn (aber nicht dasselbe Buch zweimal hintereinander, wenn es Alternativen gibt)
+  const pool = fresh.length ? fresh : matching.length > 1 ? matching.filter(r => r.bookId !== [...skip].at(-1)) : matching;
+  const pick = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+  return c.json({ book: pick ? bookBrief(pick) : null, total: rows.length, matching: matching.length, restarted: !fresh.length && !!matching.length });
 });
 
 // ---------- Personen ----------

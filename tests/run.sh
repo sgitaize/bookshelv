@@ -33,6 +33,7 @@ node lists.mjs
 node booky.mjs
 node jobs.mjs
 node friends.mjs
+node picks.mjs
 # Föderation: zwei weitere frische Instanzen
 FA=$(mktemp -d); FB=$(mktemp -d)
 for d in "$FA" "$FB"; do cp -r ../dist/package.json ../dist/public "$d/"; cp "${SERVER_JS:-../dist/server.js}" "$d/server.js"; done

@@ -9,9 +9,11 @@
   import Icon from '../components/Icon.svelte';
   import { pending } from '../lib/offline.svelte.ts';
   import ProgressSheet from '../components/ProgressSheet.svelte';
+  import NextSheet from '../components/NextSheet.svelte';
 
   let home = $state<Home | null>(null);
   let editing = $state<ReadingItem | null>(null);
+  let nextOpen = $state(false);
 
   let feed = $state<FeedItem[]>([]);
   let loans = $state<Loans | null>(null);
@@ -105,6 +107,7 @@
           <a href="/book/{it.book.id}"><Cover url={it.book.coverUrl} title={it.book.title} authors={it.book.authors} /></a>
         {/each}
       </div>
+      <button class="small ghost nextbtn" onclick={() => (nextOpen = true)}><Icon name="sparkle" size={16} /> {t('next.title')}</button>
     </section>
   {/if}
 
@@ -148,6 +151,7 @@
 {/if}
 
 <ProgressSheet item={editing} onclose={() => (editing = null)} onsaved={load} />
+<NextSheet open={nextOpen} onclose={() => (nextOpen = false)} />
 
 <style>
   .hello { text-align: center; padding: 0.6rem 0 1.4rem; }
@@ -173,6 +177,7 @@
   .pct { position: relative; font-size: 0.72rem; font-weight: 600; color: var(--text); padding-left: 6px; line-height: 22px; display: block; text-align: left; }
   .pen { padding: 0.25rem; color: var(--muted); }
   section { margin-bottom: 1.6rem; }
+  .nextbtn { margin-top: 0.5rem; }
   .overdue { display: block; margin-bottom: 1.4rem; color: var(--danger); font-weight: 600; border-color: color-mix(in srgb, var(--danger) 50%, transparent); }
   .overdue:hover { text-decoration: none; }
   .borrowed { display: grid; gap: 0.35rem; color: var(--text); }
