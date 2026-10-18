@@ -12,6 +12,7 @@ import { relationOf } from '../friends.ts';
 import { MOODS, PACES, parseMoods } from './reviews.ts';
 import { readCount } from './rereads.ts';
 import { goalOf } from './stats.ts';
+import { avoidedTags } from './contentnotes.ts';
 
 export const readingRoutes = router();
 
@@ -142,7 +143,12 @@ readingRoutes.get('/home/next', c => {
     WHERE c.owner_id = ? AND c.removed_at IS NULL AND COALESCE(ub.status, 'unread') = 'unread'
   `).all(u.id) as Array<Record<string, unknown> & { bookId: number; pages: number | null }>;
   const reviews = db.prepare("SELECT moods, pace FROM reviews WHERE book_id = ? AND (user_id = ? OR visibility != 'private')");
+  // Bücher mit Inhaltshinweisen, die ich meiden will, nie vorschlagen
+  const avoid = avoidedTags(u);
+  const noteTags = db.prepare('SELECT cn.tags FROM content_notes cn JOIN users us ON us.id = cn.user_id WHERE cn.book_id = ? AND us.disabled = 0');
+  const avoided = (bookId: number) => avoid.length > 0 && (noteTags.all(bookId) as { tags: string }[]).some(r => (JSON.parse(r.tags) as string[]).some(t => avoid.includes(t)));
   const matching = rows.filter(r => {
+    if (avoided(r.bookId)) return false;
     if (length) {
       const [lo, hi] = LENGTHS[length as keyof typeof LENGTHS];
       if (!r.pages || r.pages < lo || r.pages >= hi) return false;

@@ -1,10 +1,15 @@
 <script lang="ts">
   // Buchcover mit leichtem 3D-Buchrücken; ohne Bild wird ein farbiges Cover aus dem Titel erzeugt
+  import { avoid } from '../lib/state.svelte.ts';
+  import Icon from './Icon.svelte';
+
   let { url, title, authors = [], size = 'md' }: {
     url: string | null; title: string; authors?: string[]; size?: 'sm' | 'md' | 'lg';
   } = $props();
 
   let failed = $state(false);
+  // Inhaltshinweis, den ich meiden will → Cover verdeckt (aufdecken auf der Buchseite)
+  const hidden = $derived(!!url && avoid.covers.includes(url) && !avoid.revealed.includes(url));
 
   const hue = $derived([...title].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 7));
   // lange Wörter („Wunschbuch“, „Schatten“) kleiner setzen, damit sie nicht mitten im Wort brechen
@@ -13,7 +18,8 @@
 
 <div class="cover {size}" style="--hue: {hue}">
   {#if url && !failed}
-    <img src={url} alt="" loading="lazy" decoding="async" onerror={() => (failed = true)} />
+    <img src={url} alt="" loading="lazy" decoding="async" class:hidden onerror={() => (failed = true)} />
+    {#if hidden}<span class="veil"><Icon name="shield" size={size === 'sm' ? 16 : 26} /></span>{/if}
   {:else}
     <div class="generated">
       <span class="t" style="--fit: {Math.round(120 / Math.max(longest, 6))}cqi">{title}</span>
@@ -43,6 +49,8 @@
   .md { width: 100%; }
   .lg { width: min(220px, 55vw); }
   img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  img.hidden { filter: blur(14px) saturate(0.4); transform: scale(1.15); }
+  .veil { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; background: rgb(0 0 0 / 0.35); }
   .generated {
     height: 100%;
     display: flex;

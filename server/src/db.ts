@@ -467,6 +467,18 @@ const migrations: string[] = [
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (user_id, year)
   );
+  `,
+  // 23: Inhaltshinweise je Person und Buch (feste Schlagworte + freier Text), für alle auf der Instanz sichtbar
+  `
+  CREATE TABLE content_notes (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    book_id INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    tags TEXT NOT NULL DEFAULT '[]',
+    note TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, book_id)
+  );
+  CREATE INDEX content_notes_book ON content_notes(book_id);
   `
 ];
 

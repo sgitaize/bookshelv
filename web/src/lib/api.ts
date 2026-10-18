@@ -109,6 +109,15 @@ export type Home = {
 export type Goal = { year: number; books: number | null; pages: number | null; done: { books: number; pages: number }; expected: { books: number | null; pages: number | null } | null };
 
 export type Visibility = 'private' | 'instance' | 'federated';
+/** feste Schlagworte für Inhaltshinweise (wie server/src/routes/contentnotes.ts) */
+export const NOTE_TAGS = ['violence', 'sexual_violence', 'abuse', 'child_abuse', 'domestic_violence', 'death', 'suicide', 'self_harm',
+  'eating_disorder', 'drugs', 'alcohol', 'mental_illness', 'grief', 'terminal_illness', 'pregnancy_loss', 'war', 'torture', 'gore',
+  'animal_harm', 'racism', 'queerphobia', 'misogyny', 'bullying', 'kidnapping', 'sexual_content'] as const;
+export type ContentNotes = {
+  tags: { tag: string; n: number; mine: boolean }[]; people: number;
+  notes: { user: { id: number; displayName: string; avatarUrl: string | null }; text: string; updatedAt: string; mine: boolean }[];
+  mine: { tags: string[]; note: string | null } | null; avoided: string[];
+};
 export type ReviewComment = { id: number; text: string; createdAt: string; user: { id: number; displayName: string; avatarUrl: string | null }; canDelete: boolean };
 export const MOODS = ['adventurous', 'challenging', 'dark', 'emotional', 'funny', 'hopeful', 'informative', 'inspiring',
   'lighthearted', 'mysterious', 'reflective', 'relaxing', 'romantic', 'sad', 'tense'] as const;

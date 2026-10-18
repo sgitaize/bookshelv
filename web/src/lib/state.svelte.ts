@@ -18,6 +18,7 @@ export async function loadSession() {
     loadPending(session.me.id);
     loadWrites(session.me.id);
     setTimeout(warmOfflineCache, 3000);
+    if (session.me.prefs?.avoidNotes) loadAvoid();
   } catch (e) {
     // ohne Netz mit dem zuletzt bekannten Konto weitermachen (Scannen geht offline)
     const me = isNetworkError(e) ? cachedMe<Me>() : null;
@@ -27,6 +28,15 @@ export async function loadSession() {
     session.me = null;
     session.needsSetup = (await api.get<{ needsSetup: boolean }>('/status')).needsSetup;
   }
+}
+
+// ---------- Inhaltshinweise, die ich meiden will ----------
+
+/** Bücher/Cover mit gemiedenen Inhaltshinweisen (Cover werden verdeckt); revealed = auf der Buchseite bewusst aufgedeckt */
+export const avoid = $state<{ tags: string[]; books: number[]; covers: string[]; revealed: string[] }>({ tags: [], books: [], covers: [], revealed: [] });
+export async function loadAvoid() {
+  if (!session.me) return;
+  try { Object.assign(avoid, await api.get<{ tags: string[]; books: number[]; covers: string[] }>('/me/content-avoid')); } catch { /* offline: bleibt wie es war */ }
 }
 
 // ---------- Instanz (Impressum-Link der betreibenden Person) ----------

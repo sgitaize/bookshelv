@@ -16,6 +16,7 @@ import { operator, openRegistration, instanceFull, capacity } from './admin.ts';
 import { avatarUrl, purgeAvatar } from './social.ts';
 import { retractFederatedReviews } from './reviews.ts';
 import { retractRemoteFriends } from './friends.ts';
+import { NOTE_TAGS } from './contentnotes.ts';
 
 export const authRoutes = router();
 
@@ -111,6 +112,8 @@ authRoutes.patch('/me', async c => {
     if (typeof p.theme === 'string' && THEMES.includes(p.theme)) next.theme = p.theme;
     if (typeof p.font === 'string' && FONTS.includes(p.font)) next.font = p.font;
     if (typeof p.reviewVisibility === 'string' && VISIBILITIES.includes(p.reviewVisibility)) next.reviewVisibility = p.reviewVisibility;
+    // Inhaltshinweise, die ich meiden will: Komma-Liste bekannter Schlagworte (leer = keine)
+    if (typeof p.avoidNotes === 'string') next.avoidNotes = p.avoidNotes.split(',').filter(x => (NOTE_TAGS as readonly string[]).includes(x)).join(',');
     db.prepare('UPDATE users SET prefs = ? WHERE id = ?').run(JSON.stringify(next), u.id);
   }
   if (typeof b.shelfVisible === 'boolean') db.prepare('UPDATE users SET shelf_visible = ? WHERE id = ?').run(b.shelfVisible ? 1 : 0, u.id);
@@ -142,6 +145,7 @@ authRoutes.get('/me/export', c => {
     reviews: db.prepare(`SELECT r.*, b.title FROM reviews r JOIN books b ON b.id = r.book_id WHERE r.user_id = ?`).all(u.id),
     rereads: db.prepare(`SELECT r.*, b.isbn13, b.title FROM rereads r JOIN books b ON b.id = r.book_id WHERE r.user_id = ?`).all(u.id),
     readingGoals: db.prepare('SELECT year, books, pages, updated_at FROM reading_goals WHERE user_id = ?').all(u.id),
+    contentNotes: db.prepare('SELECT cn.*, b.isbn13, b.title FROM content_notes cn JOIN books b ON b.id = cn.book_id WHERE cn.user_id = ?').all(u.id),
     comments: db.prepare('SELECT * FROM comments WHERE user_id = ?').all(u.id),
     loans: db.prepare('SELECT * FROM loans WHERE lender_id = ? OR borrower_id = ?').all(u.id, u.id),
     wishlist: db.prepare('SELECT w.*, b.isbn13, b.title FROM wishlist w JOIN books b ON b.id = w.book_id WHERE w.user_id = ?').all(u.id),

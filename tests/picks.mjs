@@ -96,6 +96,33 @@ check('goal bad values', (await mia('PUT', `/goals/${year}`, { books: -1 })).sta
 check('goal removed', (await mia('PUT', `/goals/${year}`, {})).data === null && (await mia('GET', `/goals/${year}`)).data === null);
 check('goal private', (await simon('GET', '/goals/2023')).data === null);
 
+// ---------- Inhaltshinweise ----------
+check('note tags list', (await mia('GET', '/content-notes/tags')).data.includes('violence'));
+let cn = (await mia('PUT', `/books/${long}/content-notes`, { tags: ['violence', 'war', 'war'], note: 'Schlachtszenen ab Kapitel 4' })).data;
+check('notes saved', cn.mine.tags.length === 2 && cn.tags.length === 2 && cn.notes[0]?.mine && cn.people === 1, JSON.stringify(cn));
+check('notes bad tag 400', (await mia('PUT', `/books/${long}/content-notes`, { tags: ['gruselig'] })).status === 400);
+await simon('PUT', `/books/${long}/content-notes`, { tags: ['war'] });
+cn = (await simon('GET', `/books/${long}/content-notes`)).data;
+check('notes counted across instance', cn.tags[0].tag === 'war' && cn.tags[0].n === 2 && cn.people === 2, JSON.stringify(cn.tags));
+check('friend sees text', cn.notes.some(n => n.text === 'Schlachtszenen ab Kapitel 4' && n.user.displayName === 'mia'));
+await simon('PATCH', '/admin/instance', { openRegistration: true });
+const stranger = await (async () => { const cl = client(); await cl('POST', '/register', { username: 'fremd', displayName: 'Fremd', password: 'geheim1234' }); return cl; })();
+const sn = (await stranger('GET', `/books/${long}/content-notes`)).data;
+check('stranger sees tags, not text', sn?.tags.length === 2 && sn.notes.length === 0, JSON.stringify(sn));
+// meiden: Cover verdeckt, kein Vorschlag
+check('avoid empty', (await mia('GET', '/me/content-avoid')).data.books.length === 0);
+await mia('PATCH', '/me', { prefs: { avoidNotes: 'war,unsinn' } });
+check('avoid pref sanitized', (await mia('GET', '/me')).data.prefs.avoidNotes === 'war');
+const av = (await mia('GET', '/me/content-avoid')).data;
+check('avoid lists book', av.books.includes(long) && av.tags[0] === 'war', JSON.stringify(av));
+check('avoided on book page', (await mia('GET', `/books/${long}/content-notes`)).data.avoided[0] === 'war');
+for (let i = 0; i < 10; i++) if ((await mia('GET', '/home/next')).data.book?.id === long) { check('avoided never suggested', false); break; }
+await mia('PATCH', '/me', { prefs: { avoidNotes: '' } });
+check('avoid cleared', (await mia('GET', '/me/content-avoid')).data.books.length === 0);
+cn = (await mia('PUT', `/books/${long}/content-notes`, { tags: [], note: '' })).data;
+check('notes removed', cn.mine === null && cn.tags.length === 1);
+check('gdpr export notes', Array.isArray((await simon('GET', '/me/export')).data.contentNotes));
+
 // Zusammenführen (App → Konto): weitere Lektüren kommen mit, doppelte nicht, Rückgängig entfernt sie wieder
 const item = { ...exp.items.find(i => i.title === 'Lieblingsbuch'), owned: true };
 const leo = await fresh('leo');

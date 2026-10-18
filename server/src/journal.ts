@@ -19,7 +19,8 @@ const KEYS = {
   loans: ['id'],
   user_book_lang: ['user_id', 'book_id'],
   author_follows: ['user_id', 'author'],
-  rereads: ['id']
+  rereads: ['id'],
+  content_notes: ['user_id', 'book_id']
 } as const;
 export type Tbl = keyof typeof KEYS;
 type Key = Record<string, number | string>;

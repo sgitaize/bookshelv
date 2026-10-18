@@ -8,7 +8,7 @@
   import Timeline from '../components/Timeline.svelte';
   import RemoveSheet from '../components/RemoveSheet.svelte';
   import type { HistoryEvent, ArchivedCopy } from '../lib/api.ts';
-  import { toast, toastError, session } from '../lib/state.svelte.ts';
+  import { toast, toastError, session, avoid } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
   import { t, tn, i18n, fmtDate as fmtD, type Key } from '../lib/i18n.svelte.ts';
   import Cover from '../components/Cover.svelte';
@@ -24,6 +24,7 @@
   import Avatar from '../components/Avatar.svelte';
   import DatesSheet from '../components/DatesSheet.svelte';
   import RereadSheet from '../components/RereadSheet.svelte';
+  import ContentNotes from '../components/ContentNotes.svelte';
   import Stars from '../components/Stars.svelte';
   import FeedList from '../components/FeedList.svelte';
   import type { FeedItem } from '../lib/api.ts';
@@ -201,7 +202,7 @@
   <button class="ghost back" onclick={() => router.back()}><Icon name="back" size={18} /> {t('common.back')}</button>
   <article class="detail">
     <div class="cover-wrap">
-      <div class="glow" style={b.coverUrl ? `background-image: url(${b.coverUrl})` : ''}></div>
+      <div class="glow" style={b.coverUrl && !(avoid.covers.includes(b.coverUrl) && !avoid.revealed.includes(b.coverUrl)) ? `background-image: url(${b.coverUrl})` : ''}></div>
       <Cover url={b.coverUrl} title={b.title} authors={b.authors} size="lg" />
     </div>
     <div class="meta">
@@ -279,6 +280,8 @@
   </section>
 
   <Reviews bookId={id} title={b.title} bind:askReview />
+
+  {#key id}<ContentNotes bookId={id} coverUrl={b.coverUrl} />{/key}
 
   <section class="stack copies">
     <div class="spread">

@@ -19,6 +19,7 @@ import { imageType } from './routes/social.ts';
 import { canonicalSeries, type BookRow } from './routes/books.ts';
 import { MOODS, PACES } from './routes/reviews.ts';
 import { rereadsOf } from './routes/rereads.ts';
+import { NOTE_TAGS } from './routes/contentnotes.ts';
 
 type ListRef = { name: string; createdAt?: string | null; addedAt?: string | null; description?: string | null };
 export type AppLoan = { borrower: string | null; lentAt: string; dueAt: string | null; returnedAt: string | null; note: string | null };
@@ -32,6 +33,7 @@ export type AppExtras = {
   progress?: number | null; topRank?: number | null; moods?: string[]; pace?: string | null;
   wishNote?: string | null; copies?: AppCopy[]; cover?: string | null;
   rereads?: { startedAt: string | null; finishedAt: string | null; rating: number | null }[];
+  contentNotes?: { tags: string[]; note: string | null } | null;
 };
 
 const day = (v: string | null) => (v ? v.slice(0, 10) : null);
@@ -88,7 +90,11 @@ export function appExport(userId: number) {
         progress: ub?.progress ?? null, topRank: ub?.top_rank ?? null,
         moods: rv ? JSON.parse(rv.moods || '[]') as string[] : [], pace: rv?.pace ?? null,
         wishNote: wish?.note ?? null, copies, cover,
-        rereads: rereadsOf(userId, b.id).map(({ id: _, ...r }) => r)
+        rereads: rereadsOf(userId, b.id).map(({ id: _, ...r }) => r),
+        contentNotes: (() => {
+          const cn = db.prepare('SELECT tags, note FROM content_notes WHERE user_id = ? AND book_id = ?').get(userId, b.id) as { tags: string; note: string | null } | undefined;
+          return cn ? { tags: JSON.parse(cn.tags) as string[], note: cn.note } : null;
+        })()
       } satisfies AppExtras
     };
   });
@@ -230,6 +236,15 @@ export function applyAppExtras(userId: number, book: BookRow, x: AppExtras, imp:
       .run(userId, book.id, started, finished, rating).lastInsertRowid);
     journal.created(imp, 'rereads', { id });
     done.push('reread');
+  }
+
+  // eigene Inhaltshinweise nur übernehmen, wenn es im Konto noch keine gibt
+  const cnTags = Array.isArray(x.contentNotes?.tags) ? x.contentNotes!.tags.filter(t => (NOTE_TAGS as readonly string[]).includes(t)) : [];
+  const cnNote = text(x.contentNotes?.note, 500);
+  if ((cnTags.length || cnNote) && !db.prepare('SELECT 1 FROM content_notes WHERE user_id = ? AND book_id = ?').get(userId, book.id)) {
+    db.prepare('INSERT INTO content_notes (user_id, book_id, tags, note) VALUES (?, ?, ?, ?)').run(userId, book.id, JSON.stringify([...new Set(cnTags)]), cnNote);
+    journal.created(imp, 'content_notes', ub);
+    done.push('notes');
   }
 
   // Sprache je Buch, Notiz auf der Wunschliste

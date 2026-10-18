@@ -1,7 +1,7 @@
 <script lang="ts">
   import { forgetMe } from '../lib/offline.svelte.ts';
-  import { api, inviteUrl, type Invite } from '../lib/api.ts';
-  import { session, loadSession, toast, toastError, isLocal } from '../lib/state.svelte.ts';
+  import { api, inviteUrl, NOTE_TAGS, type Invite } from '../lib/api.ts';
+  import { session, loadSession, toast, toastError, isLocal, loadAvoid } from '../lib/state.svelte.ts';
   import { app, inApp, openAppPanel, publicHost } from '../lib/app.svelte.ts';
   import { offlineSync, syncNow } from '../lib/prefetch.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
@@ -19,6 +19,12 @@
   let theme = $state<Theme>(getTheme());
   let font = $state<Font>(getFont());
   let reviewVisibility = $state(session.me!.prefs?.reviewVisibility ?? 'instance');
+  let avoidNotes = $state<string[]>((session.me!.prefs?.avoidNotes ?? '').split(',').filter(Boolean));
+  async function toggleAvoid(tag: string) {
+    avoidNotes = avoidNotes.includes(tag) ? avoidNotes.filter(x => x !== tag) : [...avoidNotes, tag];
+    await choose({ avoidNotes: avoidNotes.join(',') });
+    loadAvoid();
+  }
   /** sofort anwenden, am Konto speichern (dann gilt es auch auf anderen Geräten) */
   async function choose(p: Prefs) {
     if (p.theme) theme = p.theme;
@@ -306,6 +312,13 @@
           <button class:active={i18n.lang === 'en'} onclick={() => i18n.set('en')}>English</button>
         </div>
       </div>
+      <div class="card stack">
+        <h3>{t('cn.avoidTitle')}</h3>
+        <p class="muted small">{t('cn.avoidInfo')}</p>
+        <div class="notechips">
+          {#each NOTE_TAGS as x}<button class:active={avoidNotes.includes(x)} aria-pressed={avoidNotes.includes(x)} onclick={() => toggleAvoid(x)}>{t(`cn.${x}` as Key)}</button>{/each}
+        </div>
+      </div>
 
     {:else if sec === 'invites'}
       <h2 class="sec-title">{t('invite.title')}</h2>
@@ -386,6 +399,9 @@
 </section>
 
 <style>
+  .notechips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .notechips button { font-size: 0.8rem; padding: 0.3em 0.75em; border-radius: 999px; white-space: normal; }
+  .notechips button.active { background: var(--danger); color: #fff; border-color: var(--danger); }
   .wrap { max-width: 1000px; margin: 0 auto; display: grid; gap: 1.5rem; }
   .menu, .content { min-width: 0; align-content: start; }
   .list { list-style: none; margin: 0; padding: 0.3rem 0; min-width: 0; overflow: hidden; }
