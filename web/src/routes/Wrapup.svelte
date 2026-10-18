@@ -129,28 +129,29 @@
       const label = t('wrap.goal', { n: n.toLocaleString(i18n.locale), of: of.toLocaleString(i18n.locale) }) + ' ' + (g!.books ? t('goal.books') : t('goal.pages')) + (n >= of ? ' ✓' : '');
       ctx.fillStyle = C.muted;
       ctx.font = `500 26px ${font()}`;
-      ctx.fillText(label, 70, 838);
+      ctx.fillText(label, 70, 846);
       const bx = 70 + ctx.measureText(label).width + 24, bw = W - 70 - bx;
       if (bw > 80) {
         ctx.fillStyle = C.card;
-        roundRect(ctx, bx, 822, bw, 16, 8);
+        roundRect(ctx, bx, 829, bw, 16, 8);
         ctx.fill();
         ctx.fillStyle = C.accent;
-        roundRect(ctx, bx, 822, Math.max(16, bw * Math.min(1, n / of)), 16, 8);
+        roundRect(ctx, bx, 829, Math.max(16, bw * Math.min(1, n / of)), 16, 8);
         ctx.fill();
       }
     }
 
-    // Genres und Autor:innen
+    // Genres und Autor:innen (mit Ziel etwas tiefer)
+    const shift = goalParts.length ? 30 : 0;
     const lists = [[t('wrap.topGenres'), s.genres.slice(0, 3).map(g => g.name)], [t('wrap.topAuthors'), s.authors.slice(0, 3).map(a => a.name)]] as const;
     lists.filter(([, items]) => items.length).forEach(([title, items], i) => {
       const x = 70 + i * ((W - 140) / 2 + 12);
       ctx.fillStyle = C.accent;
       ctx.font = `600 32px ${font()}`;
-      ctx.fillText(title, x, 870);
+      ctx.fillText(title, x, 870 + shift);
       ctx.fillStyle = C.text;
       ctx.font = `400 30px ${font()}`;
-      items.forEach((it, j) => ctx.fillText(fit(ctx, `${j + 1}. ${it}`, (W - 140) / 2 - 30), x, 920 + j * 44));
+      items.forEach((it, j) => ctx.fillText(fit(ctx, `${j + 1}. ${it}`, (W - 140) / 2 - 30), x, 920 + shift + j * 44));
     });
 
     // 5-Sterne-Bücher

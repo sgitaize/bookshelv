@@ -1,5 +1,6 @@
 <script lang="ts">
   // „Was lese ich als Nächstes?“ – zufälliges Buch vom eigenen Stapel, optional nach Stimmung, Tempo und Länge
+  import { untrack } from 'svelte';
   import { api, MOODS, PACES, type BookBrief, type Mood, type Pace } from '../lib/api.ts';
   import { t, tn } from '../lib/i18n.svelte.ts';
   import { toastError } from '../lib/state.svelte.ts';
@@ -32,7 +33,8 @@
     } catch (e) { toastError(e); } finally { busy = false; }
   }
 
-  $effect(() => { if (open) roll(true); });
+  // nur beim Öffnen würfeln – roll() liest und setzt shown, das darf den Effekt nicht erneut auslösen
+  $effect(() => { if (open) untrack(() => roll(true)); });
   const filter = <T,>(cur: T | null, v: T) => (cur === v ? null : v);
 </script>
 
