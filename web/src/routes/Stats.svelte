@@ -31,7 +31,7 @@
     const total = g.reduce((a, x) => a + x.n, 0);
     return g.slice(0, 3).map(x => `${name(x)}: ${pct(x.n, total)}`).join(', ');
   };
-  const show = (title: string, ids: number[]) => { if (ids.length && s) pick = { title, books: ids.map(id => s!.books[id]).filter(Boolean) }; };
+  const show = (title: string, ids: number[]) => { if (ids.length && s) pick = { title, books: [...new Set(ids)].map(id => s!.books[id]).filter(Boolean) }; };
   const bars = (g: StatGroup[], name: (x: StatGroup) => string) => {
     const total = g.reduce((a, x) => a + x.n, 0);
     return g.map(x => ({ label: name(x), value: x.n, pct: pct(x.n, total) }));
@@ -61,7 +61,7 @@
     <div class="spinner"></div>
   {:else}
     <div class="tiles">
-      <div class="tile"><b>{nf(s.totals.books)}</b><span>{t('stats.books')}</span>{#if s.totals.dnf}<small>{t('stats.dnf', { n: s.totals.dnf })}</small>{/if}</div>
+      <div class="tile"><b>{nf(s.totals.books)}</b><span>{t('stats.books')}</span>{#if s.totals.rereads}<small>{tn('stats.rereads', s.totals.rereads)}</small>{/if}{#if s.totals.dnf}<small>{t('stats.dnf', { n: s.totals.dnf })}</small>{/if}</div>
       <div class="tile"><b>{nf(s.totals.pages)}</b><span>{t('stats.pages')}</span>{#if s.totals.avgPages}<small>{t('stats.avgPages', { n: nf(s.totals.avgPages) })}</small>{/if}</div>
       {#if s.totals.minutes}<div class="tile"><b>{nf(s.totals.minutes)}</b><span>{t('stats.minutes')}</span><small>{t('stats.hours', { n: nf(Math.round(s.totals.minutes / 60)) })}</small></div>{/if}
       <div class="tile"><b>{s.totals.avgRating ? s.totals.avgRating.toLocaleString(i18n.locale, { maximumFractionDigits: 2 }) : '–'}</b><span>{t('stats.avgRating')}</span>

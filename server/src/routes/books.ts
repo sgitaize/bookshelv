@@ -8,6 +8,7 @@ import { lookupIsbn, normalizeIsbn, searchCatalog, fetchCover, previewCover, del
 import { router, body, str, int, oneOf, idParam, notFound } from '../util.ts';
 import { setReading, readingJson, READ_STATUS, today, type ReadingRow } from './reading.ts';
 import { openLoanFor } from './loans.ts';
+import { rereadsOf } from './rereads.ts';
 import { langOf, LANG_CODE } from '../lang.ts';
 
 export const bookRoutes = router();
@@ -184,6 +185,7 @@ bookRoutes.get('/books/:id', c => {
     // Sprache: erkannt (Katalog/ISBN) und ggf. von der Person selbst gesetzt
     language: { auto: langOf(book.language, book.isbn13), mine: langOverride(u.id, book.id) },
     reading: readingJson(reading),
+    rereads: rereadsOf(u.id, book.id),
     archived,
     copies: copies.map(cp => {
       const mine = cp.ownerId === u.id;

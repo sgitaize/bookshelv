@@ -96,6 +96,8 @@ export type RemoveReason = 'sold' | 'given_away' | 'lost' | 'other';
 export type ArchivedCopy = { id: number; format: Format; binding: Binding | null; removedAt: string; removedReason: RemoveReason | null };
 
 export type Reading = { status: ReadStatus; progress: number | null; startedAt: string | null; finishedAt: string | null; favorite: boolean };
+/** weitere Lektüre (die erste ist Reading); ohne finishedAt = liest gerade wieder */
+export type Reread = { id: number; startedAt: string | null; finishedAt: string | null; rating: number | null };
 export type ReadingItem = { book: BookBrief; status: ReadStatus; progress: number | null; startedAt: string | null; finishedAt: string | null };
 
 export type Home = {
@@ -221,7 +223,7 @@ export const inviteUrl = (token: string) => `${publicOrigin()}/invite/${token}`;
 export type StatGroup<N extends string = string> = { name: N; n: number; ids: number[] };
 export type Stats = {
   years: string[]; months?: string[]; year: string | null; period?: string | null; order?: number[]; user: { displayName: string; username: string };
-  totals: { books: number; pages: number; minutes?: number; avgPages: number | null; avgRating: number | null; avgDays: number | null; rated: number; withMood: number; dnf: number };
+  totals: { books: number; pages: number; minutes?: number; avgPages: number | null; avgRating: number | null; avgDays: number | null; rated: number; rereads?: number; withMood: number; dnf: number };
   perMonth: { month: number; books: number; pages: number; ids: number[]; mood: number | null }[]; perYear: StatGroup[];
   ratings: { rating: number; n: number; ids: number[] }[]; genres: StatGroup[]; authors: StatGroup[];
   formats: StatGroup<'print' | 'ebook' | 'audio' | 'none'>[]; languages: StatGroup[]; pageBuckets: StatGroup[];

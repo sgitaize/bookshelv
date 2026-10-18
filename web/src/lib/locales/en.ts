@@ -1106,4 +1106,13 @@ export default {
   "next.noneMatch": "No unread book matches these filters.",
   "next.empty": "Your to-be-read pile is empty.",
   "next.moodHint": "Mood and pace come from other people's reviews, so books nobody has rated yet are left out.",
+  "reread.add": "Read again",
+  "reread.edit": "Another reading",
+  "reread.nth": "Read #{n}",
+  "reread.ongoing": "reading again now",
+  "reread.info": "Without an end date the book counts as “reading again now”. Every finished reading counts in the stats and the yearly wrap-up.",
+  "reread.rateOptional": "Rating for this time (optional)",
+  "reread.deleteQ": "Delete this reading?",
+  "stats.rereads.one": "1 of them a re-read",
+  "stats.rereads.other": "{n} of them re-reads",
 } satisfies Record<keyof typeof import('./de.ts').default, string>;

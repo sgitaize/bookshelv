@@ -28,7 +28,7 @@ export function parseMoods(raw: string | undefined): string[] {
 }
 
 /** Bewertung in halben Schritten oder null */
-function rating(v: unknown): number | null {
+export function rating(v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null;
   const n = Number(v);
   if (!Number.isFinite(n) || n < 0.5 || n > 5 || Math.round(n * 2) !== n * 2)

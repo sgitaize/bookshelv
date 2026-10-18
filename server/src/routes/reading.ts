@@ -10,6 +10,7 @@ import { avatarUrl } from './social.ts';
 import { topOf } from './lists.ts';
 import { relationOf } from '../friends.ts';
 import { MOODS, PACES, parseMoods } from './reviews.ts';
+import { readCount } from './rereads.ts';
 
 export const readingRoutes = router();
 
@@ -112,7 +113,7 @@ readingRoutes.get('/home', c => {
     counts: {
       books: uniq(mine).length,
       read: (db.prepare("SELECT COUNT(*) AS n FROM user_books WHERE user_id = ? AND status = 'read'").get(u.id) as { n: number }).n,
-      readThisYear: (db.prepare("SELECT COUNT(*) AS n FROM user_books WHERE user_id = ? AND status = 'read' AND finished_at LIKE ?").get(u.id, `${year}%`) as { n: number }).n
+      readThisYear: readCount(u.id, year)
     }
   });
 });
@@ -201,7 +202,7 @@ readingRoutes.get('/users/:id/profile', c => {
     counts: !p.visible && p.relation !== 'friend' ? null : {
       books: n('SELECT COUNT(DISTINCT book_id) AS n FROM copies WHERE owner_id = ? AND removed_at IS NULL', p.id),
       read: n("SELECT COUNT(*) AS n FROM user_books WHERE user_id = ? AND status = 'read'", p.id),
-      readThisYear: n("SELECT COUNT(*) AS n FROM user_books WHERE user_id = ? AND status = 'read' AND finished_at LIKE ?", p.id, `${year}%`),
+      readThisYear: readCount(p.id, year),
       reviews: n("SELECT COUNT(*) AS n FROM reviews WHERE user_id = ? AND (user_id = ? OR visibility != 'private')", p.id, u.id)
     },
     averageRating: !p.visible && p.relation !== 'friend' ? null : (db.prepare("SELECT ROUND(AVG(rating), 2) AS a FROM reviews WHERE user_id = ? AND rating IS NOT NULL AND (user_id = ? OR visibility != 'private')").get(p.id, u.id) as { a: number | null }).a,

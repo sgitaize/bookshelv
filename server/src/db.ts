@@ -442,6 +442,20 @@ const migrations: string[] = [
     PRIMARY KEY (user_id, actor_id)
   );
   CREATE INDEX remote_friends_actor ON remote_friends(actor_id);
+  `,
+  // 21: Mehrfach gelesen – jede weitere Lektüre mit eigenem Zeitraum und optionaler Bewertung (die erste steht weiter in user_books)
+  `
+  CREATE TABLE rereads (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    book_id INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    started_at TEXT,
+    finished_at TEXT,
+    rating REAL CHECK (rating BETWEEN 0.5 AND 5 AND rating * 2 = CAST(rating * 2 AS INTEGER)),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX rereads_user_book ON rereads(user_id, book_id);
+  CREATE INDEX rereads_finished ON rereads(user_id, finished_at);
   `
 ];
 

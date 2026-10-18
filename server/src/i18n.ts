@@ -4,6 +4,8 @@
  */
 const EN: Record<string, string> = {
   'Interner Fehler': 'Internal error',
+  'Höchstens 100 Lektüren je Buch': 'At most 100 readings per book',
+  'Lektüre nicht gefunden': 'Reading not found',
   'Nur mit Konto auf einer Instanz möglich': 'Only available with an account on an instance',
   'Registrierung nur mit Einladung': 'Sign-up is by invitation only',
   'Diese Instanz nimmt gerade keine neuen Konten auf': 'This instance is not accepting new accounts right now',

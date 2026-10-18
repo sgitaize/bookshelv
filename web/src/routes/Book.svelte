@@ -1,7 +1,7 @@
 <script lang="ts">
   import { isLocal } from '../lib/state.svelte.ts';
   import { QueuedError } from '../lib/offline.svelte.ts';
-  import { api, labels, emptyCopy, percent, type Book, type Copy, type CopyValues, type Reading, type ReadStatus, type BuddyRead } from '../lib/api.ts';
+  import { api, labels, emptyCopy, percent, type Book, type Copy, type CopyValues, type Reading, type ReadStatus, type BuddyRead, type Reread } from '../lib/api.ts';
   import ProgressSheet from '../components/ProgressSheet.svelte';
   import Reviews from '../components/Reviews.svelte';
   import LendSheet from '../components/LendSheet.svelte';
@@ -23,6 +23,8 @@
   import FollowAuthors from '../components/FollowAuthors.svelte';
   import Avatar from '../components/Avatar.svelte';
   import DatesSheet from '../components/DatesSheet.svelte';
+  import RereadSheet from '../components/RereadSheet.svelte';
+  import Stars from '../components/Stars.svelte';
   import FeedList from '../components/FeedList.svelte';
   import type { FeedItem } from '../lib/api.ts';
 
@@ -31,9 +33,10 @@
   let listOpen = $state(false);
   let datesOpen = $state(false);
   let datesJust = $state(false);
+  let rereadEdit = $state<{ reread: Reread | null } | null>(null);
   let bookFeed = $state<FeedItem[]>([]);
   $effect(() => { api.get<{ items: FeedItem[] }>(`/feed?book=${id}&limit=20`).then(r => (bookFeed = r.items)).catch(() => {}); });
-  let data = $state<{ book: Book; copies: Copy[]; canEdit: boolean; wishlisted: boolean; reading: Reading; archived: ArchivedCopy[];
+  let data = $state<{ book: Book; copies: Copy[]; canEdit: boolean; wishlisted: boolean; reading: Reading; rereads: Reread[]; archived: ArchivedCopy[];
     language: { auto: string; mine: string | null } } | null>(null);
   let langEdit = $state(false);
   async function setLang(code: string | null) {
@@ -259,6 +262,20 @@
         <Icon name="edit" size={14} />
       </button>
     {/if}
+    {#each data.rereads as rr, i (rr.id)}
+      <button class="ghost small dates" onclick={() => (rereadEdit = { reread: rr })}>
+        <span>
+          <b>{t('reread.nth', { n: i + 2 })}</b>
+          {#if rr.startedAt} · {t('book.started', { d: fmtDate(rr.startedAt) })}{/if}
+          · {rr.finishedAt ? t('book.finishedOn', { d: fmtDate(rr.finishedAt) }) : t('reread.ongoing')}
+          {#if rr.rating}<Stars value={rr.rating} size={13} />{/if}
+        </span>
+        <Icon name="edit" size={14} />
+      </button>
+    {/each}
+    {#if r.status === 'read'}
+      <button class="ghost small again" onclick={() => (rereadEdit = { reread: null })}><Icon name="plus" size={14} /> {t('reread.add')}</button>
+    {/if}
   </section>
 
   <Reviews bookId={id} title={b.title} bind:askReview />
@@ -385,6 +402,8 @@
   <DatesSheet bookId={id} reading={data.reading} open={datesOpen} just={datesJust}
     onclose={() => { datesOpen = false; if (datesJust && data?.reading.status === 'read') askReview = true; datesJust = false; }}
     onsaved={r => { data!.reading = r; datesOpen = false; if (datesJust && r.status === 'read') askReview = true; datesJust = false; }} />
+  <RereadSheet bookId={id} reread={rereadEdit?.reread ?? null} open={!!rereadEdit} onclose={() => (rereadEdit = null)}
+    onsaved={list => { data!.rereads = list; data!.reading.status = 'read'; rereadEdit = null; toast(t('common.saved')); }} />
 {/if}
 <ListSheet bookId={id} open={listOpen} onclose={() => (listOpen = false)} />
 <ProgressSheet item={progressOpen ? { book: data.book, progress: data.reading.progress, status: data.reading.status } : null}
@@ -449,6 +468,7 @@
   }
   .fill { position: absolute; inset: 0 auto 0 0; background: var(--progress); }
   .pct { position: relative; font-size: 0.8rem; font-weight: 500; padding-left: 10px; line-height: 30px; display: block; text-align: left; }
+  .again { margin: 0; justify-self: start; color: var(--muted); padding: 0.3rem 0.5rem; }
   .dates { margin: 0; justify-self: start; justify-content: flex-start; gap: 0.4rem; color: var(--muted); padding: 0.3rem 0.5rem; white-space: normal; text-align: left; }
   .subtitle { font-size: 1.15rem; color: var(--muted); margin-top: -0.3rem; }
   .subtitle { color: var(--muted); }

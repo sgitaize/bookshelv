@@ -18,7 +18,8 @@ const KEYS = {
   // Zusammenführen aus der App (Lokal-Bibliothek → Konto)
   loans: ['id'],
   user_book_lang: ['user_id', 'book_id'],
-  author_follows: ['user_id', 'author']
+  author_follows: ['user_id', 'author'],
+  rereads: ['id']
 } as const;
 export type Tbl = keyof typeof KEYS;
 type Key = Record<string, number | string>;

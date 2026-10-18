@@ -22,6 +22,7 @@ import { authorRoutes } from './routes/authors.ts';
 import { exportRoutes } from './routes/export.ts';
 import { adminRoutes } from './routes/admin.ts';
 import { friendRoutes } from './routes/friends.ts';
+import { rereadRoutes } from './routes/rereads.ts';
 import { router } from './util.ts';
 import { translate } from './i18n.ts';
 import { localGuard } from './local.ts';
@@ -62,6 +63,7 @@ app.route('/api', readRoutes);
 app.route('/api', authorRoutes);
 app.route('/api', exportRoutes);
 app.route('/api', friendRoutes);
+app.route('/api', rereadRoutes);
 app.route('/api/admin', adminRoutes);
 app.all('/api/*', c => c.json({ error: translate('Unbekannter Endpunkt', c.req.header('x-lang')) }, 404));
 

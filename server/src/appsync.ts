@@ -18,6 +18,7 @@ import * as journal from './journal.ts';
 import { imageType } from './routes/social.ts';
 import { canonicalSeries, type BookRow } from './routes/books.ts';
 import { MOODS, PACES } from './routes/reviews.ts';
+import { rereadsOf } from './routes/rereads.ts';
 
 type ListRef = { name: string; createdAt?: string | null; addedAt?: string | null; description?: string | null };
 export type AppLoan = { borrower: string | null; lentAt: string; dueAt: string | null; returnedAt: string | null; note: string | null };
@@ -30,6 +31,7 @@ export type AppExtras = {
   series?: string | null; seriesIndex?: number | null; language?: string | null;
   progress?: number | null; topRank?: number | null; moods?: string[]; pace?: string | null;
   wishNote?: string | null; copies?: AppCopy[]; cover?: string | null;
+  rereads?: { startedAt: string | null; finishedAt: string | null; rating: number | null }[];
 };
 
 const day = (v: string | null) => (v ? v.slice(0, 10) : null);
@@ -85,7 +87,8 @@ export function appExport(userId: number) {
         series: b.series, seriesIndex: b.series_index, language: lang?.language ?? null,
         progress: ub?.progress ?? null, topRank: ub?.top_rank ?? null,
         moods: rv ? JSON.parse(rv.moods || '[]') as string[] : [], pace: rv?.pace ?? null,
-        wishNote: wish?.note ?? null, copies, cover
+        wishNote: wish?.note ?? null, copies, cover,
+        rereads: rereadsOf(userId, b.id).map(({ id: _, ...r }) => r)
       } satisfies AppExtras
     };
   });
@@ -215,6 +218,18 @@ export function applyAppExtras(userId: number, book: BookRow, x: AppExtras, imp:
     journal.before(imp, 'reviews', { id: rv.id });
     db.prepare('UPDATE reviews SET moods = ?, pace = ? WHERE id = ?').run(rv.moods === '[]' && moods.length ? JSON.stringify(moods) : rv.moods, rv.pace ?? pace, rv.id);
     done.push('review');
+  }
+
+  // weitere Lektüren: gleiche Daten gibt es schon → überspringen
+  for (const r of Array.isArray(x.rereads) ? x.rereads.slice(0, 100) : []) {
+    const started = isDay(r.startedAt) ? r.startedAt : null, finished = isDay(r.finishedAt) ? r.finishedAt : null;
+    if (!started && !finished) continue;
+    if (db.prepare('SELECT 1 FROM rereads WHERE user_id = ? AND book_id = ? AND started_at IS ? AND finished_at IS ?').get(userId, book.id, started, finished)) continue;
+    const rating = typeof r.rating === 'number' && r.rating >= 0.5 && r.rating <= 5 && r.rating * 2 === Math.round(r.rating * 2) ? r.rating : null;
+    const id = Number(db.prepare('INSERT INTO rereads (user_id, book_id, started_at, finished_at, rating) VALUES (?, ?, ?, ?, ?)')
+      .run(userId, book.id, started, finished, rating).lastInsertRowid);
+    journal.created(imp, 'rereads', { id });
+    done.push('reread');
   }
 
   // Sprache je Buch, Notiz auf der Wunschliste

@@ -1106,4 +1106,13 @@ export default {
   "next.noneMatch": "Kein ungelesenes Buch passt zu diesen Filtern.",
   "next.empty": "Dein Stapel ungelesener Bücher ist leer.",
   "next.moodHint": "Stimmung und Tempo stammen aus den Bewertungen anderer, deshalb fallen Bücher ohne Bewertung hier heraus.",
+  "reread.add": "Noch einmal gelesen",
+  "reread.edit": "Weitere Lektüre",
+  "reread.nth": "{n}. Mal",
+  "reread.ongoing": "lese ich gerade wieder",
+  "reread.info": "Ohne Enddatum gilt das Buch als „lese ich gerade wieder“. Jede beendete Lektüre zählt in der Statistik und im Jahresrückblick.",
+  "reread.rateOptional": "Bewertung für dieses Mal (optional)",
+  "reread.deleteQ": "Diese Lektüre löschen?",
+  "stats.rereads.one": "davon 1 erneut gelesen",
+  "stats.rereads.other": "davon {n} erneut gelesen",
 } as const;

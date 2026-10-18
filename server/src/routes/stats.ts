@@ -18,7 +18,7 @@ const GENERIC = /^(belletristik|fiction|fiktionale darstellung|roman|novel|liter
 type Row = {
   bookId: number; title: string; subtitle: string | null; authors: string; year: number | null; pages: number | null; cover: string | null;
   isbn13: string | null; subjects: string; language: string | null; started_at: string | null; finished_at: string; rating: number | null;
-  formats: string | null; moods: string | null; pace: string | null; minutes: number | null; lang_override: string | null;
+  formats: string | null; moods: string | null; pace: string | null; minutes: number | null; lang_override: string | null; reread: number;
 };
 
 const PAGE_BUCKETS = [[0, 200, '<200'], [200, 300, '200–299'], [300, 400, '300–399'], [400, 500, '400–499'], [500, Infinity, '500+']] as const;
@@ -46,23 +46,31 @@ export function periodRange(period: string): { from: string; to: string; year: s
 function statsFor(userId: number, period: string | null) {
   const range = period ? periodRange(period) : null;
   const year = period && /^\d{4}$/.test(period) ? period : null;
+  // jede beendete Lektüre ist eine Zeile: die erste (user_books, Bewertung aus der Review) und jede weitere (rereads, eigene Bewertung)
   const rows = db.prepare(`
+    WITH readings AS (
+      SELECT ub.book_id, ub.started_at, ub.finished_at, rv.rating, 0 AS reread FROM user_books ub
+      LEFT JOIN reviews rv ON rv.book_id = ub.book_id AND rv.user_id = ub.user_id
+      WHERE ub.user_id = :u AND ub.status = 'read' AND ub.finished_at IS NOT NULL
+      UNION ALL
+      SELECT book_id, started_at, finished_at, rating, 1 FROM rereads WHERE user_id = :u AND finished_at IS NOT NULL
+    )
     SELECT b.id AS bookId, b.title, b.subtitle, b.authors, b.year, b.pages, b.cover, b.isbn13, b.subjects, b.language,
-           ub.started_at, ub.finished_at, rv.rating, rv.moods, rv.pace,
-           (SELECT language FROM user_book_lang WHERE user_id = ub.user_id AND book_id = b.id) AS lang_override,
-           (SELECT group_concat(DISTINCT format) FROM copies WHERE book_id = b.id AND owner_id = ub.user_id) AS formats,
-           (SELECT MAX(duration_min) FROM copies WHERE book_id = b.id AND owner_id = ub.user_id AND format = 'audio') AS minutes
-    FROM user_books ub JOIN books b ON b.id = ub.book_id
-    LEFT JOIN reviews rv ON rv.book_id = b.id AND rv.user_id = ub.user_id
-    WHERE ub.user_id = ? AND ub.status = 'read' AND ub.finished_at IS NOT NULL ${range ? 'AND ub.finished_at >= ? AND ub.finished_at < ?' : ''}
-    ORDER BY ub.finished_at
-  `).all(...(range ? [userId, range.from, range.to] : [userId])) as Row[];
+           r.started_at, r.finished_at, r.rating, r.reread, rv.moods, rv.pace,
+           (SELECT language FROM user_book_lang WHERE user_id = :u AND book_id = b.id) AS lang_override,
+           (SELECT group_concat(DISTINCT format) FROM copies WHERE book_id = b.id AND owner_id = :u) AS formats,
+           (SELECT MAX(duration_min) FROM copies WHERE book_id = b.id AND owner_id = :u AND format = 'audio') AS minutes
+    FROM readings r JOIN books b ON b.id = r.book_id
+    LEFT JOIN reviews rv ON rv.book_id = b.id AND rv.user_id = :u
+    ${range ? 'WHERE r.finished_at >= :from AND r.finished_at < :to' : ''}
+    ORDER BY r.finished_at, r.reread
+  `).all(range ? { u: userId, from: range.from, to: range.to } : { u: userId }) as Row[];
 
-  /** Gruppen mit Anzahl und Buch-IDs (Antippen im Diagramm zeigt die Bücher) */
+  /** Gruppen mit Anzahl und Buch-IDs (Antippen im Diagramm zeigt die Bücher); ein zweimal gelesenes Buch zählt zweimal, steht aber einmal in ids */
   const group = (pairs: [string, number][]) => {
-    const m = new Map<string, number[]>();
-    for (const [k, id] of pairs) { const l = m.get(k) ?? []; if (!l.includes(id)) l.push(id); m.set(k, l); }
-    return [...m.entries()].map(([name, ids]) => ({ name, n: ids.length, ids })).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+    const m = new Map<string, { n: number; ids: number[] }>();
+    for (const [k, id] of pairs) { const g = m.get(k) ?? { n: 0, ids: [] }; g.n++; if (!g.ids.includes(id)) g.ids.push(id); m.set(k, g); }
+    return [...m.entries()].map(([name, g]) => ({ name, ...g })).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
   };
   const each = <T,>(f: (r: Row) => T[]): [T, number][] => rows.flatMap(r => f(r).map(v => [v, r.bookId] as [T, number]));
 
@@ -121,6 +129,7 @@ function statsFor(userId: number, period: string | null) {
       avgRating: rated.length ? Math.round((rated.reduce((a, r) => a + r.rating!, 0) / rated.length) * 100) / 100 : null,
       avgDays: days.length ? Math.round(days.reduce((a, d) => a + d, 0) / days.length) : null,
       rated: rated.length,
+      rereads: rows.filter(r => r.reread).length,
       withMood: rows.filter(r => moodsOf(r).length).length,
       dnf: (db.prepare(`SELECT COUNT(*) AS n FROM user_books WHERE user_id = ? AND status = 'dnf' ${range ? 'AND finished_at >= ? AND finished_at < ?' : ''}`)
         .get(...(range ? [userId, range.from, range.to] : [userId])) as { n: number }).n
@@ -142,7 +151,7 @@ function statsFor(userId: number, period: string | null) {
       last: brief(rows.at(-1)),
       longest: brief([...withPages].sort((a, b) => b.pages! - a.pages!)[0]),
       shortest: brief([...withPages].sort((a, b) => a.pages! - b.pages!)[0]),
-      fiveStars: rows.filter(r => r.rating === 5).slice(0, 6).map(r => brief(r)!),
+      fiveStars: rows.filter((r, i) => r.rating === 5 && rows.findIndex(x => x.bookId === r.bookId && x.rating === 5) === i).slice(0, 6).map(r => brief(r)!),
       // bestes Buch des Zeitraums: höchste Bewertung, bei Gleichstand das zuletzt gelesene
       top: brief([...rows].filter(r => r.rating !== null).sort((a, b) => b.rating! - a.rating! || b.finished_at.localeCompare(a.finished_at))[0]),
       topRating: [...rows].filter(r => r.rating !== null).sort((a, b) => b.rating! - a.rating!)[0]?.rating ?? null
@@ -172,13 +181,14 @@ function libraryLanguages(userId: number) {
 }
 
 /** Monate mit gelesenen Büchern (Auswahl im Teilen-Bild) */
-const monthsOf = (userId: number) => (db.prepare(`
-  SELECT DISTINCT substr(finished_at, 1, 7) AS m FROM user_books WHERE user_id = ? AND status = 'read' AND finished_at IS NOT NULL ORDER BY m DESC
-`).all(userId) as { m: string }[]).map(r => r.m);
+const FINISHED = `SELECT finished_at FROM user_books WHERE user_id = :u AND status = 'read' AND finished_at IS NOT NULL
+  UNION ALL SELECT finished_at FROM rereads WHERE user_id = :u AND finished_at IS NOT NULL`;
 
-const yearsOf = (userId: number) => (db.prepare(`
-  SELECT DISTINCT substr(finished_at, 1, 4) AS y FROM user_books WHERE user_id = ? AND status = 'read' AND finished_at IS NOT NULL ORDER BY y DESC
-`).all(userId) as { y: string }[]).map(r => r.y);
+const monthsOf = (userId: number) => (db.prepare(`SELECT DISTINCT substr(finished_at, 1, 7) AS m FROM (${FINISHED}) ORDER BY m DESC`)
+  .all({ u: userId }) as { m: string }[]).map(r => r.m);
+
+const yearsOf = (userId: number) => (db.prepare(`SELECT DISTINCT substr(finished_at, 1, 4) AS y FROM (${FINISHED}) ORDER BY y DESC`)
+  .all({ u: userId }) as { y: string }[]).map(r => r.y);
 
 statsRoutes.get('/stats', c => {
   const u = requireUser(c);
