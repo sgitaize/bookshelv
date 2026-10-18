@@ -1,5 +1,6 @@
 <script lang="ts">
   import { isLocal } from '../lib/state.svelte.ts';
+  import { inApp, openAppPanel } from '../lib/app.svelte.ts';
   import { api, type Profile, type FeedItem, type ReadingListSummary } from '../lib/api.ts';
   import TopSheet from '../components/TopSheet.svelte';
   import FeedList from '../components/FeedList.svelte';
@@ -108,24 +109,34 @@
       <p class="muted">{p.relation === 'friend' || own ? t('profile.private') : t('profile.notFriend')}</p>
     {/if}
 
+    {#if own}
+      <!-- Eigene Bereiche als Listen (wie Einstellungen) statt vieler unterschiedlich breiter Knöpfe -->
+      <ul class="card nav">
+        <li><a href="/library"><span class="ic"><Icon name="library" size={18} /></span><span class="lbl">{t('shelf.mine')}</span><Icon name="chevron" size={18} /></a></li>
+        <li><a href="/stats"><span class="ic"><Icon name="chart" size={18} /></span><span class="lbl">{t('stats.title')}</span><Icon name="chevron" size={18} /></a></li>
+        <li><a href="/lists"><span class="ic"><Icon name="list" size={18} /></span><span class="lbl">{t('list.title')}</span><Icon name="chevron" size={18} /></a></li>
+        <li><a href="/loans"><span class="ic"><Icon name="users" size={18} /></span><span class="lbl">{t('loan.title')}</span><Icon name="chevron" size={18} /></a></li>
+        {#if !isLocal()}<li><a href="/reads"><span class="ic"><Icon name="message" size={18} /></span><span class="lbl">{t('reads.title')}</span><Icon name="chevron" size={18} /></a></li>{/if}
+        <li><a href="/series"><span class="ic"><Icon name="library" size={18} /></span><span class="lbl">{t('series.mine')}</span><Icon name="chevron" size={18} /></a></li>
+        <li><a href="/authors"><span class="ic"><Icon name="bell" size={18} /></span><span class="lbl">{t('authors.title')}</span><Icon name="chevron" size={18} /></a></li>
+        <li><a href="/history"><span class="ic"><Icon name="book" size={18} /></span><span class="lbl">{t('hist.title')}</span><Icon name="chevron" size={18} /></a></li>
+        <li><a href="/wishlist"><span class="ic"><Icon name="bookmark" size={18} /></span><span class="lbl">{t('wish.title')}</span>{#if p.wishlistCount}<span class="count">{p.wishlistCount}</span>{/if}<Icon name="chevron" size={18} /></a></li>
+      </ul>
+      <ul class="card nav">
+        <li><a href="/settings"><span class="ic"><Icon name="settings" size={18} /></span><span class="lbl">{t('settings.title')}</span><Icon name="chevron" size={18} /></a></li>
+        {#if inApp()}
+          <li><button onclick={() => openAppPanel('support')}><span class="ic"><Icon name="heart" size={18} /></span><span class="lbl">{t('appx.supportTitle')}</span><Icon name="chevron" size={18} /></button></li>
+        {/if}
+        {#if session.me?.isAdmin && !isLocal()}<li><a href="/admin"><span class="ic"><Icon name="shield" size={18} /></span><span class="lbl">Admin</span><Icon name="chevron" size={18} /></a></li>{/if}
+      </ul>
+    {:else}
     <div class="row actions">
-      {#if own}
-        <a class="btn dark" href="/library"><Icon name="library" size={16} /> {t('shelf.mine')}</a>
-        <a class="btn" href="/stats"><Icon name="chart" size={16} /> {t('stats.title')}</a>
-        <a class="btn" href="/lists"><Icon name="list" size={16} /> {t('list.title')}</a>
-        <a class="btn" href="/loans"><Icon name="users" size={16} /> {t('loan.title')}</a>
-        {#if !isLocal()}<a class="btn" href="/reads"><Icon name="message" size={16} /> {t('reads.title')}</a>{/if}
-        <a class="btn" href="/series"><Icon name="library" size={16} /> {t('series.mine')}</a>
-        <a class="btn" href="/authors"><Icon name="bell" size={16} /> {t('authors.title')}</a>
-        <a class="btn" href="/history"><Icon name="book" size={16} /> {t('hist.title')}</a>
-        <a class="btn" href="/wishlist"><Icon name="bookmark" size={16} /> {t('wish.count', { n: p.wishlistCount })}</a>
-        <a class="btn" href="/settings"><Icon name="settings" size={16} /> {t('settings.title')}</a>
-        {#if session.me?.isAdmin && !isLocal()}<a class="btn" href="/admin"><Icon name="shield" size={16} /> Admin</a>{/if}
-      {:else if p.shelfVisible}
+      {#if p.shelfVisible}
         <a class="btn dark" href="/people/{p.id}/shelf"><Icon name="library" size={16} /> {t('profile.toShelf')}</a>
         {#if p.wishlistCount}<a class="btn" href="/people/{p.id}/wishlist"><Icon name="bookmark" size={16} /> {t('wish.count', { n: p.wishlistCount })}</a>{/if}
       {/if}
     </div>
+    {/if}
   </section>
   <TopSheet open={topOpen} current={p.top} onclose={() => (topOpen = false)} onsaved={top => { p!.top = top; topOpen = false; }} />
 {/if}
@@ -167,4 +178,13 @@
   .section-head { width: 100%; }
   .book-row { width: 100%; }
   .actions { justify-content: center; margin-top: 1rem; }
+  .nav { list-style: none; margin: 1rem 0 0; padding: 0.3rem 0; width: 100%; min-width: 0; overflow: hidden; text-align: left; }
+  .nav + .nav { margin-top: 0.8rem; }
+  .nav li + li { border-top: 1px solid var(--line); }
+  .nav a, .nav button { display: flex; align-items: center; gap: 0.8rem; width: 100%; min-width: 0; padding: 0.6rem 1rem; color: var(--text);
+    background: none; border: 0; border-radius: 0; font: inherit; text-align: left; cursor: pointer; box-shadow: none; min-height: 0; }
+  .nav a:hover, .nav button:hover { text-decoration: none; background: var(--surface-2); }
+  .nav .ic { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 10px; background: var(--surface-2); color: var(--accent); }
+  .nav .lbl { flex: 1; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nav .count { color: var(--muted); font-variant-numeric: tabular-nums; }
 </style>
