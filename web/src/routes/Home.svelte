@@ -10,6 +10,7 @@
   import { pending } from '../lib/offline.svelte.ts';
   import ProgressSheet from '../components/ProgressSheet.svelte';
   import NextSheet from '../components/NextSheet.svelte';
+  import GoalCard from '../components/GoalCard.svelte';
 
   let home = $state<Home | null>(null);
   let editing = $state<ReadingItem | null>(null);
@@ -43,6 +44,7 @@
       <span class="div"></span>
       <a href="/library?filter=unread"><b>{home.toReadCount}</b><span>{t('home.unread')}</span></a>
     </div>
+    {#if home.counts.books || home.goal}<GoalCard year={new Date().getFullYear()} goal={home.goal} onchange={g => (home!.goal = g)} />{/if}
   </section>
 
   {#if home.counts.books === 0 && !home.reading.length}

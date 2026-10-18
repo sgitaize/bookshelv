@@ -141,6 +141,7 @@ authRoutes.get('/me/export', c => {
     reading: db.prepare(`SELECT ub.*, b.isbn13, b.title FROM user_books ub JOIN books b ON b.id = ub.book_id WHERE ub.user_id = ?`).all(u.id),
     reviews: db.prepare(`SELECT r.*, b.title FROM reviews r JOIN books b ON b.id = r.book_id WHERE r.user_id = ?`).all(u.id),
     rereads: db.prepare(`SELECT r.*, b.isbn13, b.title FROM rereads r JOIN books b ON b.id = r.book_id WHERE r.user_id = ?`).all(u.id),
+    readingGoals: db.prepare('SELECT year, books, pages, updated_at FROM reading_goals WHERE user_id = ?').all(u.id),
     comments: db.prepare('SELECT * FROM comments WHERE user_id = ?').all(u.id),
     loans: db.prepare('SELECT * FROM loans WHERE lender_id = ? OR borrower_id = ?').all(u.id, u.id),
     wishlist: db.prepare('SELECT w.*, b.isbn13, b.title FROM wishlist w JOIN books b ON b.id = w.book_id WHERE w.user_id = ?').all(u.id),

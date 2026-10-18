@@ -456,6 +456,17 @@ const migrations: string[] = [
   );
   CREATE INDEX rereads_user_book ON rereads(user_id, book_id);
   CREATE INDEX rereads_finished ON rereads(user_id, finished_at);
+  `,
+  // 22: Leseziel je Jahr (Bücher und/oder Seiten)
+  `
+  CREATE TABLE reading_goals (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    year INTEGER NOT NULL,
+    books INTEGER CHECK (books > 0),
+    pages INTEGER CHECK (pages > 0),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, year)
+  );
   `
 ];
 

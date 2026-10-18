@@ -103,7 +103,10 @@ export type ReadingItem = { book: BookBrief; status: ReadStatus; progress: numbe
 export type Home = {
   reading: ReadingItem[]; recentlyRead: ReadingItem[]; toRead: ShelfItem[]; toReadCount: number; recentlyAdded: ShelfItem[];
   counts: { books: number; read: number; readThisYear: number };
+  goal: Goal | null;
 };
+/** Leseziel eines Jahres; expected = Soll-Stand heute (nur laufendes Jahr) */
+export type Goal = { year: number; books: number | null; pages: number | null; done: { books: number; pages: number }; expected: { books: number | null; pages: number | null } | null };
 
 export type Visibility = 'private' | 'instance' | 'federated';
 export type ReviewComment = { id: number; text: string; createdAt: string; user: { id: number; displayName: string; avatarUrl: string | null }; canDelete: boolean };
@@ -222,7 +225,7 @@ export const inviteUrl = (token: string) => `${publicOrigin()}/invite/${token}`;
 
 export type StatGroup<N extends string = string> = { name: N; n: number; ids: number[] };
 export type Stats = {
-  years: string[]; months?: string[]; year: string | null; period?: string | null; order?: number[]; user: { displayName: string; username: string };
+  years: string[]; months?: string[]; year: string | null; period?: string | null; order?: number[]; user: { displayName: string; username: string }; goal?: Goal | null;
   totals: { books: number; pages: number; minutes?: number; avgPages: number | null; avgRating: number | null; avgDays: number | null; rated: number; rereads?: number; withMood: number; dnf: number };
   perMonth: { month: number; books: number; pages: number; ids: number[]; mood: number | null }[]; perYear: StatGroup[];
   ratings: { rating: number; n: number; ids: number[] }[]; genres: StatGroup[]; authors: StatGroup[];

@@ -121,6 +121,26 @@
       ctx.fillText(l, x + 28, 778);
     });
 
+    // Leseziel (falls gesetzt): Text + schmaler Balken zwischen Zahlen und Listen
+    const g = s.goal;
+    const goalParts = g ? [g.books ? [g.done.books, g.books] : null, g.pages ? [g.done.pages, g.pages] : null].filter((x): x is number[] => !!x) : [];
+    if (goalParts.length) {
+      const [n, of] = goalParts[0];
+      const label = t('wrap.goal', { n: n.toLocaleString(i18n.locale), of: of.toLocaleString(i18n.locale) }) + ' ' + (g!.books ? t('goal.books') : t('goal.pages')) + (n >= of ? ' ✓' : '');
+      ctx.fillStyle = C.muted;
+      ctx.font = `500 26px ${font()}`;
+      ctx.fillText(label, 70, 838);
+      const bx = 70 + ctx.measureText(label).width + 24, bw = W - 70 - bx;
+      if (bw > 80) {
+        ctx.fillStyle = C.card;
+        roundRect(ctx, bx, 822, bw, 16, 8);
+        ctx.fill();
+        ctx.fillStyle = C.accent;
+        roundRect(ctx, bx, 822, Math.max(16, bw * Math.min(1, n / of)), 16, 8);
+        ctx.fill();
+      }
+    }
+
     // Genres und Autor:innen
     const lists = [[t('wrap.topGenres'), s.genres.slice(0, 3).map(g => g.name)], [t('wrap.topAuthors'), s.authors.slice(0, 3).map(a => a.name)]] as const;
     lists.filter(([, items]) => items.length).forEach(([title, items], i) => {

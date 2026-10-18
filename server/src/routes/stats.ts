@@ -5,7 +5,7 @@ import { HTTPException } from 'hono/http-exception';
 import { db } from '../db.ts';
 import { isFriend } from '../friends.ts';
 import { requireUser } from '../auth.ts';
-import { router, idParam } from '../util.ts';
+import { router, idParam, body, int } from '../util.ts';
 import { bookBrief } from './books.ts';
 import { parseMoods, LIGHT, DARK } from './reviews.ts';
 import { langOf } from '../lang.ts';
@@ -161,6 +161,54 @@ function statsFor(userId: number, period: string | null) {
   };
 }
 
+// ---------- Leseziel ----------
+
+type GoalRow = { books: number | null; pages: number | null };
+const goalRow = (userId: number, year: number) => db.prepare('SELECT books, pages FROM reading_goals WHERE user_id = ? AND year = ?').get(userId, year) as GoalRow | undefined;
+
+/**
+ * Ziel eines Jahres mit Stand: Bücher = beendete Lektüren (auch erneut gelesene), Seiten wie in der Statistik
+ * (nur gehörte Bücher zählen nicht als Seiten). expected = Soll-Stand heute bei gleichmäßigem Lesen (nur laufendes Jahr).
+ */
+export function goalOf(userId: number, year: number) {
+  const g = goalRow(userId, year);
+  if (!g) return null;
+  const done = db.prepare(`
+    WITH readings AS (
+      SELECT book_id FROM user_books WHERE user_id = :u AND status = 'read' AND finished_at >= :from AND finished_at < :to
+      UNION ALL SELECT book_id FROM rereads WHERE user_id = :u AND finished_at >= :from AND finished_at < :to
+    )
+    SELECT COUNT(*) AS books, COALESCE(SUM(CASE WHEN (SELECT group_concat(DISTINCT format) FROM copies WHERE book_id = r.book_id AND owner_id = :u) = 'audio'
+      THEN 0 ELSE b.pages END), 0) AS pages
+    FROM readings r JOIN books b ON b.id = r.book_id
+  `).get({ u: userId, from: `${year}-01-01`, to: `${year + 1}-01-01` }) as { books: number; pages: number };
+  const now = new Date();
+  const start = Date.UTC(year, 0, 1), end = Date.UTC(year + 1, 0, 1);
+  const share = now.getUTCFullYear() === year ? (now.getTime() - start) / (end - start) : null;
+  return {
+    year, books: g.books, pages: g.pages, done,
+    expected: share === null ? null : { books: g.books ? Math.round(g.books * share * 10) / 10 : null, pages: g.pages ? Math.round(g.pages * share) : null }
+  };
+}
+
+statsRoutes.get('/goals/:year', c => {
+  const u = requireUser(c);
+  const year = int(c.req.param('year'), 1900, 2999)!;
+  return c.json(goalOf(u.id, year));
+});
+
+/** Ziel setzen; books und pages null/leer = ohne dieses Ziel, beide leer = Ziel löschen */
+statsRoutes.put('/goals/:year', async c => {
+  const u = requireUser(c);
+  const year = int(c.req.param('year'), 1900, 2999)!;
+  const b = await body(c);
+  const books = int(b.books, 1, 10000), pages = int(b.pages, 1, 10_000_000);
+  if (!books && !pages) db.prepare('DELETE FROM reading_goals WHERE user_id = ? AND year = ?').run(u.id, year);
+  else db.prepare(`INSERT INTO reading_goals (user_id, year, books, pages) VALUES (?, ?, ?, ?)
+    ON CONFLICT (user_id, year) DO UPDATE SET books = excluded.books, pages = excluded.pages, updated_at = datetime('now')`).run(u.id, year, books, pages);
+  return c.json(goalOf(u.id, year));
+});
+
 /** Sprachen der ganzen Bibliothek (alle Bücher im Regal, nicht nur gelesene) mit Anzahl gelesen */
 function libraryLanguages(userId: number) {
   const rows = db.prepare(`
@@ -195,7 +243,8 @@ statsRoutes.get('/stats', c => {
   // ?period=2026|2026-Q3|2026-09 (Teilen-Bild), ?year=2026 wie bisher
   const y = c.req.query('period') ?? c.req.query('year');
   if (y && !periodRange(y)) throw new HTTPException(400, { message: 'Ungültige Zahl' });
-  return c.json({ years: yearsOf(u.id), months: monthsOf(u.id), ...statsFor(u.id, y ?? null), library: { languages: libraryLanguages(u.id) }, user: { displayName: u.display_name, username: u.username } });
+  return c.json({ years: yearsOf(u.id), months: monthsOf(u.id), ...statsFor(u.id, y ?? null), library: { languages: libraryLanguages(u.id) },
+    goal: y && /^\d{4}$/.test(y) ? goalOf(u.id, Number(y)) : null, user: { displayName: u.display_name, username: u.username } });
 });
 
 /** Statistik von Freund*innen (für den Vergleich/Jahresrückblick), nur bei sichtbarem Regal */

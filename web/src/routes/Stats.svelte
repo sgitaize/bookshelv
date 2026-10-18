@@ -9,6 +9,7 @@
   import MoodLine from '../components/MoodLine.svelte';
   import BooksSheet from '../components/BooksSheet.svelte';
   import Icon from '../components/Icon.svelte';
+  import GoalCard from '../components/GoalCard.svelte';
 
   let year = $state<string | null>(router.query.get('year') ?? String(new Date().getFullYear()));
   let s = $state<Stats | null>(null);
@@ -68,6 +69,10 @@
         <small>{s.totals.rated ? t('stats.ofRated', { n: s.totals.rated }) : t('stats.noRating')}</small></div>
       <div class="tile"><b>{s.totals.avgDays ?? '–'}</b><span>{t('stats.avgDays')}</span></div>
     </div>
+
+    {#if year && (s.goal || Number(year) >= new Date().getFullYear())}
+      <div class="goalwrap"><GoalCard year={Number(year)} goal={s.goal ?? null} compact onchange={g => (s!.goal = g)} /></div>
+    {/if}
 
     {#if !s.totals.books}
       <p class="empty">{t('stats.none')}</p>
@@ -165,6 +170,7 @@
 <BooksSheet {pick} onclose={() => (pick = null)} />
 
 <style>
+  .goalwrap { display: grid; margin-top: 0.8rem; }
   .libcard { margin-top: 1rem; }
   .jump { text-align: center; margin-top: 0; }
   .chips { display: flex; gap: 0.4rem; flex-wrap: wrap; }

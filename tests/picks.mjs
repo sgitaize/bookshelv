@@ -82,6 +82,20 @@ const exp = (await mia('GET', '/me/export.json')).data;
 check('app export rereads', exp.items.find(i => i.title === 'Lieblingsbuch')?.app.rereads?.length === 1, JSON.stringify(exp.items.find(i => i.title === 'Lieblingsbuch')?.app));
 check('gdpr export rereads', (await mia('GET', '/me/export')).data.rereads.length === 2);
 
+// ---------- Leseziel ----------
+check('no goal yet', (await mia('GET', `/goals/${year}`)).data === null && (await mia('GET', '/home')).data.goal === null);
+let g = (await mia('PUT', `/goals/${year}`, { books: 10, pages: 5000 })).data;
+// Mia hat dieses Jahr: „Schon gelesen“ (200 S.) und zwei Lektüren von „Lieblingsbuch“ (300 S.) → 2 nach dem Löschen der dritten
+check('goal progress', g.books === 10 && g.pages === 5000 && g.done.books === 2 && g.done.pages === 500 && g.expected.books > 0, JSON.stringify(g));
+check('goal on home', (await mia('GET', '/home')).data.goal?.done.books === 2);
+check('goal in stats', (await mia('GET', `/stats?year=${year}`)).data.goal?.books === 10 && (await mia('GET', '/stats')).data.goal === null);
+g = (await mia('PUT', `/goals/${year}`, { books: null, pages: '3000' })).data;
+check('goal pages only', g.books === null && g.pages === 3000);
+check('goal past year no pace', (await mia('PUT', '/goals/2023', { books: 1 })).data.expected === null && (await mia('GET', '/goals/2023')).data.done.books === 1);
+check('goal bad values', (await mia('PUT', `/goals/${year}`, { books: -1 })).status === 400 && (await mia('GET', '/goals/abc')).status === 400);
+check('goal removed', (await mia('PUT', `/goals/${year}`, {})).data === null && (await mia('GET', `/goals/${year}`)).data === null);
+check('goal private', (await simon('GET', '/goals/2023')).data === null);
+
 // Zusammenführen (App → Konto): weitere Lektüren kommen mit, doppelte nicht, Rückgängig entfernt sie wieder
 const item = { ...exp.items.find(i => i.title === 'Lieblingsbuch'), owned: true };
 const leo = await fresh('leo');

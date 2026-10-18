@@ -11,6 +11,7 @@ import { topOf } from './lists.ts';
 import { relationOf } from '../friends.ts';
 import { MOODS, PACES, parseMoods } from './reviews.ts';
 import { readCount } from './rereads.ts';
+import { goalOf } from './stats.ts';
 
 export const readingRoutes = router();
 
@@ -109,6 +110,7 @@ readingRoutes.get('/home', c => {
     recentlyRead: readingList(u.id, "ub.status = 'read'", 'ub.finished_at DESC, ub.updated_at DESC', 12),
     toRead: toRead.slice(0, 12),
     toReadCount: toRead.length,
+    goal: goalOf(u.id, Number(year)),
     recentlyAdded: uniq(mine).slice(0, 12),
     counts: {
       books: uniq(mine).length,
