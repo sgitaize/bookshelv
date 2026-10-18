@@ -13,6 +13,7 @@ import { MOODS, PACES, parseMoods } from './reviews.ts';
 import { readCount } from './rereads.ts';
 import { goalOf } from './stats.ts';
 import { avoidedTags } from './contentnotes.ts';
+import { blockedByMe } from './moderation.ts';
 
 export const readingRoutes = router();
 
@@ -206,6 +207,7 @@ readingRoutes.get('/users/:id/profile', c => {
   return c.json({
     id: p.id, username: p.username, displayName: p.displayName, createdAt: p.createdAt, shelfVisible: p.visible, avatarUrl: avatarUrl(p.avatar),
     relation: p.relation, friend: p.relation === 'friend',
+    blocked: blockedByMe(u.id, p.id),
     // Nicht-Freund*innen sehen nur die Profilkarte
     counts: !p.visible && p.relation !== 'friend' ? null : {
       books: n('SELECT COUNT(DISTINCT book_id) AS n FROM copies WHERE owner_id = ? AND removed_at IS NULL', p.id),

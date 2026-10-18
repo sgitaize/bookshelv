@@ -5,7 +5,7 @@
   import TopSheet from '../components/TopSheet.svelte';
   import FeedList from '../components/FeedList.svelte';
   import ListCard from '../components/ListCard.svelte';
-  import { session, toastError } from '../lib/state.svelte.ts';
+  import { session, toast, toastError, report } from '../lib/state.svelte.ts';
   import Cover from '../components/Cover.svelte';
   import Icon from '../components/Icon.svelte';
   import Avatar from '../components/Avatar.svelte';
@@ -25,6 +25,14 @@
     p = null;
     load(userId ?? session.me!.id);
   });
+  async function setBlock(on: boolean) {
+    if (!p || (on && !confirm(t('mod.blockQ', { name: p.displayName })))) return;
+    try {
+      if (on) await api.post(`/users/${p.id}/block`, {}); else await api.del(`/users/${p.id}/block`);
+      toast(t(on ? 'mod.blocked' : 'mod.unblocked', { name: p.displayName }));
+      load(p.id);
+    } catch (e) { toastError(e); }
+  }
   function load(id: number) {
     api.get<Profile>(`/users/${id}/profile`).then(r => (p = r)).catch(toastError);
     api.get<ReadingListSummary[]>(`/users/${id}/lists`).then(r => (lists = r)).catch(() => {});
@@ -55,7 +63,18 @@
       <button class="ghost small topadd" onclick={() => (topOpen = true)}><Icon name="star" size={14} /> {t('top.add')}</button>
     {/if}
 
-    {#if !own}<div class="friend"><FriendButton userId={p.id} bind:relation={p.relation} onchange={() => load(p!.id)} /></div>{/if}
+    {#if !own && !p.blocked}<div class="friend"><FriendButton userId={p.id} bind:relation={p.relation} onchange={() => load(p!.id)} /></div>{/if}
+    {#if !own && !isLocal()}
+      <div class="row modacts">
+        {#if p.blocked}
+          <span class="chip">{t('mod.youBlocked')}</span>
+          <button class="small ghost" onclick={() => setBlock(false)}>{t('mod.unblock')}</button>
+        {:else}
+          <button class="small ghost" onclick={() => report({ type: 'user', id: p!.id, userId: p!.id, name: p!.displayName })}><Icon name="flag" size={14} /> {t('mod.reportProfile')}</button>
+          <button class="small ghost danger" onclick={() => setBlock(true)}><Icon name="ban" size={14} /> {t('mod.blockShort')}</button>
+        {/if}
+      </div>
+    {/if}
 
     {#if p.counts}
     <div class="stats">
@@ -142,6 +161,7 @@
 {/if}
 
 <style>
+  .modacts { justify-content: center; margin-top: 0.6rem; gap: 0.4rem; flex-wrap: wrap; }
   .profile { display: grid; justify-items: center; text-align: center; max-width: 560px; margin: 0 auto; }
   .bigav { margin: 0.8rem 0; }
   .friend { margin: 0.7rem 0 0.2rem; }

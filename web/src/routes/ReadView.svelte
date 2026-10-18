@@ -1,7 +1,7 @@
 <script lang="ts">
   // Leserunde: Mitglieder mit Fortschritt, Beiträge nach Buchposition; was hinter dem eigenen Stand liegt, bleibt verdeckt
   import { api, ago, type BuddyRead, type BuddyPost, type ListMember } from '../lib/api.ts';
-  import { toast, toastError, session } from '../lib/state.svelte.ts';
+  import { toast, toastError, session, report } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
   import { t, fmtDate } from '../lib/i18n.svelte.ts';
   import Cover from '../components/Cover.svelte';
@@ -115,6 +115,7 @@
                 <Avatar name={p.user.displayName} url={p.user.avatarUrl} size={24} />
                 <strong class="small">{p.user.displayName}</strong>
                 <span class="muted small">{ago(p.createdAt)}</span>
+                {#if !p.mine && !p.locked}<button class="icon ghost del" onclick={() => report({ type: 'post', id: p.id, userId: p.user.id, name: p.user.displayName })} aria-label={t('mod.reportPost')}><Icon name="flag" size={14} /></button>{/if}
                 {#if p.mine || data.mine}<button class="icon ghost del" onclick={() => delPost(p)} aria-label={t('common.delete')}><Icon name="trash" size={14} /></button>{/if}
               </div>
               {#if p.locked}

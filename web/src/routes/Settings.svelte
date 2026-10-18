@@ -9,6 +9,7 @@
   import { t, tn, i18n, fmtDate, type Key } from '../lib/i18n.svelte.ts';
   import { getTheme, getFont, setPrefs, THEMES, SWATCH, type Theme, type Font, type Prefs } from '../lib/theme.ts';
   import Avatar from '../components/Avatar.svelte';
+  import { pushSupported, pushSubscription, enablePush, disablePush } from '../lib/push.ts';
 
   let displayName = $state(session.me!.displayName);
   let shelfVisible = $state(session.me!.shelfVisible);
@@ -19,6 +20,22 @@
   let theme = $state<Theme>(getTheme());
   let font = $state<Font>(getFont());
   let reviewVisibility = $state(session.me!.prefs?.reviewVisibility ?? 'instance');
+  // Push auf diesem Gerät, blockierte Personen (Bereich Privatsphäre)
+  let pushOn = $state(false);
+  let pushBusy = $state(false);
+  $effect(() => { pushSubscription().then(s => (pushOn = !!s)); });
+  async function togglePush() {
+    pushBusy = true;
+    try {
+      if (pushOn) { await disablePush(); pushOn = false; }
+      else if (await enablePush()) { pushOn = true; toast(t('push.on')); }
+      else toastError(t('push.denied'));
+    } catch (e) { toastError(e); } finally { pushBusy = false; }
+  }
+  let blocks = $state<{ id: number; displayName: string; username: string; avatarUrl: string | null }[]>([]);
+  async function unblock(id: number) {
+    try { await api.del(`/users/${id}/block`); blocks = blocks.filter(b => b.id !== id); toast(t('settings.saved')); } catch (e) { toastError(e); }
+  }
   let avoidNotes = $state<string[]>((session.me!.prefs?.avoidNotes ?? '').split(',').filter(Boolean));
   async function toggleAvoid(tag: string) {
     avoidNotes = avoidNotes.includes(tag) ? avoidNotes.filter(x => x !== tag) : [...avoidNotes, tag];
@@ -92,6 +109,7 @@
   const picked = $derived(router.query.get('s') as Sec | null);
   const android = $derived(app.info?.platform === 'android');
   const sec = $derived<Sec>(SECTIONS.some(s => s.id === picked) ? picked! : SECTIONS[0].id);
+  $effect(() => { if (!isLocal() && sec === 'privacy') api.get<typeof blocks>('/me/blocks').then(r => (blocks = r)).catch(() => {}); });
   const openInvites = $derived(invites.filter(i => !i.usedBy && new Date(i.expiresAt) > new Date()).length);
   const visLabel = (v: string) => t(`vis.${v}` as Key);
   function summary(id: Sec): string {
@@ -282,6 +300,28 @@
           </select>
           <small class="muted">{t('settings.reviewVisibilityInfo')}</small>
         </label>
+      </div>
+      <div class="card stack">
+        <h3>{t('push.title')}</h3>
+        {#if pushSupported()}
+          <label class="row check"><input type="checkbox" checked={pushOn} disabled={pushBusy} onchange={togglePush} /> <span class="grow">{t('push.toggle')}</span></label>
+          <p class="muted small">{t('push.info')}</p>
+        {:else}
+          <p class="muted small">{t(inApp() ? 'push.inApp' : 'push.unsupported')}</p>
+        {/if}
+      </div>
+      <div class="card stack">
+        <h3>{t('mod.blockedTitle')}</h3>
+        {#if blocks.length}
+          {#each blocks as b (b.id)}
+            <div class="spread">
+              <a href="/people/{b.id}" class="row"><Avatar name={b.displayName} url={b.avatarUrl} size={28} /> {b.displayName} <span class="muted small">@{b.username}</span></a>
+              <button class="small ghost" onclick={() => unblock(b.id)}>{t('mod.unblock')}</button>
+            </div>
+          {/each}
+        {:else}
+          <p class="muted small">{t('mod.blockedNone')}</p>
+        {/if}
       </div>
 
     {:else if sec === 'appearance'}

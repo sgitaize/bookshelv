@@ -1,4 +1,6 @@
 import { db } from './db.ts';
+import { isBlocked } from './friends.ts';
+import { pushTo } from './push.ts';
 
 /**
  * In-App-Benachrichtigungen (es gibt keine E-Mail-Adressen).
@@ -11,12 +13,17 @@ import { db } from './db.ts';
  *        buddy_invite (du wurdest zu einer Leserunde eingeladen), buddy_post (neuer Beitrag, den du schon lesen darfst); ref_id = buddy_reads.id
  *        friend_request (Freundschaftsanfrage an dich), friend_accepted (deine Anfrage wurde angenommen)
  *        author_new (Neuerscheinung einer Autor*in, der du folgst; actor_label = Autor*in, ref_id = author_releases.id)
+ *        report_new (nur Admins: neue Meldung, ref_id = reports.id)
+ * Jede Benachrichtigung löst außerdem einen Web Push an die Geräte aus, auf denen die Person Push eingeschaltet hat.
  */
-export type NotificationType = 'loan_new' | 'loan_returned' | 'comment' | 'invite_accepted' | 'loan_due' | 'loan_overdue' | 'wish_available' | 'import_done' | 'list_shared' | 'loan_request' | 'loan_declined' | 'buddy_invite' | 'buddy_post' | 'author_new' | 'friend_request' | 'friend_accepted';
+export type NotificationType = 'loan_new' | 'loan_returned' | 'comment' | 'invite_accepted' | 'loan_due' | 'loan_overdue' | 'wish_available' | 'import_done' | 'list_shared' | 'loan_request' | 'loan_declined' | 'buddy_invite' | 'buddy_post' | 'author_new' | 'friend_request' | 'friend_accepted' | 'report_new';
 
 export function notify(userId: number | null | undefined, type: NotificationType, actorId: number, bookId: number | null = null, refId: number | null = null) {
   if (!userId || userId === actorId) return;
+  // Blockierte erreichen einen nicht (Meldungen an Admins gehen immer durch)
+  if (type !== 'report_new' && isBlocked(userId, actorId)) return;
   db.prepare('INSERT INTO notifications (user_id, type, actor_id, book_id, ref_id) VALUES (?, ?, ?, ?, ?)').run(userId, type, actorId, bookId, refId);
+  void pushTo(userId);
   // nicht endlos wachsen lassen: pro Nutzer die letzten 200 behalten
   db.prepare(`DELETE FROM notifications WHERE user_id = ? AND id NOT IN (SELECT id FROM notifications WHERE user_id = ? ORDER BY id DESC LIMIT 200)`).run(userId, userId);
 }
@@ -24,6 +31,7 @@ export function notify(userId: number | null | undefined, type: NotificationType
 /** Auslöser ist eine Person auf einer gekoppelten Instanz (kein lokales Konto) – Name wird mitgespeichert */
 export function notifyRemote(userId: number, type: NotificationType, label: string, bookId: number | null = null, refId: number | null = null) {
   db.prepare('INSERT INTO notifications (user_id, type, actor_label, book_id, ref_id) VALUES (?, ?, ?, ?, ?)').run(userId, type, label, bookId, refId);
+  void pushTo(userId);
 }
 
 /**

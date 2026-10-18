@@ -23,6 +23,14 @@ export function unfriend(a: number, b: number) {
   db.prepare('DELETE FROM friends WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)').run(a, b, b, a);
 }
 
+/** Blockiert: a hat b blockiert oder umgekehrt – dann sehen sich beide nicht mehr und können sich nicht erreichen */
+export const isBlocked = (a: number, b: number) =>
+  a !== b && !!db.prepare('SELECT 1 FROM blocks WHERE (user_id = ? AND blocked_id = ?) OR (user_id = ? AND blocked_id = ?)').get(a, b, b, a);
+
+/** SQL-Bedingung: Konto in Spalte col ist weder von viewer blockiert noch hat es viewer blockiert */
+export const notBlockedSql = (viewer: number, col: string) =>
+  `NOT EXISTS (SELECT 1 FROM blocks bl WHERE (bl.user_id = ${Math.trunc(viewer)} AND bl.blocked_id = ${col}) OR (bl.user_id = ${col} AND bl.blocked_id = ${Math.trunc(viewer)}))`;
+
 /** Beziehung aus Sicht von me: self | friend | outgoing (ich habe angefragt) | incoming (wartet auf mich) | none */
 export type Relation = 'self' | 'friend' | 'outgoing' | 'incoming' | 'none';
 export function relationOf(me: number, other: number): Relation {

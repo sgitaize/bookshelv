@@ -479,6 +479,39 @@ const migrations: string[] = [
     PRIMARY KEY (user_id, book_id)
   );
   CREATE INDEX content_notes_book ON content_notes(book_id);
+  `,
+  // 24: Melden und Blockieren (App-Store-Richtlinie 1.2), Web-Push-Abos je Gerät
+  `
+  CREATE TABLE reports (
+    id INTEGER PRIMARY KEY,
+    reporter_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    target_type TEXT NOT NULL CHECK (target_type IN ('review', 'comment', 'user', 'post')),
+    target_id INTEGER NOT NULL,
+    target_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    reason TEXT NOT NULL CHECK (reason IN ('spam', 'offensive', 'harassment', 'spoiler', 'other')),
+    note TEXT,
+    excerpt TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    resolved_at TEXT,
+    resolved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    resolution TEXT CHECK (resolution IN ('dismissed', 'removed', 'disabled'))
+  );
+  CREATE INDEX reports_open ON reports(resolved_at, created_at);
+  CREATE TABLE blocks (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    blocked_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, blocked_id)
+  );
+  CREATE INDEX blocks_blocked ON blocks(blocked_id);
+  CREATE TABLE push_subscriptions (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    endpoint TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_ok TEXT
+  );
+  CREATE INDEX push_subscriptions_user ON push_subscriptions(user_id);
   `
 ];
 

@@ -6,7 +6,7 @@ import { HTTPException } from 'hono/http-exception';
 import { db, tx } from '../db.ts';
 import { requireUser } from '../auth.ts';
 import { router, idParam, notFound, body, str } from '../util.ts';
-import { befriend, unfriend, relationOf, remoteStatus, setRemote, dropRemote } from '../friends.ts';
+import { befriend, unfriend, relationOf, remoteStatus, setRemote, dropRemote, isBlocked } from '../friends.ts';
 import { enqueue, sendNow, resolveHandle, handleOf, type Instance } from '../federation.ts';
 import { localActor } from './federation.ts';
 import { notify } from '../notify.ts';
@@ -37,6 +37,7 @@ friendRoutes.post('/users/:id/friend', c => {
   const id = idParam(c);
   if (id === u.id) throw new HTTPException(400, { message: 'Das bist du selbst' });
   if (!db.prepare('SELECT 1 FROM users WHERE id = ? AND disabled = 0').get(id)) throw notFound('Konto');
+  if (isBlocked(u.id, id)) throw new HTTPException(403, { message: 'Nicht möglich' });
   const relation = tx(() => {
     const rel = relationOf(u.id, id);
     if (rel === 'friend' || rel === 'outgoing') return rel;

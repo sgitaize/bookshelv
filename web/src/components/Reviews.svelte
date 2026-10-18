@@ -1,7 +1,7 @@
 <script lang="ts">
   import { isLocal } from '../lib/state.svelte.ts';
   import { api, ago, fmtRating, type BookReviews, type Review } from '../lib/api.ts';
-  import { toastError } from '../lib/state.svelte.ts';
+  import { toastError, report, session } from '../lib/state.svelte.ts';
   import Stars from './Stars.svelte';
   import Icon from './Icon.svelte';
   import Avatar from './Avatar.svelte';
@@ -97,6 +97,7 @@
       </div>
       {#if r.rating}<span class="rating"><Stars value={r.rating} size={15} /> {fmtRating(r.rating)}</span>{/if}
       {#if r.mine}<button class="icon ghost" onclick={() => (askReview = true)} aria-label={t('review.edit')}><Icon name="edit" size={16} /></button>{/if}
+      {#if !r.mine && !isLocal()}<button class="icon ghost flag" onclick={() => report({ type: 'review', id: r.id, userId: r.user.id, name: r.user.displayName })} aria-label={t('mod.reportReview')}><Icon name="flag" size={15} /></button>{/if}
     </header>
     {#if r.text}
       {#if r.spoiler && !r.mine && !revealed.has(r.id)}
@@ -118,7 +119,10 @@
         {#each r.comments as c (c.id)}
           <div class="comment">
             <span class="cuser"><Avatar name={c.user.displayName} url={c.user.avatarUrl} size={20} /> <strong>{c.user.displayName}</strong> <span class="muted small">{ago(c.createdAt)}</span></span>
-            {#if c.canDelete}<button class="icon ghost del" onclick={() => removeComment(c.id)} aria-label={t('comment.delete')}><Icon name="x" size={14} /></button>{/if}
+            <span class="cacts">
+              {#if c.user.id !== session.me?.id}<button class="icon ghost del" onclick={() => report({ type: 'comment', id: c.id, userId: c.user.id, name: c.user.displayName })} aria-label={t('mod.reportComment')}><Icon name="flag" size={13} /></button>{/if}
+              {#if c.canDelete}<button class="icon ghost del" onclick={() => removeComment(c.id)} aria-label={t('comment.delete')}><Icon name="x" size={14} /></button>{/if}
+            </span>
             <p>{c.text}</p>
           </div>
         {/each}
@@ -142,6 +146,7 @@
   .review { display: grid; gap: 0.6rem; padding: 1rem; }
   header { display: flex; align-items: center; gap: 0.5rem 0.7rem; flex-wrap: wrap; }
   .av { display: inline-flex; }
+  .flag { color: var(--muted); padding: 0.3rem; }
   .cuser { display: inline-flex; align-items: center; gap: 0.35rem; }
   .who { display: grid; flex: 1 1 8rem; min-width: 0; line-height: 1.3; }
   .who a { color: var(--text); }
@@ -153,7 +158,8 @@
   .comments { display: grid; gap: 0.6rem; border-top: 1px solid var(--line); padding-top: 0.7rem; }
   .comment { position: relative; padding-right: 1.6rem; }
   .comment p { margin: 0.1rem 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-  .del { position: absolute; right: 0; top: -0.2rem; padding: 0.25rem; color: var(--muted); }
+  .cacts { position: absolute; right: 0; top: -0.2rem; display: flex; }
+  .del { padding: 0.25rem; color: var(--muted); }
   .grow { flex: 1; min-width: 0; }
   .tags { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.4rem 0 0; }
   .tags span { font-size: 0.72rem; padding: 0.1em 0.6em; border-radius: 999px; background: var(--surface-2); color: var(--muted); }

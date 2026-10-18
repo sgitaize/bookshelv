@@ -18,6 +18,7 @@
   import History from './routes/History.svelte';
   import Notifications from './routes/Notifications.svelte';
   import Legal from './routes/Legal.svelte';
+  import ReportSheet from './components/ReportSheet.svelte';
   const LEGAL = ['/legal', '/privacy', '/imprint'];
   import Feed from './routes/Feed.svelte';
   import Wishlist from './routes/Wishlist.svelte';
@@ -147,6 +148,7 @@
       </div>
     {/key}
   </main>
+  {#if !isLocal()}<ReportSheet />{/if}
 {/if}
 
 <div class="toasts" aria-live="polite">

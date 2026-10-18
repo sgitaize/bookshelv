@@ -133,4 +133,79 @@ check('merge rereads once', (await leo('GET', `/books/${leoBook}/rereads`)).data
 await leo('POST', `/imports/${job.id}/undo`);
 check('undo removes rereads', (await leo('GET', `/books/${leoBook}/rereads`)).data.length === 0);
 
+// ---------- Melden, Blockieren, Push ----------
+const http = await import('node:http');
+const crypto = await import('node:crypto');
+const pushes = [];
+const fake = http.createServer((q, r) => { pushes.push({ url: q.url, auth: q.headers.authorization, ttl: q.headers.ttl }); r.writeHead(q.url.includes('gone') ? 410 : 201); r.end(); });
+await new Promise(r => fake.listen(3990, r));
+const miaId0 = (await mia('GET', '/me')).data.id;
+const key = (await simon('GET', '/push/key')).data.key;
+check('vapid key', typeof key === 'string' && Buffer.from(key, 'base64url').length === 65);
+check('push bad endpoint', (await simon('POST', '/push/subscribe', { endpoint: 'https://evil.example/x' })).status === 400
+  && (await simon('POST', '/push/subscribe', { endpoint: 'http://10.0.0.1/x' })).status === 400);
+check('push subscribe', (await simon('POST', '/push/subscribe', { endpoint: 'http://localhost:3990/simon' })).status === 200);
+await simon('POST', '/push/subscribe', { endpoint: 'http://localhost:3990/gone' });
+
+// Mia schreibt eine Review, Leo kommentiert sie; Leo meldet Mias Review, Mia meldet Leos Kommentar
+await mia('PUT', `/books/${long}/review`, { rating: 1, text: 'Unfreundlicher Text', visibility: 'instance' });
+let rv = (await leo('GET', `/books/${long}/reviews`)).data.reviews.find(r => r.user.displayName === 'mia');
+check('leo sees mia review', !!rv);
+await leo('POST', `/reviews/${rv.id}/comments`, { text: 'Spam spam spam' });
+const cm = (await mia('GET', `/books/${long}/reviews`)).data.reviews.find(r => r.mine).comments[0];
+check('report own content 400', (await mia('POST', '/reports', { type: 'review', id: rv.id, reason: 'spam' })).status === 400);
+check('report bad reason 400', (await leo('POST', '/reports', { type: 'review', id: rv.id, reason: 'langweilig' })).status === 400);
+check('report missing 404', (await leo('POST', '/reports', { type: 'review', id: 999999, reason: 'spam' })).status === 404);
+const rep = (await leo('POST', '/reports', { type: 'review', id: rv.id, reason: 'offensive', note: 'gemein' })).data;
+check('report review', rep.ok && rep.id > 0);
+check('report idempotent', (await leo('POST', '/reports', { type: 'review', id: rv.id, reason: 'offensive' })).data.id === rep.id);
+await mia('POST', '/reports', { type: 'comment', id: cm.id, reason: 'spam' });
+await mia('POST', '/reports', { type: 'user', id: (await leo('GET', '/me')).data.id, reason: 'other' });
+check('reports admin only', (await mia('GET', '/admin/reports')).status === 403);
+let reps = (await simon('GET', '/admin/reports')).data;
+const rrv = reps.items.find(x => x.type === 'review');
+check('admin sees reports', reps.open === 3 && rrv.excerpt === 'Unfreundlicher Text' && rrv.note === 'gemein' && rrv.reporter.displayName === 'leo' && rrv.href.startsWith('/book/'), JSON.stringify(reps).slice(0, 400));
+check('admin notified', (await simon('GET', '/notifications')).data.items.filter(n => n.type === 'report_new').length >= 3);
+await new Promise(r => setTimeout(r, 300));
+const sp = pushes.filter(p => p.url === '/simon');
+check('push sent to admin', sp.length >= 3 && sp[0].ttl === '86400', JSON.stringify(pushes.slice(0, 2)));
+const [t, k] = sp[0].auth.replace('vapid ', '').split(', ').map(x => x.split('=').slice(1).join('='));
+const [h, c, sig] = t.split('.');
+const pub = crypto.createPublicKey({ key: { kty: 'EC', crv: 'P-256', x: Buffer.from(k, 'base64url').subarray(1, 33).toString('base64url'), y: Buffer.from(k, 'base64url').subarray(33).toString('base64url') }, format: 'jwk' });
+check('vapid jwt valid', k === key && crypto.verify('sha256', Buffer.from(`${h}.${c}`), { key: pub, dsaEncoding: 'ieee-p1363' }, Buffer.from(sig, 'base64url'))
+  && JSON.parse(Buffer.from(c, 'base64url')).aud === 'http://localhost:3990');
+// abgelaufenes Abo (410) wird gelöscht – danach gehen keine Pushes mehr dorthin
+const goneBefore = pushes.filter(p => p.url === '/gone').length;
+await leo('POST', '/reports', { type: 'user', id: miaId0, reason: 'spam' });
+await new Promise(r => setTimeout(r, 300));
+check('gone subscription removed', goneBefore >= 1 && pushes.filter(p => p.url === '/gone').length === goneBefore, String(goneBefore));
+// Admin löscht die Review, erledigt damit auch weitere Meldungen zum selben Ziel
+check('resolve remove', (await simon('POST', `/admin/reports/${rrv.id}/resolve`, { action: 'remove' })).status === 200);
+check('review deleted', !(await mia('GET', `/books/${long}/reviews`)).data.reviews.some(r => r.mine));
+const rcm = reps.items.find(x => x.type === 'comment');
+await simon('POST', `/admin/reports/${rcm.id}/resolve`, { action: 'dismiss' });
+reps = (await simon('GET', '/admin/reports')).data;
+check('open count after resolve', reps.open === 2 && (await simon('GET', '/admin/reports?all=1')).data.items.find(x => x.id === rrv.id).resolution === 'removed');
+check('push unsubscribe', (await simon('POST', '/push/unsubscribe', { endpoint: 'http://localhost:3990/simon' })).data.ok === true);
+
+// Blockieren: Mia blockiert Leo → keine Reviews/Kommentare mehr gegenseitig, keine Anfragen
+const leoId = (await leo('GET', '/me')).data.id, miaId = (await mia('GET', '/me')).data.id;
+await leo('PUT', `/books/${long}/review`, { rating: 3, text: 'Leos Meinung', visibility: 'instance' });
+await mia('PUT', `/books/${long}/review`, { rating: 2, text: 'Mias Meinung', visibility: 'instance' });
+check('block', (await mia('POST', `/users/${leoId}/block`)).data.blocked === true);
+check('blocked reviews hidden', !(await mia('GET', `/books/${long}/reviews`)).data.reviews.some(r => r.user.id === leoId)
+  && !(await leo('GET', `/books/${long}/reviews`)).data.reviews.some(r => r.user.id === miaId));
+const miaRv = (await simon('GET', `/books/${long}/reviews`)).data.reviews.find(r => r.user.id === miaId);
+check('blocked cannot comment', (await leo('POST', `/reviews/${miaRv.id}/comments`, { text: 'hallo' })).status === 404);
+check('blocked no friend request', (await leo('POST', `/users/${miaId}/friend`)).status === 403);
+check('profile shows blocked', (await mia('GET', `/users/${leoId}/profile`)).data.blocked === true && (await mia('GET', '/me/blocks')).data[0].id === leoId);
+check('others still see both', (await simon('GET', `/books/${long}/reviews`)).data.reviews.filter(r => [leoId, miaId].includes(r.user.id)).length === 2);
+await mia('DELETE', `/users/${leoId}/block`);
+check('unblock', (await leo('GET', `/books/${long}/reviews`)).data.reviews.some(r => r.user.id === miaId) && (await mia('GET', '/me/blocks')).data.length === 0);
+// Konto sperren über die Meldung
+const rus = reps.items.find(x => x.type === 'user' && x.target.displayName === 'leo');
+await simon('POST', `/admin/reports/${rus.id}/resolve`, { action: 'disable' });
+check('disable via report', (await leo('GET', '/me')).status === 401);
+fake.close();
+
 console.log(`Vorschlag/Ziel/Mehrfach/Hinweise/Melden-Test: ${ok} ok, ${fail} fehlgeschlagen`);

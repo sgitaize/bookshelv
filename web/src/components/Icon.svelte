@@ -2,6 +2,8 @@
   // Kleine Inline-Icon-Sammlung (Lucide-Stil), damit kein Icon-Font/CDN nötig ist
   const paths: Record<string, string> = {
     shelf: 'M4 19V5m5 14V8m5 11V4m6 15-3-14M3 19h18',
+    flag: 'M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7',
+    ban: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM4.9 4.9l14.2 14.2',
     phone: 'M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm5 16h.01',
     cloud: 'M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z',
     plus: 'M12 5v14M5 12h14',

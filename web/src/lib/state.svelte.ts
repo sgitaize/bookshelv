@@ -39,6 +39,12 @@ export async function loadAvoid() {
   try { Object.assign(avoid, await api.get<{ tags: string[]; books: number[]; covers: string[] }>('/me/content-avoid')); } catch { /* offline: bleibt wie es war */ }
 }
 
+// ---------- Melden (ein Dialog für die ganze App, siehe ReportSheet in App.svelte) ----------
+
+export type ReportTarget = { type: 'review' | 'comment' | 'user' | 'post'; id: number; userId: number; name: string };
+export const reporting = $state<{ target: ReportTarget | null }>({ target: null });
+export const report = (target: ReportTarget) => (reporting.target = target);
+
 // ---------- Instanz (Impressum-Link der betreibenden Person) ----------
 
 export const instance = $state({ imprintUrl: '', openRegistration: false, full: false, loaded: false });

@@ -11,6 +11,7 @@ import { router, body, str, int, idParam, notFound } from '../util.ts';
 import { bookBrief, getBook } from './books.ts';
 import { notify } from '../notify.ts';
 import { avatarUrl } from './social.ts';
+import { isBlocked } from '../friends.ts';
 
 export const readRoutes = router();
 
@@ -75,7 +76,7 @@ readRoutes.post('/reads', async c => {
   if (!bookId || !getBook(bookId)) throw notFound('Buch');
   const ids = [...new Set((Array.isArray(b.memberIds) ? b.memberIds : []).map(Number).filter(n => Number.isInteger(n) && n !== u.id))];
   if (ids.length >= MAX_MEMBERS) throw new HTTPException(400, { message: `Höchstens ${MAX_MEMBERS} Personen` });
-  const valid = ids.filter(id => db.prepare('SELECT 1 FROM users WHERE id = ? AND disabled = 0').get(id));
+  const valid = ids.filter(id => db.prepare('SELECT 1 FROM users WHERE id = ? AND disabled = 0').get(id) && !isBlocked(u.id, id));
   const endsAt = isDate(b.endsAt) ? b.endsAt as string : null;
   const id = tx(() => {
     const id = Number(db.prepare('INSERT INTO buddy_reads (book_id, owner_id, note, ends_at) VALUES (?, ?, ?, ?)').run(bookId, u.id, str(b.note, 300), endsAt).lastInsertRowid);
@@ -133,7 +134,7 @@ readRoutes.post('/reads/:id/members', async c => {
   const r = readFor(u, idParam(c));
   if (r.owner_id !== u.id) throw notFound('Leserunde');
   const userId = int((await body(c)).userId, 1, Number.MAX_SAFE_INTEGER);
-  if (!userId || !db.prepare('SELECT 1 FROM users WHERE id = ? AND disabled = 0').get(userId)) throw notFound('Konto');
+  if (!userId || !db.prepare('SELECT 1 FROM users WHERE id = ? AND disabled = 0').get(userId) || isBlocked(u.id, userId)) throw notFound('Konto');
   const n = (db.prepare('SELECT COUNT(*) AS n FROM buddy_members WHERE read_id = ?').get(r.id) as { n: number }).n;
   if (n >= MAX_MEMBERS) throw new HTTPException(400, { message: `Höchstens ${MAX_MEMBERS} Personen` });
   if (db.prepare('INSERT OR IGNORE INTO buddy_members (read_id, user_id) VALUES (?, ?)').run(r.id, userId).changes) notify(userId, 'buddy_invite', u.id, r.book_id, r.id);

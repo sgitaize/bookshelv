@@ -4,7 +4,7 @@
  */
 import { HTTPException } from 'hono/http-exception';
 import { db } from '../db.ts';
-import { friendSql } from '../friends.ts';
+import { friendSql, notBlockedSql, isBlocked } from '../friends.ts';
 import { requireUser, type User } from '../auth.ts';
 import { router, body, str, oneOf, idParam, notFound } from '../util.ts';
 import { getBook, bookBrief } from './books.ts';
@@ -58,11 +58,11 @@ function reviewJson(r: ReviewRow, me: User, comments: Array<Record<string, unkno
   };
 }
 
-const commentsFor = (reviewIds: number[]) => {
+const commentsFor = (reviewIds: number[], me: User) => {
   if (!reviewIds.length) return new Map<number, Array<Record<string, unknown>>>();
   const rows = db.prepare(`
     SELECT c.*, u.display_name AS displayName, u.avatar FROM comments c JOIN users u ON u.id = c.user_id
-    WHERE c.review_id IN (${reviewIds.map(() => '?').join(',')}) ORDER BY c.created_at, c.id
+    WHERE c.review_id IN (${reviewIds.map(() => '?').join(',')}) AND ${notBlockedSql(me.id, 'c.user_id')} ORDER BY c.created_at, c.id
   `).all(...reviewIds) as Array<Record<string, unknown>>;
   const map = new Map<number, Array<Record<string, unknown>>>();
   for (const r of rows) map.set(r.review_id as number, [...(map.get(r.review_id as number) ?? []), r]);
@@ -73,9 +73,9 @@ const commentsFor = (reviewIds: number[]) => {
 export function bookReviews(bookId: number, me: User) {
   const rows = db.prepare(`
     SELECT r.*, u.display_name AS displayName, u.username, u.avatar FROM reviews r JOIN users u ON u.id = r.user_id
-    WHERE r.book_id = ? AND ${VISIBLE} ORDER BY r.user_id = ? DESC, r.updated_at DESC
+    WHERE r.book_id = ? AND ${VISIBLE} AND ${notBlockedSql(me.id, 'r.user_id')} ORDER BY r.user_id = ? DESC, r.updated_at DESC
   `).all(bookId, me.id, me.id) as ReviewRow[];
-  const comments = commentsFor(rows.map(r => r.id));
+  const comments = commentsFor(rows.map(r => r.id), me);
   // Reviews von gekoppelten Instanzen zum selben Buch (per ISBN)
   const isbn = (db.prepare('SELECT isbn13 FROM books WHERE id = ?').get(bookId) as { isbn13: string | null } | undefined)?.isbn13;
   const remote = isbn ? (db.prepare(`
@@ -165,7 +165,7 @@ reviewRoutes.post('/reviews/:id/comments', async c => {
   const review = db.prepare(`
     SELECT r.id, r.book_id, r.user_id FROM reviews r JOIN users u ON u.id = r.user_id WHERE r.id = ? AND ${VISIBLE}
   `).get(idParam(c), u.id) as { id: number; book_id: number; user_id: number } | undefined;
-  if (!review) throw notFound('Review');
+  if (!review || isBlocked(u.id, review.user_id)) throw notFound('Review');
   const text = str((await body(c)).text, 2000);
   if (!text) throw new HTTPException(400, { message: 'Kommentar ist leer' });
   db.prepare('INSERT INTO comments (review_id, user_id, text) VALUES (?, ?, ?)').run(review.id, u.id, text);

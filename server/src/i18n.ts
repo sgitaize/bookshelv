@@ -4,6 +4,10 @@
  */
 const EN: Record<string, string> = {
   'Interner Fehler': 'Internal error',
+  'Eigene Inhalte kannst du nicht melden': 'You cannot report your own content',
+  'Zu viele Meldungen – bitte später erneut versuchen': 'Too many reports – please try again later',
+  'Nicht möglich': 'Not possible',
+  'Unbekannter Push-Dienst': 'Unknown push service',
   'Höchstens 100 Lektüren je Buch': 'At most 100 readings per book',
   'Lektüre nicht gefunden': 'Reading not found',
   'Nur mit Konto auf einer Instanz möglich': 'Only available with an account on an instance',

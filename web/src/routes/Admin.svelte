@@ -3,6 +3,7 @@
   import { session, toast, toastError, instance } from '../lib/state.svelte.ts';
   import Icon from '../components/Icon.svelte';
   import FederationAdmin from '../components/FederationAdmin.svelte';
+  import ReportsAdmin from '../components/ReportsAdmin.svelte';
   import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
 
   type Stats = { users: number; books: number; copies: number; reviews: number; openLoans: number; orphanBooks: number; dbBytes: number; coverBytes: number; version: string; node: string };
@@ -114,6 +115,8 @@
     <h1>Admin</h1>
     <button class="primary" onclick={invite}><Icon name="link" size={16} /> {t('admin.createInvite')}</button>
   </div>
+
+  <ReportsAdmin />
 
   <div class="card stack">
     <label class="row check"><input type="checkbox" bind:checked={openReg} onchange={saveOpenReg} /> {t('admin.openRegistration')}</label>
