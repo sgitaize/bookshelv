@@ -1,4 +1,4 @@
-# Store-Material (App Store + Android-Download)
+# Store-Material (App Store, Google Play, Android-Download)
 
 | Was | Wo |
 |---|---|
@@ -85,3 +85,41 @@ Upload `CURRENT_PROJECT_VERSION` in `project.yml` erhöhen.
 Kein Play Store: Die signierte APK kommt als GitHub-Release `bookshelv.apk` (Dauerlink
 `https://github.com/sgitaize/bookshelv/releases/latest/download/bookshelv.apk`), verlinkt von simongutjahr.de. Bauen:
 siehe [native/README.md](../../native/README.md#android). Bilder für die Download-Seite: `screenshots/android/`.
+
+## Google Play
+
+Die Android-App gibt es in zwei Varianten (Gradle-Flavors in `native/android/app/build.gradle.kts`):
+
+| Flavor | Vertrieb | Updates | Trinkgeld |
+|---|---|---|---|
+| `github` | `bookshelv.apk` in den GitHub-Releases | Hinweis beim Start, wenn ein neueres Release mit APK existiert (`Updates.kt`) | optionaler Spendenlink (`DONATE_URL` in `src/github/…/Store.kt`, leer = aus) |
+| `play` | Google Play (App Bundle) | über den Store | Play Billing, dieselben drei Verbrauchsartikel wie bei iOS (`src/play/…/Store.kt`) |
+
+```bash
+cd native/android
+./gradlew assembleGithubRelease   # → app/build/outputs/apk/github/release/app-github-release.apk (als bookshelv.apk ins Release)
+./gradlew bundlePlayRelease       # → app/build/outputs/bundle/playRelease/app-play-release.aab (Upload in die Play Console)
+```
+
+`versionCode` in `build.gradle.kts` muss für jeden Play-Upload steigen. Das Bundle enthält arm64-v8a, armeabi-v7a und x86_64;
+Play liefert je Gerät nur die passende Architektur aus.
+
+**Einmalig in der Play Console (per Hand):**
+
+1. App erstellen: Name aus [play/listing.json](play/listing.json), Standardsprache Deutsch, App (nicht Spiel), kostenlos.
+2. **Play App Signing** aktiv lassen; `signing.properties` dient als Upload-Schlüssel. Danach unter *App-Integrität* den
+   SHA-256 des **App-Signaturschlüssels** kopieren und auf der Instanz zusätzlich eintragen, sonst bietet der Passwortmanager
+   in der Play-Version keine gespeicherten Logins an:
+   `BOOKSHELV_ANDROID_CERTS=62:9F:3E:…:22:C9,<Play-Schlüssel>` (Standard ist nur der Release-Schlüssel der Download-APK).
+3. **Store-Eintrag:** Kurzbeschreibung aus `play/listing.json`, ausführliche Beschreibung = `description` aus
+   `metadata/de-DE.json` bzw. `en-US.json`, Screenshots aus [screenshots/android/](screenshots/android/) (1080 × 2340),
+   App-Symbol 512 × 512 aus `web/public/icon-512.png`. Die **Feature-Grafik** (1024 × 500) fehlt noch – z. B. aus
+   `header.html` rendern (`--window-size=1024,500 --force-device-scale-factor=1`).
+4. **In-App-Produkte** (Monetarisieren → Produkte → In-App-Produkte): die drei IDs aus `play/listing.json` anlegen und aktivieren.
+   Ohne aktive Produkte zeigt die App „Trinkgeld: erneut versuchen“.
+5. **Datensicherheit:** wie beim App-Datenschutz oben – erfasst nur mit Konto (Benutzer-ID, Name, Fotos, andere
+   Nutzerinhalte; App-Funktionalität, nicht geteilt, Übertragung verschlüsselt, Löschung in der App möglich). Kaufdaten
+   verarbeitet nur Google Play. Konto löschen: Einstellungen → Konto (Web-Link für die Console: `/settings?s=account` der Instanz).
+6. **Inhaltsfreigabe (IARC):** keine Gewalt usw.; Nutzer können interagieren und Inhalte teilen (Bewertungen, Kommentare) –
+   Melden und Blockieren gibt es (Profil, Flaggen-Symbol), Meldungen landen im Admin-Bereich.
+7. **Zielgruppe:** ab 13 (wegen nutzergenerierter Inhalte), nicht für Kinder.

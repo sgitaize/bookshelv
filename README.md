@@ -104,6 +104,7 @@ cd dist && node server.js            # port 3000, data in dist/data
 | `BOOKSHELV_DATA_DIR` | `./data` | Database, covers, setup token |
 | `BOOKSHELV_PUBLIC_DIR` | `./public` | Built frontend |
 | `BOOKSHELV_INSECURE_COOKIES` | `0` | `1` allows login over plain http (testing only) |
+| `BOOKSHELV_ANDROID_CERTS` | release key | SHA-256 fingerprints (comma-separated) for `/.well-known/assetlinks.json`, so password managers share logins with the Android app. Add the Play App Signing key once the app is on Google Play |
 
 ### Backups
 

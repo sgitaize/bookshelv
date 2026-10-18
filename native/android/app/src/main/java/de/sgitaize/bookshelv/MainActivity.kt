@@ -97,6 +97,7 @@ class MainActivity : ComponentActivity() {
             }
         })
 
+        Updates.check(applicationContext, lifecycleScope)
         setContent { BookshelvTheme { Root() } }
         handleIntent(intent)
     }
@@ -114,6 +115,8 @@ class MainActivity : ComponentActivity() {
                 AppModel.mode == AppModel.Mode.NONE -> Onboarding()
                 else -> LibraryView()
             }
+            // nur Download-APK: neue Version auf GitHub (Updates.kt)
+            if (failure == null && NodeHost.ready && AppModel.mode != AppModel.Mode.NONE) UpdateBanner(Modifier.align(Alignment.TopCenter))
             ScanSession.request?.let { r -> ScannerScreen(r.multi) }
         }
         AppModel.panel?.let { p ->

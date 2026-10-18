@@ -87,6 +87,20 @@ app.onError((err, c) => {
 const appleAppIds = (process.env.BOOKSHELV_APPLE_APP_IDS ?? 'V7GQKCH73F.de.sgitaize.bookshelv').split(',').map(s => s.trim()).filter(Boolean);
 app.get('/.well-known/apple-app-site-association', c => c.json({ webcredentials: { apps: appleAppIds } }));
 
+/**
+ * Dasselbe für Android (Digital Asset Links): Passwort-AutoFill der Android-App für diese Instanz.
+ * Standard ist der Release-Schlüssel der Download-APK; bei Google Play kommt der Schlüssel von Play App Signing dazu
+ * (Play Console → App-Integrität). Eigene Builds/Schlüssel: BOOKSHELV_ANDROID_CERTS (SHA-256, Komma-getrennt),
+ * Paketname: BOOKSHELV_ANDROID_PACKAGE.
+ */
+const androidPackage = process.env.BOOKSHELV_ANDROID_PACKAGE ?? 'de.sgitaize.bookshelv';
+const androidCerts = (process.env.BOOKSHELV_ANDROID_CERTS ?? '62:9F:3E:BD:C6:4E:C0:02:85:F7:6A:22:A3:B7:C1:FA:3E:8A:50:35:3F:46:18:A8:98:56:90:96:77:EC:22:C9')
+  .split(',').map(s => s.trim().toUpperCase()).filter(s => /^([0-9A-F]{2}:){31}[0-9A-F]{2}$/.test(s));
+app.get('/.well-known/assetlinks.json', c => c.json(androidCerts.length ? [{
+  relation: ['delegate_permission/common.get_login_creds'],
+  target: { namespace: 'android_app', package_name: androidPackage, sha256_cert_fingerprints: androidCerts }
+}] : []));
+
 // ---------- Cover & Frontend ----------
 
 const MIME: Record<string, string> = {

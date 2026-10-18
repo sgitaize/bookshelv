@@ -59,10 +59,7 @@ import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
 
-/** Trinkgeld außerhalb des App Stores: Spendenlink (leer = Abschnitt zeigt nur Sterne/Weiterempfehlen) */
-private const val DONATE_URL = ""
 private const val REPO = "https://github.com/sgitaize/bookshelv"
-private const val DOWNLOAD = "https://github.com/sgitaize/bookshelv/releases/latest/download/bookshelv.apk"
 
 /**
  * Native App-Einstellungen (aus der Weboberfläche: Einstellungen → App) – wie AppPanel.swift.
@@ -338,14 +335,17 @@ private fun SupportPanel(back: () -> Unit) {
             Text("📚", fontSize = 48.sp)
             Text(T("bookshelv ist kostenlos – ohne Werbung, ohne Tracking, ohne Abo.", "bookshelv is free – no ads, no tracking, no subscription."),
                 fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
-            Text(T("Ich baue die App in meiner Freizeit. Wenn sie dir gefällt, hilft es schon, sie weiterzuempfehlen.",
-                "I build the app in my spare time. If you like it, telling others already helps a lot."), color = Palette.muted, textAlign = TextAlign.Center)
+            Text(if (Store.hasTips) T("Ich baue die App in meiner Freizeit. Wenn sie dir gefällt, freue ich mich über ein Trinkgeld – es schaltet nichts frei, es hilft einfach.",
+                    "I build the app in my spare time. If you like it, a tip is much appreciated – it unlocks nothing, it simply helps.")
+                else T("Ich baue die App in meiner Freizeit. Wenn sie dir gefällt, hilft es schon, sie weiterzuempfehlen.",
+                    "I build the app in my spare time. If you like it, telling others already helps a lot."), color = Palette.muted, textAlign = TextAlign.Center)
         }
+        // Trinkgeld je Vertriebsweg: Play Billing (Flavor „play“) bzw. optionaler Spendenlink (Download-APK)
+        if (Store.hasTips) Section { Store.TipRows() }
         Section {
-            if (DONATE_URL.isNotEmpty()) ListRow(Icons.Filled.Favorite, T("Trinkgeld geben", "Leave a tip")) { ctx.openUrl(DONATE_URL) }
             ListRow(Icons.Filled.Share, T("App weiterempfehlen", "Recommend the app")) {
                 val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,
-                    T("bookshelv – deine Bibliothek fürs Handy, ohne Konto und ohne Werbung: ", "bookshelv – your library on your phone, no account, no ads: ") + DOWNLOAD)
+                    T("bookshelv – deine Bibliothek fürs Handy, ohne Konto und ohne Werbung: ", "bookshelv – your library on your phone, no account, no ads: ") + Store.SHARE_URL)
                 ctx.startActivity(Intent.createChooser(send, null))
             }
             ListRow(Icons.Filled.Star, T("Auf GitHub einen Stern geben", "Star it on GitHub")) { ctx.openUrl(REPO) }

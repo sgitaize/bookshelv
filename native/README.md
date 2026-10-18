@@ -63,7 +63,8 @@ WebView. SQLite bringt die App selbst mit (Amalgamation, das NDK hat keine öffe
 | VisionKit-Scanner | CameraX + ML Kit (Modell im APK, läuft ohne Google Play) – `Scanner.kt` |
 | iCloud-Sicherung | Schnappschuss in `files/backup/` → Google-Sicherung des Geräts (`res/xml/data_extraction_rules.xml`), auf neuem Gerät automatisch übernommen – `Backup.kt` |
 | Datei-Sicherung (Teilen) | Speichern/Öffnen über die Dateiauswahl (Drive, Downloads …) |
-| StoreKit-Trinkgeld | kein Play Store: „Unterstützen“ mit Weiterempfehlen/GitHub, Spendenlink über `DONATE_URL` in `Panels.kt` |
+| StoreKit-Trinkgeld | Flavor `play`: Play Billing (gleiche Produkt-IDs, `src/play/…/Store.kt`); Flavor `github` (Download-APK): optionaler Spendenlink `DONATE_URL` in `src/github/…/Store.kt` |
+| Updates über den App Store | Flavor `play`: Google Play; Flavor `github`: Hinweis beim Start, wenn auf GitHub ein neueres Release mit APK liegt (`Updates.kt`) |
 | „Öffnen in“ für CSV | Intent-Filter VIEW/SEND (text/csv …) |
 | Teilen-Dialog für Downloads | Blob-Downloads und `navigator.share` werden in der WebView abgefangen (`Web.kt`, SHIMS) und an den Android-Teilen-Dialog gegeben |
 
@@ -72,8 +73,9 @@ cd native/android
 scripts/fetch-deps.sh                   # einmalig: nodejs-mobile (~130 MB) + SQLite-Amalgamation
 echo "sdk.dir=$HOME/Library/Android/sdk" > local.properties
 export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
-./gradlew assembleRelease               # baut vorher npm run build:app (mit -PskipWebBuild nur kopieren)
-# → app/build/outputs/apk/release/app-release.apk (nur arm64-v8a, signiert über signing.properties)
+./gradlew assembleGithubRelease         # baut vorher npm run build:app (mit -PskipWebBuild nur kopieren)
+# → app/build/outputs/apk/github/release/app-github-release.apk (nur arm64-v8a, signiert über signing.properties)
+./gradlew bundlePlayRelease             # App Bundle für Google Play (siehe docs/store/README.md)
 ```
 
 SDK-Pakete: `platforms;android-35`, `build-tools;35.0.0`, `ndk;27.2.12479018`, `cmake;3.22.1`.

@@ -208,4 +208,8 @@ await simon('POST', `/admin/reports/${rus.id}/resolve`, { action: 'disable' });
 check('disable via report', (await leo('GET', '/me')).status === 401);
 fake.close();
 
+// Android: Passwort-AutoFill (Digital Asset Links)
+const al = await (await fetch('http://localhost:3999/.well-known/assetlinks.json')).json();
+check('assetlinks', al[0]?.target.package_name === 'de.sgitaize.bookshelv' && al[0].target.sha256_cert_fingerprints[0].startsWith('62:9F:3E'), JSON.stringify(al));
+
 console.log(`Vorschlag/Ziel/Mehrfach/Hinweise/Melden-Test: ${ok} ok, ${fail} fehlgeschlagen`);

@@ -37,11 +37,28 @@ android {
         }
     }
 
+    // Zwei Vertriebswege: „github“ = Download-APK aus den GitHub-Releases (Update-Hinweis beim Start),
+    // „play“ = Google Play (App Bundle, Updates über den Store, Trinkgeld per Play Billing)
+    flavorDimensions += "store"
+    productFlavors {
+        create("github") {
+            dimension = "store"
+            buildConfigField("boolean", "UPDATE_CHECK", "true")
+        }
+        create("play") {
+            dimension = "store"
+            buildConfigField("boolean", "UPDATE_CHECK", "false")
+            // Play liefert aus dem App Bundle je Gerät nur die passende Architektur → zusätzlich 32-Bit-ARM und x86_64
+            ndk { abiFilters += listOf("armeabi-v7a", "x86_64") }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // github: Release-Schlüssel; play: derselbe Schlüssel als Upload-Schlüssel (Google signiert neu, Play App Signing)
             signingConfigs.findByName("release")?.let { signingConfig = it }
             // Download-APK: nur 64-Bit-ARM (alle Geräte der letzten Jahre); libnode ist ~40 MB je Architektur
             ndk { abiFilters += listOf("arm64-v8a") }
@@ -94,4 +111,6 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.4.1")
     implementation("androidx.camera:camera-view:1.4.1")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
+    // Trinkgeld im Play Store (Verbrauchsartikel wie bei iOS); die Download-APK kommt ohne Google-Bibliothek aus
+    "playImplementation"("com.android.billingclient:billing-ktx:7.1.1")
 }

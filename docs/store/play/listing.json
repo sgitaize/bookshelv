@@ -1,0 +1,56 @@
+{
+  "packageName": "de.sgitaize.bookshelv",
+  "category": "BOOKS_AND_REFERENCE",
+  "contactWebsite": "https://github.com/sgitaize/bookshelv",
+  "privacyPolicyUrl": "https://bookshelv.aize-it.de/privacy",
+  "listings": {
+    "de-DE": {
+      "title": "bookshelv – Bücherregal",
+      "shortDescription": "Deine Bibliothek: ISBN scannen, Lesestand festhalten, Verliehenes im Blick.",
+      "fullDescription": "→ description aus ../metadata/de-DE.json"
+    },
+    "en-US": {
+      "title": "bookshelv – book shelf",
+      "shortDescription": "Your library: scan ISBNs, track your reading, keep an eye on lent books.",
+      "fullDescription": "→ description from ../metadata/en-US.json"
+    }
+  },
+  "inAppProducts": [
+    {
+      "sku": "de.sgitaize.bookshelv.tip.small",
+      "price": "0,99 €",
+      "title": {
+        "de-DE": "Ein Kaffee",
+        "en-US": "A coffee"
+      },
+      "description": {
+        "de-DE": "Danke! Schaltet nichts frei, hilft einfach.",
+        "en-US": "Thank you! Unlocks nothing, it just helps."
+      }
+    },
+    {
+      "sku": "de.sgitaize.bookshelv.tip.medium",
+      "price": "2,99 €",
+      "title": {
+        "de-DE": "Ein Taschenbuch",
+        "en-US": "A paperback"
+      },
+      "description": {
+        "de-DE": "Danke! Schaltet nichts frei, hilft einfach.",
+        "en-US": "Thank you! Unlocks nothing, it just helps."
+      }
+    },
+    {
+      "sku": "de.sgitaize.bookshelv.tip.large",
+      "price": "4,99 €",
+      "title": {
+        "de-DE": "Ein Hardcover",
+        "en-US": "A hardcover"
+      },
+      "description": {
+        "de-DE": "Danke! Schaltet nichts frei, hilft einfach.",
+        "en-US": "Thank you! Unlocks nothing, it just helps."
+      }
+    }
+  ]
+}
