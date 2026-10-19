@@ -25,6 +25,7 @@ import { friendRoutes } from './routes/friends.ts';
 import { rereadRoutes } from './routes/rereads.ts';
 import { contentNoteRoutes } from './routes/contentnotes.ts';
 import { moderationRoutes } from './routes/moderation.ts';
+import { channelRoutes } from './routes/channels.ts';
 import { router } from './util.ts';
 import { translate } from './i18n.ts';
 import { localGuard } from './local.ts';
@@ -68,6 +69,7 @@ app.route('/api', friendRoutes);
 app.route('/api', rereadRoutes);
 app.route('/api', contentNoteRoutes);
 app.route('/api', moderationRoutes);
+app.route('/api', channelRoutes);
 app.route('/api/admin', adminRoutes);
 app.all('/api/*', c => c.json({ error: translate('Unbekannter Endpunkt', c.req.header('x-lang')) }, 404));
 

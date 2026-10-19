@@ -4,7 +4,8 @@
  * über den Push-Dienst. Opt-in je Gerät (Einstellungen → Benachrichtigungen), Abmelden löscht das Abo.
  *
  * Zustellung an alle Abos einer Person, sobald notify() eine In-App-Benachrichtigung anlegt (z. B. neue Meldung für Admins).
- * 404/410 vom Push-Dienst = Abo abgelaufen → gelöscht. APNs/FCM für die nativen Apps kommen als weitere Zusteller hinzu.
+ * 404/410 vom Push-Dienst = Abo abgelaufen → gelöscht. In den Apps (WebView ohne Web Push) läuft Push über ntfy,
+ * Pushover oder Telegram (channels.ts).
  *
  * Schutz vor SSRF: Endpunkte nur per https bei bekannten Push-Diensten (BOOKSHELV_PUSH_ALLOW_HTTP=1 für Tests auf localhost).
  */
@@ -13,6 +14,7 @@ import { db } from './db.ts';
 import { config } from './config.ts';
 import { setting, setSetting, selfUrl } from './federation.ts';
 import { operator } from './routes/admin.ts';
+import { notifyChannels } from './channels.ts';
 
 const PUSH_HOSTS = ['fcm.googleapis.com', 'android.googleapis.com', 'updates.push.services.mozilla.com', 'push.apple.com', 'notify.windows.com'];
 const MAX_PER_USER = 10;
@@ -73,6 +75,8 @@ function jwt(audience: string, key: crypto.KeyObject) {
 /** Leeren Push an alle Geräte einer Person; Fehler nur protokollieren (Benachrichtigung in der App gibt es ja trotzdem) */
 export async function pushTo(userId: number) {
   if (!pushAvailable()) return;
+  // dieselbe Benachrichtigung auch über ntfy/Pushover/Telegram (channels.ts), falls eingerichtet
+  void notifyChannels(userId);
   const subs = db.prepare('SELECT id, endpoint FROM push_subscriptions WHERE user_id = ?').all(userId) as { id: number; endpoint: string }[];
   if (!subs.length) return;
   const { publicKey, privateKey } = vapid();

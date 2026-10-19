@@ -13,7 +13,7 @@ cd "$(dirname "$0")"
 if curl -sf localhost:3999/api/status >/dev/null; then echo "Port 3999 ist belegt – läuft noch ein Testserver?"; exit 1; fi
 T=$(mktemp -d)
 cp -r ../dist/package.json ../dist/public "$T/"; cp "${SERVER_JS:-../dist/server.js}" "$T/server.js"
-(cd "$T" && PORT=3999 BOOKSHELV_INSECURE_COOKIES=1 BOOKSHELV_PUSH_ALLOW_HTTP=1 NODE_NO_WARNINGS=1 exec ${SERVER_NODE:-node} server.js > server.log 2>&1) &
+(cd "$T" && PORT=3999 BOOKSHELV_INSECURE_COOKIES=1 BOOKSHELV_PUSH_ALLOW_HTTP=1 BOOKSHELV_PUSHOVER_API=http://localhost:3989/pushover BOOKSHELV_TELEGRAM_API=http://localhost:3989/tg NODE_NO_WARNINGS=1 exec ${SERVER_NODE:-node} server.js > server.log 2>&1) &
 PID=$!
 trap 'kill $PID 2>/dev/null; rm -rf "$T"' EXIT
 for i in $(seq 1 50); do curl -sf localhost:3999/api/status >/dev/null && break; sleep 0.2; done

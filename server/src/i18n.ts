@@ -4,6 +4,13 @@
  */
 const EN: Record<string, string> = {
   'Interner Fehler': 'Internal error',
+  'Ungültige ntfy-Adresse (https://ntfy.sh/dein-thema)': 'Invalid ntfy address (https://ntfy.sh/your-topic)',
+  'Pushover ist auf dieser Instanz nicht eingerichtet': 'Pushover is not set up on this instance',
+  'Ungültiger Pushover-Schlüssel (30 Zeichen)': 'Invalid Pushover key (30 characters)',
+  'Telegram ist auf dieser Instanz nicht eingerichtet': 'Telegram is not set up on this instance',
+  'Ungültiger Pushover-Token (30 Zeichen)': 'Invalid Pushover token (30 characters)',
+  'Ungültiger Telegram-Bot-Token': 'Invalid Telegram bot token',
+  'Telegram kennt diesen Bot-Token nicht': 'Telegram does not know this bot token',
   'Ungültiger Zeitraum': 'Invalid period',
   'Eigene Inhalte kannst du nicht melden': 'You cannot report your own content',
   'Zu viele Meldungen – bitte später erneut versuchen': 'Too many reports – please try again later',

@@ -4,6 +4,7 @@
   import Icon from '../components/Icon.svelte';
   import FederationAdmin from '../components/FederationAdmin.svelte';
   import ReportsAdmin from '../components/ReportsAdmin.svelte';
+  import PushAdmin from '../components/PushAdmin.svelte';
   import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
 
   type Stats = { users: number; books: number; copies: number; reviews: number; openLoans: number; orphanBooks: number; dbBytes: number; coverBytes: number; version: string; node: string };
@@ -169,6 +170,8 @@
       {/each}
     </div>
   </div>
+
+  <PushAdmin />
 
   <form class="card stack" onsubmit={saveInstance}>
     <h2>{t('admin.instance')}</h2>

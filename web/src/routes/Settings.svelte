@@ -10,6 +10,7 @@
   import { getTheme, getFont, setPrefs, THEMES, SWATCH, type Theme, type Font, type Prefs } from '../lib/theme.ts';
   import Avatar from '../components/Avatar.svelte';
   import { pushSupported, pushSubscription, enablePush, disablePush } from '../lib/push.ts';
+  import PushChannels from '../components/PushChannels.svelte';
 
   let displayName = $state(session.me!.displayName);
   let shelfVisible = $state(session.me!.shelfVisible);
@@ -309,6 +310,7 @@
         {:else}
           <p class="muted small">{t(inApp() ? 'push.inApp' : 'push.unsupported')}</p>
         {/if}
+        <PushChannels />
       </div>
       <div class="card stack">
         <h3>{t('mod.blockedTitle')}</h3>

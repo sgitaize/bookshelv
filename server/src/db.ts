@@ -512,6 +512,19 @@ const migrations: string[] = [
     last_ok TEXT
   );
   CREATE INDEX push_subscriptions_user ON push_subscriptions(user_id);
+  `,
+  // 25: Push über andere Apps (ntfy, Pushover, Telegram) – je Person und Dienst ein Ziel; Telegram „pending:<code>“ bis zur Kopplung
+  `
+  CREATE TABLE push_channels (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('ntfy', 'pushover', 'telegram')),
+    target TEXT NOT NULL,
+    lang TEXT NOT NULL DEFAULT 'de',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_sent INTEGER,
+    last_ok TEXT,
+    PRIMARY KEY (user_id, kind)
+  );
   `
 ];
 

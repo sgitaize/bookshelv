@@ -149,6 +149,7 @@ authRoutes.get('/me/export', c => {
     blocks: db.prepare('SELECT blocked_id, created_at FROM blocks WHERE user_id = ?').all(u.id),
     reports: db.prepare('SELECT target_type, target_id, reason, note, created_at, resolved_at, resolution FROM reports WHERE reporter_id = ?').all(u.id),
     pushDevices: db.prepare('SELECT created_at, last_ok FROM push_subscriptions WHERE user_id = ?').all(u.id),
+    pushChannels: db.prepare('SELECT kind, target, created_at, last_ok FROM push_channels WHERE user_id = ?').all(u.id),
     comments: db.prepare('SELECT * FROM comments WHERE user_id = ?').all(u.id),
     loans: db.prepare('SELECT * FROM loans WHERE lender_id = ? OR borrower_id = ?').all(u.id, u.id),
     wishlist: db.prepare('SELECT w.*, b.isbn13, b.title FROM wishlist w JOIN books b ON b.id = w.book_id WHERE w.user_id = ?').all(u.id),
