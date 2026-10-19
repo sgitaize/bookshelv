@@ -9,8 +9,6 @@
   import { t, tn, i18n, fmtDate, type Key } from '../lib/i18n.svelte.ts';
   import { getTheme, getFont, setPrefs, THEMES, SWATCH, type Theme, type Font, type Prefs } from '../lib/theme.ts';
   import Avatar from '../components/Avatar.svelte';
-  import { pushSupported, pushSubscription, enablePush, disablePush } from '../lib/push.ts';
-  import PushChannels from '../components/PushChannels.svelte';
 
   let displayName = $state(session.me!.displayName);
   let shelfVisible = $state(session.me!.shelfVisible);
@@ -21,18 +19,7 @@
   let theme = $state<Theme>(getTheme());
   let font = $state<Font>(getFont());
   let reviewVisibility = $state(session.me!.prefs?.reviewVisibility ?? 'instance');
-  // Push auf diesem Gerät, blockierte Personen (Bereich Privatsphäre)
-  let pushOn = $state(false);
-  let pushBusy = $state(false);
-  $effect(() => { pushSubscription().then(s => (pushOn = !!s)); });
-  async function togglePush() {
-    pushBusy = true;
-    try {
-      if (pushOn) { await disablePush(); pushOn = false; }
-      else if (await enablePush()) { pushOn = true; toast(t('push.on')); }
-      else toastError(t('push.denied'));
-    } catch (e) { toastError(e); } finally { pushBusy = false; }
-  }
+  // blockierte Personen (Bereich Privatsphäre)
   let blocks = $state<{ id: number; displayName: string; username: string; avatarUrl: string | null }[]>([]);
   async function unblock(id: number) {
     try { await api.del(`/users/${id}/block`); blocks = blocks.filter(b => b.id !== id); toast(t('settings.saved')); } catch (e) { toastError(e); }
@@ -301,16 +288,6 @@
           </select>
           <small class="muted">{t('settings.reviewVisibilityInfo')}</small>
         </label>
-      </div>
-      <div class="card stack">
-        <h3>{t('push.title')}</h3>
-        {#if pushSupported()}
-          <label class="row check"><input type="checkbox" checked={pushOn} disabled={pushBusy} onchange={togglePush} /> <span class="grow">{t('push.toggle')}</span></label>
-          <p class="muted small">{t('push.info')}</p>
-        {:else}
-          <p class="muted small">{t(inApp() ? 'push.inApp' : 'push.unsupported')}</p>
-        {/if}
-        <PushChannels />
       </div>
       <div class="card stack">
         <h3>{t('mod.blockedTitle')}</h3>

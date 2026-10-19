@@ -85,16 +85,16 @@ moderationRoutes.delete('/users/:id/block', c => {
 
 export const blockedByMe = (me: number, other: number) => !!db.prepare('SELECT 1 FROM blocks WHERE user_id = ? AND blocked_id = ?').get(me, other);
 
-// ---------- Web Push (Geräte an- und abmelden) ----------
+// ---------- Web Push für Admins (Geräte an- und abmelden) ----------
 
 moderationRoutes.get('/push/key', c => {
-  requireUser(c);
+  requireAdmin(c);
   if (!pushAvailable()) throw new HTTPException(404, { message: 'Nur mit Konto auf einer Instanz möglich' });
   return c.json({ key: vapidPublicKey() });
 });
 
 moderationRoutes.post('/push/subscribe', async c => {
-  const u = requireUser(c);
+  const u = requireAdmin(c);
   if (!pushAvailable()) throw new HTTPException(404, { message: 'Nur mit Konto auf einer Instanz möglich' });
   const endpoint = validEndpoint((await body(c)).endpoint);
   if (!endpoint) throw new HTTPException(400, { message: 'Unbekannter Push-Dienst' });
@@ -103,7 +103,7 @@ moderationRoutes.post('/push/subscribe', async c => {
 });
 
 moderationRoutes.post('/push/unsubscribe', async c => {
-  const u = requireUser(c);
+  const u = requireAdmin(c);
   const b = await body(c);
   return c.json({ ok: typeof b.endpoint === 'string' && unsubscribe(u.id, b.endpoint) });
 });

@@ -220,13 +220,14 @@ const fake2 = http.createServer((q, r) => {
   });
 });
 await new Promise(r => fake2.listen(3989, r));
-let pc = (await mia('GET', '/push/channels')).data;
+let pc = (await simon('GET', '/push/channels')).data;
+check('channels admin only', (await mia('GET', '/push/channels')).status === 403 && (await mia('POST', '/push/subscribe', { endpoint: 'http://localhost:3990/x' })).status === 403);
 check('channels: only ntfy available', pc.available.ntfy && !pc.available.pushover && !pc.available.telegram && pc.channels.length === 0, JSON.stringify(pc));
-check('ntfy bad urls', (await mia('PUT', '/push/channels/ntfy', { url: 'https://10.0.0.1/abcdefg' })).status === 400
-  && (await mia('PUT', '/push/channels/ntfy', { url: 'http://ntfy.sh/abcdefg' })).status === 400
-  && (await mia('PUT', '/push/channels/ntfy', { url: 'https://ntfy.sh/a' })).status === 400);
-check('ntfy save', (await mia('PUT', '/push/channels/ntfy', { url: 'http://localhost:3990/ntfy-mia-topic' })).data[0]?.target === 'http://localhost:3990/ntfy-mia-topic');
-check('pushover needs operator', (await mia('PUT', '/push/channels/pushover', { key: 'a'.repeat(30) })).status === 409);
+check('ntfy bad urls', (await simon('PUT', '/push/channels/ntfy', { url: 'https://10.0.0.1/abcdefg' })).status === 400
+  && (await simon('PUT', '/push/channels/ntfy', { url: 'http://ntfy.sh/abcdefg' })).status === 400
+  && (await simon('PUT', '/push/channels/ntfy', { url: 'https://ntfy.sh/a' })).status === 400);
+check('ntfy save', (await simon('PUT', '/push/channels/ntfy', { url: 'http://localhost:3990/ntfy-admin-topic' })).data[0]?.target === 'http://localhost:3990/ntfy-admin-topic');
+check('pushover needs operator', (await simon('PUT', '/push/channels/pushover', { key: 'a'.repeat(30) })).status === 409);
 check('push admin only', (await mia('GET', '/admin/push')).status === 403);
 check('admin bad pushover token', (await simon('PATCH', '/admin/push', { pushoverToken: 'kurz' })).status === 400);
 check('admin bad telegram token', (await simon('PATCH', '/admin/push', { telegramToken: '123:bad' + 'x'.repeat(30) })).status === 400
@@ -234,46 +235,51 @@ check('admin bad telegram token', (await simon('PATCH', '/admin/push', { telegra
 let ap = (await simon('PATCH', '/admin/push', { pushoverToken: 'p'.repeat(30), telegramToken: '123:' + 'T'.repeat(35) })).data;
 check('admin tokens set', ap.pushover && ap.telegram && ap.telegramBot === 'bookshelv_test_bot', JSON.stringify(ap));
 check('tokens never returned', !JSON.stringify((await simon('GET', '/admin/push')).data).includes('ppppp'));
-pc = (await mia('GET', '/push/channels')).data;
+pc = (await simon('GET', '/push/channels')).data;
 check('channels now available', pc.available.pushover && pc.available.telegram === 'bookshelv_test_bot');
-check('pushover bad key', (await mia('PUT', '/push/channels/pushover', { key: 'zu-kurz' })).status === 400);
-pc = (await mia('PUT', '/push/channels/pushover', { key: 'u'.repeat(30) })).data;
+check('pushover bad key', (await simon('PUT', '/push/channels/pushover', { key: 'zu-kurz' })).status === 400);
+pc = (await simon('PUT', '/push/channels/pushover', { key: 'u'.repeat(30) })).data;
 check('pushover masked', pc.find(c => c.kind === 'pushover').target === 'uuuu…uuu', JSON.stringify(pc));
 // Telegram koppeln: Link mit Code, Bot bekommt „/start <code>“
-const link = (await mia('POST', '/push/channels/telegram')).data.url;
+const link = (await simon('POST', '/push/channels/telegram')).data.url;
 const code = link?.split('start=')[1];
 check('telegram link', link?.startsWith('https://t.me/bookshelv_test_bot?start=') && code);
-check('telegram not yet linked', (await mia('POST', '/push/channels/telegram/check')).data.linked === false);
+check('telegram not yet linked', (await simon('POST', '/push/channels/telegram/check')).data.linked === false);
 tgUpdates = [{ update_id: 7, message: { text: `/start ${code}`, chat: { id: 4242 } } }];
-check('telegram linked', (await mia('POST', '/push/channels/telegram/check')).data.linked === true);
+check('telegram linked', (await simon('POST', '/push/channels/telegram/check')).data.linked === true);
 tgUpdates = [];
 check('telegram welcome sent', sent.some(x => x.url.includes('/sendMessage') && x.body.includes('4242')));
 // Test an alle drei, dann echte Benachrichtigung (Simon kommentiert nicht – Leo ist gesperrt; Freundschaftsanfrage von Simon)
 sent.length = 0; pushes.length = 0;
-let tr = (await mia('POST', '/push/test')).data.results;
+let tr = (await simon('POST', '/push/test')).data.results;
 check('test all channels', tr.length === 3 && tr.every(x => x.ok), JSON.stringify(tr));
-check('ntfy got test', pushes.some(p => p.url === '/ntfy-mia-topic'));
+check('ntfy got test', pushes.some(p => p.url === '/ntfy-admin-topic'));
 check('pushover got test', sent.some(x => x.url === '/pushover' && new URLSearchParams(x.body).get('token') === 'p'.repeat(30)));
 pushes.length = 0; sent.length = 0;
-await mia('PUT', `/books/${long}/review`, { rating: 4, text: 'Push-Test', visibility: 'instance' });
-const rvp = (await simon('GET', `/books/${long}/reviews`)).data.reviews.find(r => r.user.displayName === 'mia');
-await simon('POST', `/reviews/${rvp.id}/comments`, { text: 'Kommentar für den Push' });
+// normale Benachrichtigung (Kommentar) → kein Push; Meldung → Push an die Admins
+await simon('PUT', `/books/${long}/review`, { rating: 4, text: 'Push-Test', visibility: 'instance' });
+const rvp = (await mia('GET', `/books/${long}/reviews`)).data.reviews.find(r => r.text === 'Push-Test');
+await mia('POST', `/reviews/${rvp.id}/comments`, { text: 'Kommentar für den Push' });
 await new Promise(r => setTimeout(r, 300));
-check('notify reaches ntfy without content', pushes.some(p => p.url === '/ntfy-mia-topic') && !JSON.stringify(sent).includes('Kommentar für den Push'));
-check('telegram got notification', sent.some(x => x.url.includes('/sendMessage') && x.body.includes('4242')));
-// Ruhezeit: zweiter Kommentar sofort danach → keine weitere Nachricht
+check('comment does not push', !pushes.some(p => p.url === '/ntfy-admin-topic') && !sent.some(x => x.url.includes('/sendMessage')));
+const fremdId = (await stranger('GET', '/me')).data.id;
+await mia('POST', '/reports', { type: 'user', id: fremdId, reason: 'spam', note: 'geheime Notiz' });
+await new Promise(r => setTimeout(r, 300));
+check('report reaches ntfy without content', pushes.some(p => p.url === '/ntfy-admin-topic') && !JSON.stringify(sent).includes('geheime Notiz'));
+check('telegram got report', sent.some(x => x.url.includes('/sendMessage') && x.body.includes('4242')));
+// Ruhezeit: zweite Meldung sofort danach → keine weitere Nachricht
 const before2 = sent.length;
-await simon('POST', `/reviews/${rvp.id}/comments`, { text: 'noch einer' });
+await stranger('POST', '/reports', { type: 'user', id: miaId, reason: 'spam' });
 await new Promise(r => setTimeout(r, 300));
 check('quiet period', sent.length === before2);
 // ungültiger Pushover-Schlüssel wird beim Zustellen entfernt
-await mia('PUT', '/push/channels/pushover', { key: 'x'.repeat(30) });
-await mia('POST', '/push/test');
-check('invalid pushover removed', !(await mia('GET', '/push/channels')).data.channels.some(c => c.kind === 'pushover'));
-pc = (await mia('DELETE', '/push/channels/telegram')).data;
+await simon('PUT', '/push/channels/pushover', { key: 'x'.repeat(30) });
+await simon('POST', '/push/test');
+check('invalid pushover removed', !(await simon('GET', '/push/channels')).data.channels.some(c => c.kind === 'pushover'));
+pc = (await simon('DELETE', '/push/channels/telegram')).data;
 check('channel delete', !pc.some(c => c.kind === 'telegram'));
 await simon('PATCH', '/admin/push', { pushoverToken: '', telegramToken: '' });
-check('tokens removed', (await mia('GET', '/push/channels')).data.available.telegram === null);
+check('tokens removed', (await simon('GET', '/push/channels')).data.available.telegram === null);
 fake2.close();
 fake.close();
 

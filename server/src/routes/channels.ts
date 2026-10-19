@@ -1,9 +1,9 @@
 /**
- * Push über andere Apps einrichten (ntfy, Pushover, Telegram) – siehe channels.ts.
- * Die Zugangsdaten für Pushover (App-Token) und Telegram (Bot-Token) trägt die betreibende Person im Admin-Bereich ein.
+ * Push bei neuen Meldungen über andere Apps einrichten (ntfy, Pushover, Telegram) – nur für Admins, siehe channels.ts.
+ * Dazu die Zugangsdaten der Instanz für Pushover (App-Token) und Telegram (Bot-Token).
  */
 import { HTTPException } from 'hono/http-exception';
-import { requireUser, requireAdmin } from '../auth.ts';
+import { requireAdmin } from '../auth.ts';
 import { router, body, str } from '../util.ts';
 import { config } from '../config.ts';
 import { setSetting } from '../federation.ts';
@@ -19,7 +19,7 @@ const lang = (h: string | undefined) => (h === 'en' ? 'en' : 'de');
 const localOnly = () => { if (config.local) throw new HTTPException(404, { message: 'Nur mit Konto auf einer Instanz möglich' }); };
 
 channelRoutes.get('/push/channels', async c => {
-  const u = requireUser(c);
+  const u = requireAdmin(c);
   localOnly();
   return c.json({
     available: { ntfy: true, pushover: !!pushoverToken(), telegram: await telegramBot() },
@@ -28,7 +28,7 @@ channelRoutes.get('/push/channels', async c => {
 });
 
 channelRoutes.put('/push/channels/ntfy', async c => {
-  const u = requireUser(c);
+  const u = requireAdmin(c);
   localOnly();
   const url = validNtfy((await body(c)).url);
   if (!url) throw new HTTPException(400, { message: 'Ungültige ntfy-Adresse (https://ntfy.sh/dein-thema)' });
@@ -37,7 +37,7 @@ channelRoutes.put('/push/channels/ntfy', async c => {
 });
 
 channelRoutes.put('/push/channels/pushover', async c => {
-  const u = requireUser(c);
+  const u = requireAdmin(c);
   localOnly();
   if (!pushoverToken()) throw new HTTPException(409, { message: 'Pushover ist auf dieser Instanz nicht eingerichtet' });
   const key = validPushoverKey((await body(c)).key);
@@ -48,7 +48,7 @@ channelRoutes.put('/push/channels/pushover', async c => {
 
 /** Telegram koppeln: Link zum Bot mit Einmal-Code; danach /check, bis „/start <code>“ angekommen ist */
 channelRoutes.post('/push/channels/telegram', async c => {
-  const u = requireUser(c);
+  const u = requireAdmin(c);
   localOnly();
   const bot = await telegramBot();
   if (!bot) throw new HTTPException(409, { message: 'Telegram ist auf dieser Instanz nicht eingerichtet' });
@@ -57,7 +57,7 @@ channelRoutes.post('/push/channels/telegram', async c => {
 });
 
 channelRoutes.post('/push/channels/telegram/check', async c => {
-  const u = requireUser(c);
+  const u = requireAdmin(c);
   localOnly();
   try { await telegramPoll(); } catch (e) { console.error('Telegram getUpdates:', (e as Error).message); }
   const ch = channelsOf(u.id).find(x => x.kind === 'telegram');
@@ -65,7 +65,7 @@ channelRoutes.post('/push/channels/telegram/check', async c => {
 });
 
 channelRoutes.delete('/push/channels/:kind', c => {
-  const u = requireUser(c);
+  const u = requireAdmin(c);
   const kind = c.req.param('kind') as ChannelKind;
   if (!KINDS.includes(kind)) throw new HTTPException(400, { message: `Erlaubt: ${KINDS.join(', ')}` });
   removeChannel(u.id, kind);
@@ -74,7 +74,7 @@ channelRoutes.delete('/push/channels/:kind', c => {
 
 /** Testnachricht an alle eingerichteten Dienste (ohne Ruhezeit) */
 channelRoutes.post('/push/test', async c => {
-  const u = requireUser(c);
+  const u = requireAdmin(c);
   localOnly();
   return c.json({ results: await notifyChannels(u.id, true) });
 });

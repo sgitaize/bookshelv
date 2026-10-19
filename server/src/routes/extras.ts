@@ -17,7 +17,6 @@ import { setReading } from './reading.ts';
 import { imageType } from './social.ts';
 import { federate } from './reviews.ts';
 import { selfUrl } from '../federation.ts';
-import { pushTo } from '../push.ts';
 import { applyAppExtras, applyFollows, type AppExtras } from '../appsync.ts';
 
 export const extraRoutes = router();
@@ -271,10 +270,8 @@ async function work() {
       });
       const rest = queue.slice(batch.length);
       // fertig → Glocke (die App ist dann womöglich längst zu); nicht nach Entscheidungen zu Konflikten
-      if (!rest.length && !batch.some(it => it.policy)) {
+      if (!rest.length && !batch.some(it => it.policy))
         db.prepare("INSERT INTO notifications (user_id, type, actor_label, ref_id) VALUES (?, 'import_done', ?, ?)").run(job.user_id, job.filename ?? job.source, job.id);
-        void pushTo(job.user_id);
-      }
       db.prepare(`UPDATE imports SET queue = ?, done = MIN(total, done + ?), results = ?, status = ?, finished_at = ? WHERE id = ?`)
         .run(rest.length ? JSON.stringify(rest) : null, batch.filter(it => !it.policy).length, JSON.stringify(res),
           rest.length ? 'running' : 'done', rest.length ? null : new Date().toISOString().slice(0, 19).replace('T', ' '), job.id);

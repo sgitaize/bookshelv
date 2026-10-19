@@ -1,8 +1,8 @@
 /**
- * Push über andere Apps – funktioniert auch für die iOS- und Android-App (deren WebView kann kein Web Push)
- * und ohne Apple-/Google-Push-Dienste:
- *   ntfy      Thema-URL (ntfy.sh oder selbst gehostet), die Person abonniert das Thema in der ntfy-App
- *   Pushover  Benutzerschlüssel der Person; den App-Token trägt die betreibende Person ein (Admin → Instanz)
+ * Push für Admins über andere Apps (neue Meldungen) – funktioniert auch unterwegs ohne offene Seite und ohne
+ * Apple-/Google-Push-Dienste:
+ *   ntfy      Thema-URL (ntfy.sh oder selbst gehostet), abonniert in der ntfy-App
+ *   Pushover  Benutzerschlüssel; dazu der App-Token der Instanz (Admin-Bereich)
  *   Telegram  Bot der Instanz (Token im Admin-Bereich); Kopplung per Link t.me/<bot>?start=<code>
  *
  * Inhalt bewusst ohne persönliche Daten („bookshelv: 2 neue Benachrichtigungen“ + Link) – ntfy-Themen sind öffentlich.

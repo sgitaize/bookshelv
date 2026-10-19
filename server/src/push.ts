@@ -1,9 +1,9 @@
 /**
- * Web Push (PWA im Browser) ohne Abhängigkeiten: VAPID (RFC 8292) mit ES256 aus node:crypto, Nachrichten ohne Nutzlast.
- * Der Push sagt nur „es gibt Neues“ – der Service Worker holt die Zahl selbst ab, persönliche Daten gehen nie
- * über den Push-Dienst. Opt-in je Gerät (Einstellungen → Benachrichtigungen), Abmelden löscht das Abo.
+ * Push für Admins bei neuen Meldungen. Web Push (PWA im Browser) ohne Abhängigkeiten: VAPID (RFC 8292) mit ES256
+ * aus node:crypto, Nachrichten ohne Nutzlast. Der Push sagt nur „es gibt Neues“ – der Service Worker holt die Zahl
+ * selbst ab, persönliche Daten gehen nie über den Push-Dienst. Opt-in je Gerät (Admin-Bereich), Abmelden löscht das Abo.
  *
- * Zustellung an alle Abos einer Person, sobald notify() eine In-App-Benachrichtigung anlegt (z. B. neue Meldung für Admins).
+ * Zustellung an alle Abos eines Admins, sobald notify() eine Meldung (report_new) anlegt.
  * 404/410 vom Push-Dienst = Abo abgelaufen → gelöscht. In den Apps (WebView ohne Web Push) läuft Push über ntfy,
  * Pushover oder Telegram (channels.ts).
  *

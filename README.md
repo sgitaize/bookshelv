@@ -104,9 +104,9 @@ cd dist && node server.js            # port 3000, data in dist/data
 | `BOOKSHELV_DATA_DIR` | `./data` | Database, covers, setup token |
 | `BOOKSHELV_PUBLIC_DIR` | `./public` | Built frontend |
 | `BOOKSHELV_INSECURE_COOKIES` | `0` | `1` allows login over plain http (testing only) |
-| `BOOKSHELV_PUSHOVER_TOKEN` | – | Pushover app token, so people can get notifications through Pushover (can also be set under Admin) |
-| `BOOKSHELV_TELEGRAM_BOT_TOKEN` | – | Telegram bot token for notifications through Telegram (can also be set under Admin) |
-| `BOOKSHELV_NTFY_HOSTS` | any | Comma-separated ntfy servers people may use, e.g. `ntfy.sh` |
+| `BOOKSHELV_PUSHOVER_TOKEN` | – | Pushover app token, so admins get new reports through Pushover (can also be set under Admin) |
+| `BOOKSHELV_TELEGRAM_BOT_TOKEN` | – | Telegram bot token, so admins get new reports through Telegram (can also be set under Admin) |
+| `BOOKSHELV_NTFY_HOSTS` | any | Comma-separated ntfy servers admins may use for report notifications, e.g. `ntfy.sh` |
 | `BOOKSHELV_ANDROID_CERTS` | release key | SHA-256 fingerprints (comma-separated) for `/.well-known/assetlinks.json`, so password managers share logins with the Android app. Add the Play App Signing key once the app is on Google Play |
 
 ### Backups
@@ -128,7 +128,7 @@ BOOKSHELV_INSECURE_COOKIES=1 npm run dev   # API on :3000, Vite on :5173
 
 ## Roadmap
 
-Done so far: accounts and invitations, the admin area, ISBN scanning and catalogue search, the library with copies (including e-book shops), reading progress, favourites, profiles with pictures, reviews and comments, lending with due dates, an archive for sold or given-away books, a history timeline with filters, a feed of what friends are reading, in-app notifications, a wishlist friends can see, friend requests (also across linked instances), your own covers, a top 5 on the profile, reading lists, an activity feed with each book's history, import from Goodreads, StoryGraph or any CSV with merging, export in Goodreads/StoryGraph format, reading statistics with a yearly wrap-up image you can share, a yearly reading goal, re-reads, a "what should I read next?" pick from your pile, content notes (with hidden covers for topics you want to avoid), reporting and blocking with web push for admins, and German/English.
+Done so far: accounts and invitations, the admin area, ISBN scanning and catalogue search, the library with copies (including e-book shops), reading progress, favourites, profiles with pictures, reviews and comments, lending with due dates, an archive for sold or given-away books, a history timeline with filters, a feed of what friends are reading, in-app notifications, a wishlist friends can see, friend requests (also across linked instances), your own covers, a top 5 on the profile, reading lists, an activity feed with each book's history, import from Goodreads, StoryGraph or any CSV with merging, export in Goodreads/StoryGraph format, reading statistics with a yearly wrap-up image you can share, a yearly reading goal, re-reads, a "what should I read next?" pick from your pile, content notes (with hidden covers for topics you want to avoid), reporting and blocking with admin notifications (web push, ntfy, Pushover or Telegram), and German/English.
 
 Separate bookshelv instances can be linked, so reviews can be shared and books lent across instances. How that works is described in [docs/FEDERATION.md](docs/FEDERATION.md).
 
