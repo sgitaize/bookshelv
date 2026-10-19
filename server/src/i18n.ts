@@ -4,6 +4,7 @@
  */
 const EN: Record<string, string> = {
   'Interner Fehler': 'Internal error',
+  'Ungültiger Zeitraum': 'Invalid period',
   'Eigene Inhalte kannst du nicht melden': 'You cannot report your own content',
   'Zu viele Meldungen – bitte später erneut versuchen': 'Too many reports – please try again later',
   'Nicht möglich': 'Not possible',

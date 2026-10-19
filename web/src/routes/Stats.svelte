@@ -11,18 +11,60 @@
   import Icon from '../components/Icon.svelte';
   import GoalCard from '../components/GoalCard.svelte';
 
-  let year = $state<string | null>(router.query.get('year') ?? String(new Date().getFullYear()));
+  // Zeitraum wie beim Teilen-Bild: „2026“, „2026-Q3“, „2026-09“, „2026-01-15..2026-03-20“ oder null (alle Jahre); steht in der URL
+  type Kind = 'year' | 'quarter' | 'month' | 'custom' | 'all';
+  const now = new Date();
+  const curYear = String(now.getFullYear());
+  const curMonth = `${curYear}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const today = now.toISOString().slice(0, 10);
+  const fromUrl = router.query.get('period') ?? router.query.get('year');
+  let period = $state<string | null>(fromUrl === 'all' ? null : fromUrl ?? curYear);
+  const kindOf = (p: string | null): Kind => p === null ? 'all' : p.includes('..') ? 'custom' : p.includes('Q') ? 'quarter' : p.length === 7 ? 'month' : 'year';
+  const kind = $derived(kindOf(period));
+  /** ganzes Jahr gewählt → Monatsverlauf, Leseziel, Jahresrückblick */
+  const year = $derived(kind === 'year' ? period : null);
   let s = $state<Stats | null>(null);
   let pick = $state<{ title: string; books: BookBrief[] } | null>(null);
+  const urlRange = fromUrl?.includes('..') ? fromUrl.split('..') : null;
+  let customFrom = $state(urlRange?.[0] ?? `${curYear}-01-01`);
+  let customTo = $state(urlRange?.[1] ?? today);
 
   $effect(() => {
-    api.get<Stats>(`/stats${year ? `?year=${year}` : ''}`).then(r => (s = r)).catch(toastError);
+    const p = period;
+    api.get<Stats>(`/stats${p ? `?period=${encodeURIComponent(p)}` : ''}`).then(r => { if (p === period) s = r; }).catch(toastError);
+    // Auswahl in der URL merken (Zurück, Teilen des Links) – ohne Neuaufbau der Seite
+    try { history.replaceState(history.state, '', `/stats?period=${p ?? 'all'}`); } catch { /* egal */ }
   });
+
+  function setKind(k: Kind) {
+    const y = period?.slice(0, 4) ?? curYear;
+    period = k === 'all' ? null
+      : k === 'year' ? y
+      : k === 'quarter' ? (quarters.find(q => q.startsWith(y)) ?? quarters[0])
+      : k === 'month' ? (months.find(m => m.startsWith(y)) ?? months[0])
+      : `${customFrom}..${customTo}`;
+  }
+  function applyCustom() {
+    if (!customFrom || !customTo) return;
+    const [a, b] = customFrom <= customTo ? [customFrom, customTo] : [customTo, customFrom];
+    customFrom = a; customTo = b;
+    period = `${a}..${b}`;
+  }
+  /** Beschriftung eines Zeitraums für Auswahl und Überschrift */
+  const label = (p: string) => {
+    const q = p.match(/^(\d{4})-Q(\d)$/);
+    if (q) return t('share.quarterLabel', { q: q[2], y: q[1] });
+    if (/^\d{4}-\d{2}$/.test(p)) return new Date(Number(p.slice(0, 4)), Number(p.slice(5, 7)) - 1, 1).toLocaleDateString(i18n.locale, { month: 'long', year: 'numeric' });
+    return p;
+  };
 
   const nf = (n: number) => n.toLocaleString(i18n.locale);
   const monthName = (m: number, style: 'short' | 'long') => new Date(2000, m - 1, 1).toLocaleDateString(i18n.locale, { month: style });
   // aktuelles Jahr immer anbieten, auch wenn noch nichts gelesen
-  const years = $derived([...new Set([String(new Date().getFullYear()), ...(s?.years ?? [])])].sort().reverse());
+  const years = $derived([...new Set([curYear, ...(s?.years ?? [])])].sort().reverse());
+  // gewählter Zeitraum steht immer in der Liste, auch ohne gelesene Bücher (z. B. aus einem Link)
+  const months = $derived([...new Set([curMonth, ...(kind === 'month' && period ? [period] : []), ...(s?.months ?? [])])].sort().reverse());
+  const quarters = $derived([...new Set([...(kind === 'quarter' && period ? [period] : []), ...months.map(m => `${m.slice(0, 4)}-Q${Math.ceil(Number(m.slice(5, 7)) / 3)}`)])].sort().reverse());
 
   const langNames = $derived.by(() => { try { return new Intl.DisplayNames([i18n.locale], { type: 'language' }); } catch { return null; } });
   const langName = (code: string) => code === 'unknown' ? t('stats.unknown') : (langNames?.of(code) ?? code);
@@ -49,14 +91,30 @@
 <section class="stack">
   <div class="spread">
     <h1>{t('stats.title')}</h1>
-    <a class="btn primary" href="/share{year ? `?period=${year}` : ''}"><Icon name="image" size={16} /> {t('share.button')}</a>
+    <a class="btn primary" href="/share{period && kind !== 'custom' ? `?period=${period}` : ''}"><Icon name="image" size={16} /> {t('share.button')}</a>
     {#if year && s?.totals.books}<a class="btn" href="/wrapup?year={year}"><Icon name="sparkle" size={16} /> {t('stats.wrapup', { y: year })}</a>{/if}
   </div>
 
-  <div class="chips">
-    {#each years as y}<button class:active={year === y} onclick={() => (year = y)}>{y}</button>{/each}
-    <button class:active={year === null} onclick={() => (year = null)}>{t('stats.all')}</button>
+  <div class="segmented kinds" role="tablist" aria-label={t('stats.period')}>
+    {#each ['year', 'quarter', 'month', 'custom', 'all'] as const as k}
+      <button role="tab" aria-selected={kind === k} class:active={kind === k} onclick={() => setKind(k)}>{t(`stats.kind.${k}` as Key)}</button>
+    {/each}
   </div>
+  {#if kind === 'year'}
+    <div class="chips">
+      {#each years as y}<button class:active={period === y} onclick={() => (period = y)}>{y}</button>{/each}
+    </div>
+  {:else if kind === 'quarter' || kind === 'month'}
+    <select class="pickp" value={period} onchange={e => (period = (e.target as HTMLSelectElement).value)} aria-label={t('stats.period')}>
+      {#each kind === 'quarter' ? quarters : months as o (o)}<option value={o}>{label(o)}</option>{/each}
+    </select>
+  {:else if kind === 'custom'}
+    <form class="row custom" onsubmit={e => { e.preventDefault(); applyCustom(); }}>
+      <label class="field"><span>{t('stats.from')}</span><input type="date" bind:value={customFrom} max={today} required /></label>
+      <label class="field"><span>{t('stats.to')}</span><input type="date" bind:value={customTo} max={today} required /></label>
+      <button class="primary">{t('stats.apply')}</button>
+    </form>
+  {/if}
 
   {#if !s}
     <div class="spinner"></div>
@@ -78,7 +136,7 @@
       <p class="empty">{t('stats.none')}</p>
       {#if year && (s.years ?? []).some(y => y !== year)}
         {@const last = (s.years ?? []).filter(y => y !== year).sort().reverse()[0]}
-        <p class="jump"><button class="btn" onclick={() => (year = last)}>{t('stats.jump', { y: last })}</button></p>
+        <p class="jump"><button class="btn" onclick={() => (period = last)}>{t('stats.jump', { y: last })}</button></p>
       {/if}
     {:else}
       <p class="muted small hint">{t('stats.tapHint')}</p>
@@ -99,7 +157,7 @@
             <MonthLine onpick={i => show(monthName(i + 1, 'long'), s!.perMonth[i].ids)}
               data={s.perMonth.map(m => ({ label: monthName(m.month, 'short').slice(0, 3), tip: monthName(m.month, 'long'), books: m.books, pages: m.pages }))} />
           </div>
-        {:else}
+        {:else if kind === 'all' || (kind === 'custom' && s.perYear.length > 1)}
           <div class="card wide">
             <h2>{t('stats.perYear')}</h2>
             <BarChart label={t('stats.perYear')} unit={t('stats.books.unit')} onpick={i => show(s!.perYear[i].name, s!.perYear[i].ids)}
@@ -174,6 +232,11 @@
   .libcard { margin-top: 1rem; }
   .jump { text-align: center; margin-top: 0; }
   .chips { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+  .kinds { align-self: start; max-width: 100%; overflow-x: auto; }
+  .kinds button { white-space: nowrap; }
+  .pickp { max-width: 20rem; }
+  .custom { align-items: end; gap: 0.6rem; flex-wrap: wrap; }
+  .custom .field { flex: 1 1 9rem; }
   .chips button { font-size: 0.85rem; padding: 0.4em 0.9em; border-radius: 999px; }
   .chips button.active { background: var(--accent); color: var(--accent-ink); }
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.7rem; }

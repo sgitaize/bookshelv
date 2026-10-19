@@ -1227,4 +1227,13 @@ export default {
   "push.denied": "The browser doesn't allow notifications – please allow them in the site settings.",
   "push.unsupported": "This browser can't receive push notifications. On iPhone it works once bookshelv is added to the home screen.",
   "push.inApp": "The app doesn't support push notifications yet – the browser does.",
+  "stats.period": "Period",
+  "stats.kind.year": "Year",
+  "stats.kind.quarter": "Quarter",
+  "stats.kind.month": "Month",
+  "stats.kind.custom": "Custom",
+  "stats.kind.all": "All years",
+  "stats.from": "From",
+  "stats.to": "To",
+  "stats.apply": "Show",
 } satisfies Record<keyof typeof import('./de.ts').default, string>;

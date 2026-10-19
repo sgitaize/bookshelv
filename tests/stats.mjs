@@ -44,6 +44,15 @@ check('status hasOperator', (await req('GET', '/status')).data.hasOperator === t
 s = (await req('GET', '/stats')).data;
 check('all years perYear', s.year === null && s.perYear.length >= 1);
 check('bad year 400', (await req('GET', '/stats?year=20x4')).status === 400);
+// Quartal, Monat und eigener Zeitraum (Ende inklusive)
+const q1 = (await req('GET', '/stats?period=2024-Q1')).data, mar = (await req('GET', '/stats?period=2024-03')).data;
+check('quarter + month', q1.period === '2024-Q1' && mar.totals.books >= 1 && q1.totals.books >= mar.totals.books && mar.perMonth.every(m => m.books === 0), JSON.stringify(mar.totals));
+const marDay = (await req("GET", `/books/${mar.order[0]}`)).data.reading.finishedAt;
+const cu = (await req('GET', `/stats?period=${marDay}..${marDay}`)).data;
+check('custom range inclusive end', marDay && cu.totals.books >= 1, JSON.stringify(cu.totals));
+check('custom range wide', (await req('GET', '/stats?period=2000-01-01..2030-12-31')).data.totals.books >= (await req('GET', '/stats')).data.totals.books);
+check('custom range invalid', (await req('GET', '/stats?period=2024-02-31..2024-03-01')).status === 400
+  && (await req('GET', '/stats?period=2024-05-01..2024-03-01')).status === 400);
 // Scan eines importierten Buchs ohne Exemplar: Lesestand + Datum bleiben erhalten
 const mb = (await req('POST', '/books', { title: 'Importiert ohne Exemplar', authors: ['Testerin'] })).data;
 await req('PUT', `/books/${mb.id}/reading`, { status: 'read', finishedAt: '2023-05-01' });

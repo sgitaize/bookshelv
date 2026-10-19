@@ -24,8 +24,8 @@ type Row = {
 const PAGE_BUCKETS = [[0, 200, '<200'], [200, 300, '200–299'], [300, 400, '300–399'], [400, 500, '400–499'], [500, Infinity, '500+']] as const;
 
 /**
- * Zeitraum: „2026“ (Jahr), „2026-Q3“ (Quartal), „2026-09“ (Monat) → [von, bis) als Datumsgrenzen.
- * Monatsverlauf (perMonth) gibt es nur für ganze Jahre.
+ * Zeitraum: „2026“ (Jahr), „2026-Q3“ (Quartal), „2026-09“ (Monat), „2026-01-15..2026-03-20“ (eigener Zeitraum, Ende inklusive)
+ * → [von, bis) als Datumsgrenzen. Monatsverlauf (perMonth) gibt es nur für ganze Jahre.
  */
 export function periodRange(period: string): { from: string; to: string; year: string } | null {
   let m = period.match(/^(\d{4})$/);
@@ -39,6 +39,14 @@ export function periodRange(period: string): { from: string; to: string; year: s
   if (m) {
     const y = Number(m[1]), mo = Number(m[2]);
     return { from: `${m[1]}-${m[2]}-01`, to: mo === 12 ? `${y + 1}-01-01` : `${y}-${String(mo + 1).padStart(2, '0')}-01`, year: m[1] };
+  }
+  m = period.match(/^(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})$/);
+  if (m) {
+    const a = new Date(`${m[1]}T00:00:00Z`), b = new Date(`${m[2]}T00:00:00Z`);
+    // echte Kalendertage (kein 2026-02-31), Ende nicht vor dem Anfang
+    if (isNaN(+a) || isNaN(+b) || a.toISOString().slice(0, 10) !== m[1] || b.toISOString().slice(0, 10) !== m[2] || b < a) return null;
+    b.setUTCDate(b.getUTCDate() + 1);
+    return { from: m[1], to: b.toISOString().slice(0, 10), year: m[1].slice(0, 4) };
   }
   return null;
 }
@@ -240,9 +248,9 @@ const yearsOf = (userId: number) => (db.prepare(`SELECT DISTINCT substr(finished
 
 statsRoutes.get('/stats', c => {
   const u = requireUser(c);
-  // ?period=2026|2026-Q3|2026-09 (Teilen-Bild), ?year=2026 wie bisher
+  // ?period=2026|2026-Q3|2026-09|2026-01-15..2026-03-20, ?year=2026 wie bisher
   const y = c.req.query('period') ?? c.req.query('year');
-  if (y && !periodRange(y)) throw new HTTPException(400, { message: 'Ungültige Zahl' });
+  if (y && !periodRange(y)) throw new HTTPException(400, { message: 'Ungültiger Zeitraum' });
   return c.json({ years: yearsOf(u.id), months: monthsOf(u.id), ...statsFor(u.id, y ?? null), library: { languages: libraryLanguages(u.id) },
     goal: y && /^\d{4}$/.test(y) ? goalOf(u.id, Number(y)) : null, user: { displayName: u.display_name, username: u.username } });
 });
@@ -255,8 +263,8 @@ statsRoutes.get('/users/:id/stats', c => {
     { display_name: string; username: string; shelf_visible: number } | undefined;
   if (!owner) throw new HTTPException(404, { message: 'Konto nicht gefunden' });
   if ((!owner.shelf_visible || !isFriend(u.id, id)) && id !== u.id) throw new HTTPException(403, { message: 'Dieses Regal ist privat' });
-  // ?period=2026|2026-Q3|2026-09 (Teilen-Bild), ?year=2026 wie bisher
+  // ?period=2026|2026-Q3|2026-09|2026-01-15..2026-03-20, ?year=2026 wie bisher
   const y = c.req.query('period') ?? c.req.query('year');
-  if (y && !periodRange(y)) throw new HTTPException(400, { message: 'Ungültige Zahl' });
+  if (y && !periodRange(y)) throw new HTTPException(400, { message: 'Ungültiger Zeitraum' });
   return c.json({ years: yearsOf(id), ...statsFor(id, y ?? null), user: { displayName: owner.display_name, username: owner.username } });
 });

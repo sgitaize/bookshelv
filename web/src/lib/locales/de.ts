@@ -1227,4 +1227,13 @@ export default {
   "push.denied": "Der Browser erlaubt keine Benachrichtigungen – bitte in den Website-Einstellungen freigeben.",
   "push.unsupported": "Dieser Browser kann keine Push-Benachrichtigungen. Auf dem iPhone geht das, wenn bookshelv zum Home-Bildschirm hinzugefügt ist.",
   "push.inApp": "In der App gibt es noch keine Push-Benachrichtigungen – im Browser schon.",
+  "stats.period": "Zeitraum",
+  "stats.kind.year": "Jahr",
+  "stats.kind.quarter": "Quartal",
+  "stats.kind.month": "Monat",
+  "stats.kind.custom": "Eigener Zeitraum",
+  "stats.kind.all": "Alle Jahre",
+  "stats.from": "Von",
+  "stats.to": "Bis",
+  "stats.apply": "Anzeigen",
 } as const;
