@@ -38,6 +38,8 @@ export function post(action: string, payload: Record<string, unknown> = {}) {
 /** Öffentliche Adresse dieser Instanz: in der App läuft die Seite auf 127.0.0.1, Links sollen aber zur Instanz zeigen */
 export const publicOrigin = () => app.info?.instance ?? location.origin;
 export const publicHost = () => new URL(publicOrigin()).host;
+/** Für Bilder und Texte (Statistik teilen, Jahresrückblick, Impressum): Instanz-Adresse; App ohne Instanz → „bookshelv“ statt 127.0.0.1 */
+export const brandHost = () => app.info ? (app.info.instance ? new URL(app.info.instance).host : 'bookshelv') : location.host;
 
 // ---------- Ereignisse aus der App ----------
 

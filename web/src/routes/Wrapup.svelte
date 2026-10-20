@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { brandHost } from '../lib/app.svelte.ts';
   import { isLocal } from '../lib/state.svelte.ts';
   // Bild in der gewählten App-Schrift zeichnen
   const font = () => getComputedStyle(document.documentElement).getPropertyValue('--font').trim() || 'sans-serif';
@@ -169,7 +170,7 @@
     ctx.fillStyle = C.muted;
     ctx.font = `400 24px ${font()}`;
     ctx.textAlign = 'right';
-    ctx.fillText(location.host, W - 70, H - 40);
+    ctx.fillText(brandHost(), W - 70, H - 40);
     ctx.textAlign = 'left';
 
     blob = await new Promise(res => cv.toBlob(b => res(b), 'image/png'));

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { brandHost } from '../lib/app.svelte.ts';
   import { isLocal } from '../lib/state.svelte.ts';
   // Statistik als teilbares Bild (Instagram): Zeitraum Monat/Quartal/Jahr, Vorlage bzw. eigene Auswahl an Bausteinen,
   // Format Story/Post/Quadrat, Farbschema. Gezeichnet auf ein Canvas in der App-Schrift, gespeichert als PNG.
@@ -230,7 +231,7 @@
     }
 
     ctx.fillStyle = P.muted; ctx.font = `400 26px ${font()}`;
-    ctx.textAlign = 'right'; ctx.fillText(location.host, W - X, footerY); ctx.textAlign = 'left';
+    ctx.textAlign = 'right'; ctx.fillText(brandHost(), W - X, footerY); ctx.textAlign = 'left';
     blob = await new Promise(res => cv.toBlob(b => res(b), 'image/png'));
   }
 

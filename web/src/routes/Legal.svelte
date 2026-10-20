@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { brandHost } from '../lib/app.svelte.ts';
   import { api } from '../lib/api.ts';
   import { i18n, t } from '../lib/i18n.svelte.ts';
   import { session } from '../lib/state.svelte.ts';
@@ -19,7 +20,7 @@
   const op = $derived(legal?.operator ?? {});
   const de = $derived(i18n.lang === 'de');
   const tel = (p: string) => 'tel:' + p.replace(/[^\d+]/g, '');
-  const host = location.host;
+  const host = brandHost();
 </script>
 
 {#snippet address()}

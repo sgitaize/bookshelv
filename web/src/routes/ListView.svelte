@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { publicOrigin } from '../lib/app.svelte.ts';
   import { isLocal } from '../lib/state.svelte.ts';
   import { api, labels, type ReadingList, type ListVisibility, type ListMember } from '../lib/api.ts';
   import { session, toast, toastError } from '../lib/state.svelte.ts';
@@ -63,7 +64,7 @@
     try { await api.del(`/lists/${id}/members/${session.me!.id}`); toast(t('list.left')); router.go('/lists', true); } catch (err) { toastError(err); }
   }
   async function shareLink() {
-    const url = `${location.origin}/lists/${id}`;
+    const url = `${publicOrigin()}/lists/${id}`;
     if (navigator.share) { try { await navigator.share({ title: l!.name, url }); return; } catch { /* abgebrochen → kopieren */ } }
     await navigator.clipboard.writeText(url);
     toast(t('invite.copied'));
