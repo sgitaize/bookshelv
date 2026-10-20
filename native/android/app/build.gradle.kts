@@ -14,14 +14,14 @@ val signing = Properties().apply {
 
 android {
     namespace = "de.sgitaize.bookshelv"
-    compileSdk = 35
+    compileSdk = 36
     ndkVersion = "27.2.12479018"
 
     defaultConfig {
         applicationId = "de.sgitaize.bookshelv"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 2
+        targetSdk = 36
+        versionCode = 3
         versionName = "1.1.0"
         externalNativeBuild { cmake { arguments += listOf("-DANDROID_STL=c++_shared") } }
     }
