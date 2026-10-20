@@ -20,7 +20,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const DEVICES = [
   { name: 'iphone', w: 440, h: 956, dsf: 3, platform: 'ios' },        // 1320 × 2868
   { name: 'ipad', w: 768, h: 1024, dsf: 2.6875, platform: 'ios' },     // 2064 × 2752
-  { name: 'android', w: 360, h: 780, dsf: 3, platform: 'android' }    // 1080 × 2340
+  { name: 'android', w: 360, h: 780, dsf: 3, platform: 'android' },   // 1080 × 2340
+  { name: 'play', w: 360, h: 640, dsf: 3, platform: 'android' }       // 1080 × 1920 (Google Play: höchstens 2:1)
 ];
 
 /* Reihenfolge = Reihenfolge im Store */
@@ -152,11 +153,11 @@ async function capture(send, dev, lang, raw) {
 // ---------- Store-Motiv ----------
 
 /** Höhe der nachgebauten Statusleiste (CSS-Pixel) */
-const STATUS = dev => dev.name === 'ipad' ? 24 : dev.name === 'android' ? 28 : 54;
+const STATUS = dev => dev.name === 'ipad' ? 24 : dev.platform === 'android' ? 28 : 54;
 const SPINES = ['#e8a54b', '#c8553d', '#5b8c85', '#f3ece0', '#5fb0b3'];
 
 function statusBar(dev, lang) {
-  const h = STATUS(dev), ipad = dev.name === 'ipad', android = dev.name === 'android';
+  const h = STATUS(dev), ipad = dev.name === 'ipad', android = dev.platform === 'android';
   const time = android ? '9:41' : '9:41';
   const pad = ipad ? '0 22px' : android ? '0 18px' : '0 34px 0 46px';
   const fs = ipad ? 13 : android ? 13 : 17;
@@ -174,7 +175,8 @@ function composeHtml(dev, sc, lang, img, i) {
   const accent = SPINES[i % SPINES.length];
   const font = f => `url(data:font/woff2;base64,${fs.readFileSync(path.join(TMP, 'public/assets', fs.readdirSync(path.join(TMP, 'public/assets')).find(n => n.startsWith(f)))).toString('base64')})`;
   const devW = ipad ? 0.8 : 0.84;
-  const radius = ipad ? 30 : dev.name === 'android' ? 30 : 52;
+  const radius = ipad ? 30 : dev.platform === 'android' ? 30 : 52;
+  const short = dev.name === 'play';
   return `<!doctype html><meta charset="utf-8"><style>
     @font-face{font-family:SE;src:${font('special-elite-latin-400')}}
     @font-face{font-family:SE;src:${font('special-elite-latin-ext-400')};unicode-range:U+0100-024F}
@@ -183,18 +185,18 @@ function composeHtml(dev, sc, lang, img, i) {
     html,body{margin:0;width:${dev.w}px;height:${dev.h}px;overflow:hidden}
     body{background:radial-gradient(ellipse 120% 70% at 50% 0%,#21282a 0%,#161a1b 55%,#0f1213 100%);color:#f3ece0;position:relative;font-family:CP,Courier,monospace}
     body:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 85% 8%,${accent}22,transparent 45%);pointer-events:none}
-    .head{position:absolute;left:0;right:0;top:${phone ? 46 : 64}px;text-align:center;padding:0 ${phone ? 26 : 70}px}
-    .spines{display:flex;justify-content:center;align-items:flex-end;gap:${phone ? 4 : 6}px;margin-bottom:${phone ? 16 : 22}px}
+    .head{position:absolute;left:0;right:0;top:${short ? 28 : phone ? 46 : 64}px;text-align:center;padding:0 ${phone ? 26 : 70}px}
+    .spines{display:flex;justify-content:center;align-items:flex-end;gap:${phone ? 4 : 6}px;margin-bottom:${short ? 10 : phone ? 16 : 22}px}
     .spines i{display:block;width:${phone ? 9 : 13}px;border-radius:2px}
-    h1{font-family:SE,serif;font-weight:400;font-size:${phone ? (title.length > 34 ? 31 : 36) : 38}px;line-height:1.12;margin:0 0 ${phone ? 12 : 18}px;letter-spacing:-.01em;color:#fbf6ec}
-    p{font-size:${phone ? 17 : 19}px;line-height:1.38;margin:0 auto;max-width:${phone ? 380 : 720}px;color:rgba(243,236,224,.78)}
-    .dev{position:absolute;left:50%;transform:translateX(-50%);top:${phone ? (title.includes('<br>') ? 292 : 262) : (title.includes('<br>') ? 304 : 252)}px;width:${devW * 100}%;
+    h1{font-family:SE,serif;font-weight:400;font-size:${short ? (title.length > 34 ? 26 : 29) : phone ? (title.length > 34 ? 31 : 36) : 38}px;line-height:1.12;margin:0 0 ${short ? 8 : phone ? 12 : 18}px;letter-spacing:-.01em;color:#fbf6ec}
+    p{font-size:${short ? 14 : phone ? 17 : 19}px;line-height:1.38;margin:0 auto;max-width:${phone ? 380 : 720}px;color:rgba(243,236,224,.78)}
+    .dev{position:absolute;left:50%;transform:translateX(-50%);top:${short ? (title.includes('<br>') ? 212 : 186) : phone ? (title.includes('<br>') ? 292 : 262) : (title.includes('<br>') ? 304 : 252)}px;width:${devW * 100}%;
       border-radius:${radius}px;overflow:hidden;border:${phone ? 8 : 12}px solid #050606;background:#121516;
       box-shadow:0 34px 70px rgba(0,0,0,.55),0 0 0 2px rgba(255,255,255,.07),0 0 0 1px ${accent}55 inset}
     .sb{display:flex;align-items:center;justify-content:space-between;box-sizing:border-box;background:#121516;color:#f2f2f2;font-family:-apple-system,"SF Pro Text",Roboto,system-ui,sans-serif;font-weight:600}
     .sb .ipdate{flex:1;margin-left:8px;font-weight:500}
     .dev img{display:block;width:100%}
-    </style><body><div class="head"><div class="spines">${[34, 46, 38, 52, 30].map((h, k) => `<i style="height:${phone ? h * .7 : h}px;background:${SPINES[(k + i) % 5]}"></i>`).join('')}</div>
+    </style><body><div class="head"><div class="spines">${[34, 46, 38, 52, 30].map((h, k) => `<i style="height:${short ? h * .5 : phone ? h * .7 : h}px;background:${SPINES[(k + i) % 5]}"></i>`).join('')}</div>
     <h1>${title}</h1><p>${sub}</p></div>
     <div class="dev">${statusBar(dev, lang)}<img src="data:image/png;base64,${img.toString('base64')}"></div></body>`;
 }
@@ -222,7 +224,7 @@ for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => { chrome?.kill('S
   for (const dev of devices) {
     await send('Emulation.setDeviceMetricsOverride', { width: dev.w, height: dev.h, deviceScaleFactor: dev.dsf, mobile: false });
     for (const lang of ['de', 'en']) {
-      const dir = dev.name === 'android' ? path.join(OUT, 'android', lang) : path.join(OUT, lang, dev.name);
+      const dir = dev.platform === 'android' ? path.join(OUT, dev.name, lang) : path.join(OUT, lang, dev.name);
       fs.rmSync(dir, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive: true });
       for (let i = 0; i < SCENES.length; i++) {
         const sc = SCENES[i], html = path.join(TMP, 'c.html');
