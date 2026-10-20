@@ -1,0 +1,34 @@
+flowchart LR
+  subgraph Clients["Devices"]
+    direction TB
+    B("<b>Browser / PWA</b><br/><small>Svelte 5 · Vite</small>")
+    subgraph App["iOS / Android app"]
+      direction TB
+      W("<b>WebView</b><br/><small>same Svelte UI</small>") -->|127.0.0.1| H("<b>App host</b><br/><small><code>mobile/host.ts</code></small>")
+      H --> L("<b>Local library</b><br/><small>SQLite on the device · iCloud / file backup</small>")
+    end
+  end
+  subgraph Inst["bookshelv instance"]
+    direction TB
+    S("<b>Server</b><br/><small><code>Hono · node:sqlite</code> · one <code>server.js</code></small>") --> D("<b>Data</b><br/><small><code>bookshelv.db · covers/</code></small>")
+  end
+  subgraph Ext["Outside services"]
+    direction TB
+    C("<b>Catalogues</b><br/><small>DNB · Open Library</small>")
+    F("<b>Linked instances</b><br/><small>friends · reviews · lending</small>")
+    P("<b>Admin push</b><br/><small>ntfy · Pushover · Telegram</small>")
+  end
+  B <-->|HTTPS| S
+  H <-->|"proxy when signed in"| S
+  S -->|"server-side, cached"| C
+  S <-->|federation| F
+  S -.->|"new reports"| P
+
+  classDef client stroke:#58a6ff,stroke-width:1.5px
+  classDef core stroke:#f0883e,stroke-width:1.5px
+  classDef server stroke:#3fb950,stroke-width:1.5px
+  classDef ext stroke:#a371f7,stroke-width:1.5px
+  class W,B client
+  class H,L core
+  class S,D server
+  class C,F,P ext

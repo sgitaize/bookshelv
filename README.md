@@ -1,8 +1,12 @@
 # bookshelv
 
+**English** · [Deutsch](README.de.md)
+
 A small, self-hosted library app for a circle of friends. You scan the barcode on the back of a book, it lands on your shelf with cover and metadata, and from there you can track what you're reading, rate it, and see which of your friends own the same book or thought it was terrible.
 
 I built it for my wife. She reads a lot and tried most of the reading apps out there, but none of them fit: too much social-network noise, tracking everywhere, and nothing that handles the simple question "who did I lend that book to?". So this is the version we actually wanted, running on our own web space.
+
+**Status:** live at [bookshelv.aize-it.de](https://bookshelv.aize-it.de) · iOS on the App Store · Android as APK (Play Store coming) · self-hostable · actively developed
 
 <p>
   <img alt="Home" src="docs/screenshots/home-mobile.png" width="200">
@@ -10,6 +14,15 @@ I built it for my wife. She reads a lot and tried most of the reading apps out t
   <img alt="Book" src="docs/screenshots/book-mobile.png" width="200">
   <img alt="Profile" src="docs/screenshots/profile-mobile.png" width="200">
 </p>
+
+## Get it
+
+| | |
+|---|---|
+| **iPhone / iPad** | [App Store](https://apps.apple.com/de/app/bookshelv/id6823521958) – works without an account; connect to an instance later if you like |
+| **Android** | [APK from GitHub](https://github.com/sgitaize/bookshelv/releases/latest/download/bookshelv.apk) – the app tells you about new versions; Play Store version coming |
+| **Browser** | [bookshelv.aize-it.de](https://bookshelv.aize-it.de) or your own instance, installable as a PWA |
+| **Your own server** | Docker, shared hosting with Node.js or plain Node – see [Self-hosting](#self-hosting) |
 
 ## What it does
 
@@ -19,9 +32,11 @@ For each book you keep a reading status (unread, reading, read, did not finish),
 
 Coming from another app? The importer reads Goodreads and StoryGraph exports directly, and for anything else (Booky, BookBuddy, a spreadsheet) it guesses the columns and lets you correct them. Books you already have are merged instead of duplicated; when a rating, status or date differs you decide case by case, or tell it to always keep bookshelv's value or always take the other app's. Booky exports are recognised directly, including its lists, favourites and the dates you finished books. Every import shows up in an import history and can be undone with one tap, even weeks later. Going the other way, you can export a CSV in Goodreads format, which almost every reading app can import, in StoryGraph format, or as a plain spreadsheet.
 
-It's invite-only. Every user can create invitation links, and there are no e-mail addresses involved, just a username and a password. The admin can block or delete users, reset passwords and clean up the catalogue.
+The apps work **without an account**: your library lives on the device (SQLite) and is backed up to your own iCloud or a file. If you want friends, lending and reviews, you connect the app to an instance; your local library is merged into the account without duplicates, and everything stays available offline.
 
-The interface looks like it came out of a typewriter by default (Courier Prime and Special Elite, both served from your own server), or you switch to a plain modern font. There are seven colour themes, from Night and Paper to Ink, Forest and Rosé, and the choice follows you to every device. The interface is available in German and English and works as an installable app (PWA) on Android and iOS.
+An instance can be invite-only or open for sign-ups (admin setting, with an upper limit). Every user can create invitation links, and there are no e-mail addresses involved, just a username and a password. The admin can block or delete users, reset passwords, review reports and clean up the catalogue.
+
+The interface looks like it came out of a typewriter by default (Courier Prime and Special Elite, both served from your own server), or you switch to a plain modern font. There are seven colour themes, from Night and Paper to Ink, Forest and Rosé, and the choice follows you to every device. The interface is available in German and English. There are native apps for iOS and Android, and the web version installs as a PWA.
 
 ## Privacy
 
@@ -29,11 +44,29 @@ The browser only ever talks to your own server. Catalogue searches and cover ima
 
 If you run an instance in Germany (or anywhere else that wants an imprint), fill in your details under Admin → Instance. bookshelv then generates an imprint and a privacy policy that matches what the app actually does, at `/legal`, linked from the sign-in page and the settings. Your details stay in your database and never end up in the repository.
 
-## How it's built
+## Architecture
 
-The backend is Node.js with [Hono](https://hono.dev) and the SQLite driver that ships with Node (`node:sqlite`, Node 22.13 or newer). esbuild bundles it into a single `server.js` with no `node_modules`, which is what makes it easy to run on ordinary shared hosting. The frontend is Svelte 5 with Vite. Barcode scanning uses the browser's BarcodeDetector where available and falls back to zxing-wasm (served from your own server).
+<p align="center"><img src="docs/architecture.png" alt="Architecture: browser and native apps talk to a bookshelv instance; the apps carry their own server and local library; the instance talks to catalogues, linked instances and admin push services" width="100%"></p>
 
-It needs very little: around 50 MB of RAM, plus roughly 30 KB of disk per book for the cover.
+<sub>Source: <a href="docs/architecture.mmd">docs/architecture.mmd</a> (Mermaid)</sub>
+
+**How it works**
+- **One server, one file.** The backend is Node.js with [Hono](https://hono.dev) and the SQLite driver that ships with Node (`node:sqlite`, Node 22.13+). esbuild bundles it into a single `server.js` without `node_modules`, which is what makes it easy to run on ordinary shared hosting. It needs around 50 MB of RAM, plus roughly 30 KB of disk per book for the cover.
+- **The frontend** is Svelte 5 with Vite. Barcode scanning uses the browser's BarcodeDetector where available and falls back to zxing-wasm, served from your own server.
+- **The apps carry the server.** iOS and Android embed the same backend via [nodejs-mobile](https://github.com/nodejs-mobile/nodejs-mobile) and show the normal interface in a WebView. Without an account it serves a local library; signed in, it proxies to your instance and keeps your data for offline use.
+- **Privacy by design:** catalogue lookups and covers are fetched server-side and cached, so DNB and Open Library never see your users' IP addresses.
+- **Instances can be linked** for friends, reviews and lending across servers ([docs/FEDERATION.md](docs/FEDERATION.md)).
+
+| Part | Where | What it does |
+|---|---|---|
+| Server | `server/src/` | API (Hono), database (`node:sqlite`), catalogue lookups, federation, push |
+| Web app | `web/src/` | Svelte 5 interface, translations in `web/src/lib/locales/` |
+| App host | `server/src/mobile/host.ts` | local server, proxy to the instance, offline sync, backup |
+| SQLite for the apps | `native/shared/sqlite_napi.c` | `node:sqlite` replacement on the system SQLite (N-API) |
+| iOS app | `native/ios/` | SwiftUI shell, native barcode scanner, tip jar |
+| Android app | `native/android/` | Kotlin / Compose shell, update hint |
+| Deploy | `deploy/` | upload over SSH, only from a clean `main` |
+| Tests | `tests/` | API, UI, offline and layout audits (DE/EN) |
 
 ## Self-hosting
 
@@ -124,17 +157,23 @@ npm install
 BOOKSHELV_INSECURE_COOKIES=1 npm run dev   # API on :3000, Vite on :5173
 ```
 
-`server/` holds the backend, `web/` the frontend, `deploy/` the deploy script and `docs/` the design notes. Translations are in `web/src/lib/locales/`. If you add a language, copy `en.ts` and register it in `web/src/lib/i18n.svelte.ts`.
+`server/` holds the backend, `web/` the frontend, `deploy/` the deploy script and `docs/` the design notes. Translations are in `web/src/lib/locales/`. If you add a language, copy `en.ts` and register it in `web/src/lib/i18n.svelte.ts`. Building the apps: [native/README.md](native/README.md).
 
-## Roadmap
+## Status & roadmap
 
-Done so far: accounts and invitations, the admin area, ISBN scanning and catalogue search, the library with copies (including e-book shops), reading progress, favourites, profiles with pictures, reviews and comments, lending with due dates, an archive for sold or given-away books, a history timeline with filters, a feed of what friends are reading, in-app notifications, a wishlist friends can see, friend requests (also across linked instances), your own covers, a top 5 on the profile, reading lists, an activity feed with each book's history, import from Goodreads, StoryGraph or any CSV with merging, export in Goodreads/StoryGraph format, reading statistics with a yearly wrap-up image you can share, a yearly reading goal, re-reads, a "what should I read next?" pick from your pile, content notes (with hidden covers for topics you want to avoid), reporting and blocking with admin notifications (web push, ntfy, Pushover or Telegram), and German/English.
+**Live:** web · iOS 1.0 on the App Store (1.1 in review) · Android APK 1.1 · Play Store coming.
+
+Done so far: accounts and invitations, the admin area, ISBN scanning and catalogue search, the library with copies (including e-book shops), reading progress, favourites, profiles with pictures, reviews and comments, lending with due dates, an archive for sold or given-away books, a history timeline with filters, a feed of what friends are reading, in-app notifications, a wishlist friends can see, friend requests (also across linked instances), your own covers, a top 5 on the profile, reading lists, an activity feed with each book's history, import from Goodreads, StoryGraph or any CSV with merging, export in Goodreads/StoryGraph format, reading statistics with a yearly wrap-up image you can share, a yearly reading goal, re-reads, a "what should I read next?" pick from your pile, content notes (with hidden covers for topics you want to avoid), reporting and blocking with admin notifications (web push, ntfy, Pushover or Telegram), native iOS and Android apps that work without an account (offline, with iCloud or file backup), and German/English.
 
 Separate bookshelv instances can be linked, so reviews can be shared and books lent across instances. How that works is described in [docs/FEDERATION.md](docs/FEDERATION.md).
 
-Next up, roughly in this order:
+Next up:
 
-1. Offline mode for the installed app: your data stays available on the device, reading progress and ratings can be changed offline and sync later, and the app shows clearly what isn't possible without a connection (such as adding books from the catalogue).
+1. Google Play release of the Android app.
+2. bookshelv.de as the default instance for the apps.
+3. Testing the native apps on more devices (camera scanner, first launch) – [#2](https://github.com/sgitaize/bookshelv/issues/2).
+
+Ideas and bugs are welcome as [issues](https://github.com/sgitaize/bookshelv/issues).
 
 ## Data sources
 
