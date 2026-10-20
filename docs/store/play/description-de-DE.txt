@@ -1,0 +1,34 @@
+bookshelv ist deine Bibliothek fürs Handy: alle Bücher an einem Ort, was du gerade liest, was du gelesen hast und wem du welches Buch geliehen hast.
+
+OHNE KONTO LOSLEGEN
+• Deine Bibliothek liegt auf deinem Gerät. Kein Konto, keine E-Mail-Adresse, kein Server nötig.
+• Buchdaten und Cover holt die App direkt bei der Deutschen Nationalbibliothek und Open Library.
+• Sicherung als Datei – zum Beispiel in Google Drive, in Downloads oder wohin du willst.
+
+BÜCHER ERFASSEN
+• ISBN scannen, auch viele Bücher hintereinander (Massen-Scan fürs ganze Regal).
+• Suchen nach Titel oder Autor*in, oder selbst eintragen – mit eigenem Cover.
+• Gedruckt, E-Book oder Hörbuch, Taschenbuch oder Hardcover, Farbschnitt ja oder nein.
+• Umzug leicht gemacht: Import aus Goodreads, StoryGraph, Booky oder CSV – einfach die Exportdatei mit bookshelv öffnen.
+
+LESEN UND BEWERTEN
+• Lesestand mit Seitenzahl, Lesedaten, „abgebrochen“ und Wunschliste.
+• Bewertungen mit halben Sternen, Stimmungen und Tempo.
+• Leselisten, Top 5 auf dem Holzregal, Reihen und Bände, Autor*innen folgen und Neuerscheinungen sehen.
+• Statistik: Bücher und Seiten pro Monat, Stimmungskurve, Genres, Formate, Sterne – und ein Jahresrückblick als Bild zum Teilen.
+
+VERLEIHEN OHNE VERGESSEN
+• Wem hast du was wann geliehen? Mit Rückgabedatum und Hinweis, wenn etwas überfällig ist.
+
+MIT FREUND*INNEN (OPTIONAL)
+• Mit einem Konto auf einer bookshelv-Instanz siehst du, was dein Freundeskreis liest, fragst Bücher zum Ausleihen an und startest Leserunden mit Spoilerschutz.
+• Die App hält deine Bibliothek auch dann offline bereit; Änderungen werden nachgereicht.
+• Deine lokale Bibliothek lässt sich jederzeit mit einem Konto verbinden – ohne doppelte Bücher.
+• bookshelv ist Open Source (MIT): Du kannst auch eine eigene Instanz für deinen Freundeskreis betreiben.
+
+FAIR UND PRIVAT
+• Keine Werbung, kein Tracking, keine Analyse-Dienste.
+• Konten brauchen nur einen Namen und ein Passwort und lassen sich in der App löschen.
+• bookshelv ist kostenlos. Wer mag, gibt ein Trinkgeld.
+
+Quellcode: github.com/sgitaize/bookshelv

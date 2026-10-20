@@ -21,7 +21,8 @@ const DEVICES = [
   { name: 'iphone', w: 440, h: 956, dsf: 3, platform: 'ios' },        // 1320 × 2868
   { name: 'ipad', w: 768, h: 1024, dsf: 2.6875, platform: 'ios' },     // 2064 × 2752
   { name: 'android', w: 360, h: 780, dsf: 3, platform: 'android' },   // 1080 × 2340
-  { name: 'play', w: 360, h: 640, dsf: 3, platform: 'android' }       // 1080 × 1920 (Google Play: höchstens 2:1)
+  { name: 'play', w: 360, h: 640, dsf: 3, platform: 'android' },      // 1080 × 1920 (Google Play: höchstens 2:1)
+  { name: 'play-tablet', w: 720, h: 1280, dsf: 1.5, platform: 'android' } // 1080 × 1920 (Play 10″-Tablet: nur 9:16)
 ];
 
 /* Reihenfolge = Reihenfolge im Store */

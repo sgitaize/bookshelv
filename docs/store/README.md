@@ -111,10 +111,14 @@ Play liefert je Gerät nur die passende Architektur aus.
    SHA-256 des **App-Signaturschlüssels** kopieren und auf der Instanz zusätzlich eintragen, sonst bietet der Passwortmanager
    in der Play-Version keine gespeicherten Logins an:
    `BOOKSHELV_ANDROID_CERTS=62:9F:3E:…:22:C9,<Play-Schlüssel>` (Standard ist nur der Release-Schlüssel der Download-APK).
-3. **Store-Eintrag:** Kurzbeschreibung aus `play/listing.json`, ausführliche Beschreibung = `description` aus
-   `metadata/de-DE.json` bzw. `en-US.json`, Screenshots aus [screenshots/android/](screenshots/android/) (1080 × 2340),
-   App-Symbol 512 × 512 aus `web/public/icon-512.png`. Die **Feature-Grafik** (1024 × 500) fehlt noch – z. B. aus
-   `header.html` rendern (`--window-size=1024,500 --force-device-scale-factor=1`).
+3. **Store-Eintrag (DE + EN):** Kurzbeschreibung aus `play/listing.json`, ausführliche Beschreibung aus
+   [play/description-de-DE.txt](play/description-de-DE.txt) bzw. `-en-US.txt` (wie iOS, aber Sicherung als Datei statt iCloud),
+   App-Symbol 512 × 512 aus `web/public/icon-512.png`, Feature-Grafik 1024 × 500 aus [play/feature/](play/feature/)
+   (aus `header.html` gerendert: `--window-size=1024,500 --force-device-scale-factor=1`). Screenshots: Handy aus
+   [screenshots/play/](screenshots/play/) (1080 × 1920 – Play erlaubt höchstens 2:1), 7″-Tablet = iPad-Bilder,
+   10″-Tablet aus [screenshots/play-tablet/](screenshots/play-tablet/) (nur 9:16 erlaubt). Neu erzeugen:
+   `ONLY=play,play-tablet node docs/store/storeshots.mjs`. Beim Hochladen ordnet Play die Bilder zufällig – danach per
+   Drag & Drop sortieren. KI-Kennzeichnung: nein.
 4. **In-App-Produkte** (Monetarisieren → Produkte → In-App-Produkte): die drei IDs aus `play/listing.json` anlegen und aktivieren.
    Ohne aktive Produkte zeigt die App „Trinkgeld: erneut versuchen“.
 5. **Datensicherheit:** wie beim App-Datenschutz oben – erfasst nur mit Konto (Benutzer-ID, Name, Fotos, andere
