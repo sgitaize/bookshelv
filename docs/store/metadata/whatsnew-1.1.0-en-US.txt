@@ -1,0 +1,7 @@
+• "What should I read next?" – picks a random unread book from your pile
+• Re-reads: log a book again, with dates and a rating per reading
+• Yearly reading goal in books and/or pages
+• Content notes per book – covers can be hidden if you want to avoid a topic
+• Stats by year, quarter, month or a custom range
+• Report content and block people
+• Clearer profile and settings

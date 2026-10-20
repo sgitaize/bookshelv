@@ -47,8 +47,9 @@ if not v:
 vid = v["id"]
 print("Version", VERSION, v["attributes"].get("appStoreState"))
 
-notes = (ROOT / f"docs/store/metadata/whatsnew-{VERSION}.txt").read_text().strip()
 for l in call("GET", f"v1/appStoreVersions/{vid}/appStoreVersionLocalizations")["data"]:
+    loc = ROOT / f"docs/store/metadata/whatsnew-{VERSION}-{l['attributes']['locale']}.txt"   # je Sprache, sonst Deutsch
+    notes = (loc if loc.exists() else ROOT / f"docs/store/metadata/whatsnew-{VERSION}.txt").read_text().strip()
     call("PATCH", f"v1/appStoreVersionLocalizations/{l['id']}", {"data": {"type": "appStoreVersionLocalizations",
          "id": l["id"], "attributes": {"whatsNew": notes}}})
     print("Neu in dieser Version:", l["attributes"]["locale"])
