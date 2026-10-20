@@ -3,6 +3,7 @@ package de.sgitaize.bookshelv
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -108,7 +109,10 @@ fun UpdateBanner(modifier: Modifier = Modifier) {
             .background(Palette.surfaceHigh, RoundedCornerShape(14.dp)).padding(start = 16.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text(T("bookshelv $version ist da", "bookshelv $version is available"), Modifier.weight(1f), color = Palette.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        Column(Modifier.weight(1f)) {
+            Text(T("bookshelv $version ist da", "bookshelv $version is available"), color = Palette.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(T("Download über GitHub – Play-Store-Version folgt", "Download from GitHub – Play Store version coming soon"), color = Palette.muted, fontSize = 12.sp)
+        }
         TextButton({ ctx.openUrl(Updates.DOWNLOAD); Updates.dismiss(ctx) }) { Text(T("Laden", "Download")) }
         IconButton({ Updates.dismiss(ctx) }) { Icon(Icons.Filled.Close, T("Schließen", "Close"), tint = Palette.muted) }
     }

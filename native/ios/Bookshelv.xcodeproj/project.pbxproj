@@ -420,7 +420,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(BS_BUNDLE_ID)";
 				PRODUCT_NAME = Bookshelv;
 				SDKROOT = iphoneos;
@@ -454,7 +454,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(BS_BUNDLE_ID)";
 				PRODUCT_NAME = Bookshelv;
 				SDKROOT = iphoneos;
