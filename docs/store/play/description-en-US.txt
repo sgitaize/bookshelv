@@ -27,7 +27,7 @@ WITH FRIENDS (OPTIONAL)
 • bookshelv is open source (MIT): you can run your own instance for your circle of friends.
 
 FAIR AND PRIVATE
-• No ads, no tracking, no analytics.
+• No ads, no tracking.
 • Accounts only need a name and a password and can be deleted in the app.
 • bookshelv is free. Tips are welcome.
 

@@ -27,7 +27,7 @@ MIT FREUND*INNEN (OPTIONAL)
 • bookshelv ist Open Source (MIT): Du kannst auch eine eigene Instanz für deinen Freundeskreis betreiben.
 
 FAIR UND PRIVAT
-• Keine Werbung, kein Tracking, keine Analyse-Dienste.
+• Keine Werbung, kein Tracking.
 • Konten brauchen nur einen Namen und ein Passwort und lassen sich in der App löschen.
 • bookshelv ist kostenlos. Wer mag, gibt ein Trinkgeld.
 
