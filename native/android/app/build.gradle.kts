@@ -112,5 +112,5 @@ dependencies {
     implementation("androidx.camera:camera-view:1.4.1")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
     // Trinkgeld im Play Store (Verbrauchsartikel wie bei iOS); die Download-APK kommt ohne Google-Bibliothek aus
-    "playImplementation"("com.android.billingclient:billing-ktx:8.3.0")
+    "playImplementation"("com.android.billingclient:billing-ktx:8.0.0")
 }
