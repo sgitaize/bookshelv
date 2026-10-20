@@ -74,7 +74,8 @@ object Store {
         val params = QueryProductDetailsParams.newBuilder().setProductList(PRODUCT_IDS.map {
             QueryProductDetailsParams.Product.newBuilder().setProductId(it).setProductType(ProductType.INAPP).build()
         }).build()
-        c.queryProductDetailsAsync(params) { result, list ->
+        c.queryProductDetailsAsync(params) { result, res ->
+            val list = res.productDetailsList   // Billing 8: Ergebnisobjekt statt Liste
             loading = false
             if (result.responseCode == BillingResponseCode.OK) products = list.sortedBy { it.oneTimePurchaseOfferDetails?.priceAmountMicros ?: 0 }
             else fail()

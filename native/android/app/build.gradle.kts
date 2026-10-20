@@ -21,7 +21,7 @@ android {
         applicationId = "de.sgitaize.bookshelv"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
+        versionCode = 4
         versionName = "1.1.0"
         externalNativeBuild { cmake { arguments += listOf("-DANDROID_STL=c++_shared") } }
     }
@@ -112,5 +112,5 @@ dependencies {
     implementation("androidx.camera:camera-view:1.4.1")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
     // Trinkgeld im Play Store (Verbrauchsartikel wie bei iOS); die Download-APK kommt ohne Google-Bibliothek aus
-    "playImplementation"("com.android.billingclient:billing-ktx:7.1.1")
+    "playImplementation"("com.android.billingclient:billing-ktx:8.3.0")
 }
