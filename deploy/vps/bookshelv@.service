@@ -1,0 +1,65 @@
+# bookshelv auf dem VPS. Instanz = Name (z. B. bookshelv@test → /srv/bookshelv-test, /etc/bookshelv-test/env)
+[Unit]
+Description=bookshelv (%i)
+After=network.target
+
+[Service]
+Type=simple
+User=bookshelv
+Group=bookshelv
+WorkingDirectory=/srv/bookshelv-%i/app
+ExecStart=/usr/local/lib/node-srv/bin/node server.js
+EnvironmentFile=/etc/bookshelv-%i/env
+Environment=NODE_ENV=production HOST=127.0.0.1 BOOKSHELV_DATA_DIR=/srv/bookshelv-%i/var
+Restart=on-failure
+RestartSec=2
+TimeoutStopSec=15
+UMask=0077
+
+# Grenzen
+MemoryMax=1G
+TasksMax=64
+LimitNOFILE=8192
+CPUQuota=200%
+
+# Dateisystem: alles nur lesbar, schreiben nur im eigenen Datenordner; fremde Daten unsichtbar
+ProtectSystem=strict
+ReadWritePaths=/srv/bookshelv-%i/var
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+InaccessiblePaths=-/srv/openrct2 -/var/backups -/var/lib/backup -/var/lib/server-audit -/etc/bookshelv-%i -/opt -/var/www -/var/log -/etc/ssh -/etc/nginx -/etc/letsencrypt
+TemporaryFileSystem=/srv:ro
+BindReadOnlyPaths=/srv/bookshelv-%i/app
+BindPaths=/srv/bookshelv-%i/var
+
+# Netz: nach außen nur ins Internet (Katalog, Cover, Föderation, Push) – nie in interne Netze oder an
+# Dienste dieses Servers (Schutz vor SSRF). Erlaubt: 127.0.0.1 (nginx → App), 127.0.0.53 (DNS).
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressAllow=127.0.0.1 127.0.0.53
+IPAddressDeny=127.0.0.0/8 ::1 0.0.0.0/8 10.0.0.0/8 100.64.0.0/10 169.254.0.0/16 172.16.0.0/12 192.0.0.0/24 192.168.0.0/16 198.18.0.0/15 224.0.0.0/3 fc00::/7 fe80::/10 ff00::/8 194.163.182.35 2a02:c207:3020:6800::/64
+
+# Rechte
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @mount @debug @cpu-emulation @obsolete @raw-io @reboot @swap @module
+DevicePolicy=closed
+
+[Install]
+WantedBy=multi-user.target
