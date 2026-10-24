@@ -86,7 +86,7 @@
   /* schwebende Glas-Tabbar */
   .tabbar {
     position: fixed; z-index: 40;
-    left: 16px; right: 16px; bottom: calc(10px + env(safe-area-inset-bottom));
+    left: 16px; right: 16px; bottom: var(--nav-bottom);
     max-width: 520px; margin: 0 auto;
     height: 62px;
     display: flex; justify-content: space-around; align-items: center;

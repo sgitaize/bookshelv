@@ -23,6 +23,14 @@ check('my books for picker', mine.length >= 2 && mine[0].status === 'read', JSON
 const shadow = mine.find(x => x.book.title === 'Der Schatten des Windes').book.id;
 const other = mine.find(x => x.book.id !== shadow).book.id;
 
+// Auswahl filtern (nur ungelesene / im Regal) und seitenweise
+const unreadOnly = (await simon('GET', '/me/books?filter=unread')).data;
+check('picker filter unread', unreadOnly.every(x => x.status === 'unread'), JSON.stringify(unreadOnly.map(x => x.status)));
+const readOnly = (await simon('GET', '/me/books?filter=read')).data;
+check('picker filter read', readOnly.length >= 1 && readOnly.every(x => x.status === 'read'));
+check('picker filter owned', (await simon('GET', '/me/books?filter=owned')).data.every(x => x.owned));
+check('picker offset', (await simon('GET', '/me/books?offset=1')).data[0]?.book.id === mine[1]?.book.id);
+
 // --- Top 5 ---
 check('top rejects 6', (await simon('PUT', '/me/top', { bookIds: [1, 2, 3, 4, 5, 6] })).status === 400);
 check('top rejects duplicates', (await simon('PUT', '/me/top', { bookIds: [shadow, shadow] })).status === 400);

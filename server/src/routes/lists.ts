@@ -243,10 +243,14 @@ listRoutes.put('/me/top', async c => {
   return c.json(topOf(u.id));
 });
 
-/** Auswahl für Top 5 und Leselisten: Bücher, mit denen ich etwas zu tun habe (gelesen zuerst), optional gefiltert */
+/** Auswahl für Top 5 und Leselisten: Bücher, mit denen ich etwas zu tun habe (gelesen zuerst), optional gefiltert
+ * (filter = unread|reading|read|owned) und seitenweise (offset, je 100) */
+const PICK_FILTERS = ['all', 'unread', 'reading', 'read', 'owned'];
 listRoutes.get('/me/books', c => {
   const u = requireUser(c);
   const q = `%${(c.req.query('q') ?? '').trim().toLowerCase().slice(0, 100)}%`;
+  const f = PICK_FILTERS.includes(c.req.query('filter') ?? '') ? c.req.query('filter')! : 'all';
+  const offset = Math.max(0, Math.min(100_000, Number(c.req.query('offset')) || 0));
   return c.json((db.prepare(`
     SELECT ${BRIEF}, COALESCE(ub.status, 'unread') AS status,
       EXISTS (SELECT 1 FROM copies WHERE book_id = b.id AND owner_id = :u AND removed_at IS NULL) AS owned,
@@ -257,7 +261,9 @@ listRoutes.get('/me/books', c => {
       OR EXISTS (SELECT 1 FROM wishlist WHERE book_id = b.id AND user_id = :u))
       OR :wishOnly = 1 AND EXISTS (SELECT 1 FROM wishlist WHERE book_id = b.id AND user_id = :u))
       AND (lower(b.title) LIKE :q OR lower(b.authors) LIKE :q)
+      AND (:f = 'all' OR :f = COALESCE(ub.status, 'unread')
+        OR :f = 'owned' AND EXISTS (SELECT 1 FROM copies WHERE book_id = b.id AND owner_id = :u AND removed_at IS NULL))
     ORDER BY CASE ub.status WHEN 'read' THEN 0 WHEN 'reading' THEN 1 ELSE 2 END, ub.favorite DESC, ub.finished_at DESC, b.title COLLATE NOCASE
-    LIMIT 60
-  `).all({ u: u.id, q, wishOnly: c.req.query('wish') === '1' ? 1 : 0 }) as Array<Record<string, unknown>>).map(r => ({ status: r.status, owned: !!r.owned, wish: !!r.wish, book: bookBrief(r) })));
+    LIMIT 100 OFFSET :offset
+  `).all({ u: u.id, q, f, offset, wishOnly: c.req.query('wish') === '1' ? 1 : 0 }) as Array<Record<string, unknown>>).map(r => ({ status: r.status, owned: !!r.owned, wish: !!r.wish, book: bookBrief(r) })));
 });

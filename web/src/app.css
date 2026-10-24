@@ -46,6 +46,8 @@
   --font-head: 'Special Elite', 'Courier Prime', 'Courier New', monospace;
   --head-weight: 400;
   --nav-h: 76px;
+  /* Abstand der Tabbar vom unteren Rand: auf iPhones mit Home-Leiste nicht über der ganzen Safe-Area schweben */
+  --nav-bottom: max(10px, calc(env(safe-area-inset-bottom) - 12px));
   --content-w: 1280px;
   color-scheme: dark;
 }

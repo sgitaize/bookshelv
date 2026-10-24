@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { api, labels, type ShelfItem } from '../lib/api.ts';
+  import { api, labels, type ShelfItem, type Format, type Binding } from '../lib/api.ts';
   import { session, toast, toastError } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
   import { t, tn, i18n, fmtDate, type Key } from '../lib/i18n.svelte.ts';
@@ -63,6 +63,18 @@
       toast(unsure ? t('own.markedUnsure', { n: ids.length }) : t('own.markedSure', { n: ids.length }));
       moreOpen = false;
       endSelect();
+    } catch (e) { toastError(e); } finally { bulkBusy = false; }
+  }
+
+  // Format, Bindung, Farbschnitt für alle Exemplare der markierten Bücher
+  async function bulkCopies(patch: { format?: Format; binding?: Binding; sprayedEdges?: boolean }) {
+    bulkBusy = true;
+    try {
+      const r = await api.put<{ changed: number; skipped: number }>('/me/copies', { copyIds: pickedCopies, ...patch });
+      toast(tn('bulk.copiesSaved', r.changed) + (r.skipped ? ' ' + t('bulk.formatSkipped', { n: r.skipped }) : ''));
+      moreOpen = false;
+      endSelect();
+      reload++;
     } catch (e) { toastError(e); } finally { bulkBusy = false; }
   }
 
@@ -234,6 +246,23 @@
 
 <Sheet open={moreOpen} onclose={() => (moreOpen = false)} title={t('bulk.count', { n: picked.size })}>
   <div class="stack more">
+    <span class="lbl">{t('copy.format')}</span>
+    <div class="row">
+      <button class="small" disabled={bulkBusy} onclick={() => bulkCopies({ format: 'print' })}>{t('format.print')}</button>
+      <button class="small" disabled={bulkBusy} onclick={() => bulkCopies({ format: 'ebook' })}>{t('format.ebook')}</button>
+      <button class="small" disabled={bulkBusy} onclick={() => bulkCopies({ format: 'audio' })}>{t('format.audio')}</button>
+    </div>
+    <span class="lbl">{t('copy.binding')}</span>
+    <div class="row">
+      <button class="small" disabled={bulkBusy} onclick={() => bulkCopies({ binding: 'paperback' })}>{t('binding.paperback')}</button>
+      <button class="small" disabled={bulkBusy} onclick={() => bulkCopies({ binding: 'hardcover' })}>{t('binding.hardcover')}</button>
+    </div>
+    <span class="lbl">{t('copy.edges')}</span>
+    <div class="row">
+      <button class="small" disabled={bulkBusy} onclick={() => bulkCopies({ sprayedEdges: true })}><Icon name="check" size={16} /> {t('bulk.edgesOn')}</button>
+      <button class="small" disabled={bulkBusy} onclick={() => bulkCopies({ sprayedEdges: false })}>{t('bulk.edgesOff')}</button>
+    </div>
+    <p class="muted small">{t('bulk.printOnly')}</p>
     <span class="lbl">{t('lang.pick', { n: picked.size })}</span>
     <LangPicker value={null} disabled={bulkBusy} onpick={bulkLang} />
     <span class="lbl">{t('own.unsure')}</span>
@@ -293,7 +322,7 @@
   .picked .pick { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
   .picked .cv { transform: scale(0.94); outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
   .bulkbar {
-    position: fixed; z-index: 45; left: 16px; right: 16px; bottom: calc(82px + env(safe-area-inset-bottom));
+    position: fixed; z-index: 45; left: 16px; right: 16px; bottom: calc(72px + var(--nav-bottom));
     max-width: 520px; margin: 0 auto; display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.6rem;
     border-radius: 999px; background: var(--glass); backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6);
     border: 1px solid var(--line); box-shadow: 0 8px 30px rgb(0 0 0 / 0.2);

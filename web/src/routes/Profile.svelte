@@ -16,6 +16,8 @@
   let { userId }: { userId?: number } = $props();
 
   let p = $state<Profile | null>(null);
+  // Regal: Top 5 vorne, danach alle übrigen Favoriten
+  const shelfBooks = $derived(p ? [...p.top, ...p.favorites.filter(f => !p!.top.some(x => x.id === f.id))] : []);
   let lists = $state<ReadingListSummary[]>([]);
   let activity = $state<FeedItem[]>([]);
   let topOpen = $state(false);
@@ -52,16 +54,6 @@
       <h1>@{p.username}</h1>
       {#if p.displayName !== p.username}<p class="muted name">{p.displayName}</p>{/if}
     {/if}
-    <!-- Top 5 als Untertitel, jeder Titel verlinkt -->
-    {#if p.top.length}
-      <p class="top">
-        <span class="toplbl">{t('top.label')}</span>
-        {#each p.top as b, i (b.id)}{#if i}<span class="dot" aria-hidden="true">·</span>{/if}<a href="/book/{b.id}">{b.title}</a>{/each}
-        {#if own}<button class="icon ghost tiny" onclick={() => (topOpen = true)} aria-label={t('top.edit')}><Icon name="edit" size={14} /></button>{/if}
-      </p>
-    {:else if own}
-      <button class="ghost small topadd" onclick={() => (topOpen = true)}><Icon name="star" size={14} /> {t('top.add')}</button>
-    {/if}
 
     {#if !own && !p.blocked}<div class="friend"><FriendButton userId={p.id} bind:relation={p.relation} onchange={() => load(p!.id)} /></div>{/if}
     {#if !own && !isLocal()}
@@ -90,14 +82,22 @@
 
     {#if p.shelfVisible}
       <div class="favs">
-        <h2><span class="star">★</span> {t('filter.favorites')} <span class="star">★</span></h2>
-        {#if p.favorites.length}
-          <div class="shelf">
-            {#each p.favorites.slice(0, 5) as b (b.id)}
-              <a href="/book/{b.id}"><Cover url={b.coverUrl} title={b.title} authors={b.authors} /></a>
-            {/each}
+        <h2>
+          <span class="star">★</span> {t('filter.favorites')} <span class="star">★</span>
+          {#if own}<button class="icon ghost tiny" onclick={() => (topOpen = true)} aria-label={t('top.edit')}><Icon name="edit" size={14} /></button>{/if}
+        </h2>
+        {#if shelfBooks.length}
+          <!-- alle Favoriten auf einem Brett, seitlich scrollbar; Top 5 stehen vorne -->
+          <div class="shelfwrap" class:full={shelfBooks.length > 4}>
+            <div class="inner">
+              <div class="shelf">
+                {#each shelfBooks as b (b.id)}
+                  <a href="/book/{b.id}"><Cover url={b.coverUrl} title={b.title} authors={b.authors} /></a>
+                {/each}
+              </div>
+              <div class="board"></div>
+            </div>
           </div>
-          <div class="board"></div>
         {:else}
           <p class="muted small">{own ? t('profile.favHint') : t('profile.noFavs')}</p>
         {/if}
@@ -162,17 +162,12 @@
 
 <style>
   .modacts { justify-content: center; margin-top: 0.6rem; gap: 0.4rem; flex-wrap: wrap; }
-  .profile { display: grid; justify-items: center; text-align: center; max-width: 560px; margin: 0 auto; }
+  .profile { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; max-width: 560px; margin: 0 auto; }
   .bigav { margin: 0.8rem 0; }
   .friend { margin: 0.7rem 0 0.2rem; }
   h1 { color: var(--accent); font-size: 1.4rem; margin: 0; }
   .name { margin: 0.1rem 0 0; }
-  .top { margin: 0.5rem 0 0; font-size: 0.9rem; line-height: 1.5; color: var(--muted); max-width: 100%; overflow-wrap: anywhere; }
-  .top a { color: var(--text); font-weight: 550; }
-  .toplbl { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); margin-right: 0.35rem; font-weight: 600; }
-  .dot { margin: 0 0.35rem; }
   .tiny { width: 26px; height: 26px; min-height: 0; padding: 0; vertical-align: middle; }
-  .topadd { margin-top: 0.4rem; }
   .lists { width: 100%; display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); text-align: left; margin-bottom: 1.4rem; }
   .act { width: 100%; text-align: left; }
   .stats {
@@ -184,14 +179,19 @@
   .stats b { font-size: 1.3rem; font-weight: 600; color: var(--accent); }
   .stats span { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
   .stats .div { width: 1px; align-self: stretch; background: var(--line); flex: none; }
-  .favs { width: 100%; margin-bottom: 1.8rem; }
+  .favs { width: 100%; min-width: 0; max-width: 100%; margin-bottom: 1.8rem; }
   .favs h2 { color: #a0703a; }
   .star { color: var(--star); }
   /* Favoriten stehen auf einem Holzbrett */
+  .favs h2 { display: flex; align-items: center; justify-content: center; gap: 0.35rem; }
+  .shelfwrap { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; margin: 0 -0.2rem; }
+  .shelfwrap::-webkit-scrollbar { display: none; }
   .shelf { display: flex; justify-content: center; gap: 0.7rem; align-items: flex-end; padding: 0 0.8rem; }
-  .shelf a { width: 17%; max-width: 76px; }
+  .inner { width: max-content; min-width: 100%; }
+  .full .shelf { justify-content: flex-start; }
+  .shelf a { width: 72px; flex: none; }
   .board {
-    height: 12px; margin: 0 -0.2rem; border-radius: 3px;
+    height: 12px; border-radius: 3px;
     background: linear-gradient(#5b4030, #3d2a1f);
     box-shadow: 0 4px 8px rgb(0 0 0 / 0.25);
   }

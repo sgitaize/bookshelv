@@ -88,6 +88,7 @@
   .ps h2 { margin: 0; }
   .prow { flex-wrap: nowrap; gap: 0.7rem; }
   .pcov { width: 40px; flex: none; display: grid; place-items: center; color: var(--muted); }
+  .pcov :global(.cover.sm) { width: 40px; }
   .grow { flex: 1; min-width: 0; display: grid; }
   .grow strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

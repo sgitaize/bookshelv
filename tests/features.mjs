@@ -47,6 +47,23 @@ check('library read count', (await simon('GET', '/stats')).data.library.language
 check('reset language', (await simon('PUT', '/me/languages', { bookIds: [bid], language: null })).status === 200
   && (await simon('GET', `/books/${bid}`)).data.language.mine === null);
 
+// Massen-Bearbeitung der Exemplare: Bindung, Farbschnitt, Format (bei Druck + E-Book bleibt das Format)
+let rb = await simon('PUT', '/me/copies', { copyIds: [cp], binding: 'hardcover', sprayedEdges: true });
+let cc = (await simon('GET', '/copies')).data.find(x => x.id === cp);
+check('bulk binding + edges', rb.data?.changed === 1 && cc.binding === 'hardcover' && cc.sprayedEdges === true, JSON.stringify([rb.data, cc]));
+check('bulk nothing', (await simon('PUT', '/me/copies', { copyIds: [cp] })).status === 400);
+check('bulk foreign copy ignored', (await anna('PUT', '/me/copies', { copyIds: [cp], binding: 'paperback' })).data?.changed === 0);
+const eb = (await simon('POST', '/copies', { bookId: bid, format: 'ebook' })).data.id;
+rb = await simon('PUT', '/me/copies', { copyIds: [cp, eb], format: 'audio' });
+check('bulk format skips multi-copy books', rb.data?.skipped === 2 && (await simon('GET', '/copies')).data.find(x => x.id === cp).format === 'print', JSON.stringify(rb.data));
+rb = await simon('PUT', '/me/copies', { copyIds: [cp, eb], sprayedEdges: false });
+check('bulk edges only print', rb.data?.changed === 1 && (await simon('GET', '/copies')).data.find(x => x.id === cp).sprayedEdges === false, JSON.stringify(rb.data));
+await simon('DELETE', `/copies/${eb}`, { mode: 'purge' });
+rb = await simon('PUT', '/me/copies', { copyIds: [cp], format: 'ebook' });
+cc = (await simon('GET', '/copies')).data.find(x => x.id === cp);
+check('bulk format single copy', rb.data?.changed === 1 && cc.format === 'ebook' && cc.binding === null, JSON.stringify([rb.data, cc]));
+await simon('PUT', '/me/copies', { copyIds: [cp], format: 'print' });
+
 // Besitz unklar: Massen-Aktion, Exemplar-Bearbeitung, Freund*innen sehen es nicht
 check('mark unsure', (await simon('PUT', '/me/unsure', { bookIds: [bid], unsure: true })).status === 200);
 check('shelf unsure', (await simon('GET', '/copies')).data.find(x => x.book.id === bid).unsure === true);

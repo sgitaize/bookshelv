@@ -208,7 +208,8 @@
     </div>
   {/if}
 
-  {#if source && items.length}
+  <!-- Booky: Karte bleibt stehen, auch wenn (noch) keine Liste ausgewählt ist – sonst verschwindet die Auswahl -->
+  {#if source && (items.length || (source === 'booky' && parsed.length))}
     <div class="card stack">
       <h2>{t('imp.preview', { n: items.length, source: app })}</h2>
       <ul class="facts">
@@ -265,7 +266,7 @@
         <p class="note small">{t('imp.serverInfo')}</p>
       {/if}
       {#if !finished && !running}
-        <button class="primary" onclick={start}>{t('imp.start', { n: items.length })}</button>
+        <button class="primary" onclick={start} disabled={!items.length}>{t('imp.start', { n: items.length })}</button>
       {/if}
     </div>
   {:else if source}

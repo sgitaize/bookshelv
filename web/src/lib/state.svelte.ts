@@ -71,15 +71,17 @@ export async function pollNotifications(force = false) {
 
 // ---------- Toasts ----------
 
-type Toast = { id: number; text: string; kind: 'ok' | 'error' };
+type Toast = { id: number; text: string; kind: 'ok' | 'error'; key?: string };
 export const toasts = $state<Toast[]>([]);
 let nextId = 1;
 
-export function toast(text: string, kind: Toast['kind'] = 'ok') {
+/** key: gleichartige Hinweise ersetzen sich (z. B. viele Bücher nacheinander zur Liste) statt sich zu stapeln */
+export function toast(text: string, kind: Toast['kind'] = 'ok', key?: string) {
   // Massen-Scan in der App: Rückmeldung direkt im nativen Scanner zeigen (die Seite ist dann verdeckt)
   if (scanner.open) scanFeedback(text, kind === 'error' ? 'error' : 'ok');
   const id = nextId++;
-  toasts.push({ id, text, kind });
+  if (key) { const old = toasts.findIndex(t => t.key === key); if (old >= 0) toasts.splice(old, 1); }
+  toasts.push({ id, text, kind, key });
   setTimeout(() => {
     const i = toasts.findIndex(t => t.id === id);
     if (i >= 0) toasts.splice(i, 1);

@@ -368,6 +368,39 @@ bookRoutes.put('/me/unsure', async c => {
   return c.json({ ok: true, n: ids.length });
 });
 
+/** Format, Bindung, Farbschnitt für viele eigene Exemplare auf einmal (nur die angegebenen Felder ändern sich).
+ * Format wird bei Büchern mit mehreren Exemplaren nicht angefasst (sonst z. B. zwei E-Books statt Druck + E-Book). */
+bookRoutes.put('/me/copies', async c => {
+  const u = requireUser(c);
+  const b = await body(c);
+  const ids = idList(b.copyIds);
+  const patch: Record<string, unknown> = {};
+  if (b.format !== undefined) patch.format = oneOf(b.format, FORMATS, 'print');
+  if (b.binding !== undefined) patch.binding = b.binding === null ? null : oneOf(b.binding, BINDINGS, 'paperback');
+  if (b.sprayedEdges !== undefined) patch.sprayedEdges = !!b.sprayedEdges;
+  if (!Object.keys(patch).length) throw new HTTPException(400, { message: 'Nichts zu ändern' });
+  let changed = 0, skipped = 0;
+  tx(() => {
+    for (const id of ids) {
+      const current = db.prepare('SELECT * FROM copies WHERE id = ? AND owner_id = ? AND removed_at IS NULL').get(id, u.id) as Record<string, unknown> | undefined;
+      if (!current) continue;
+      const p = { ...patch };
+      if (p.format !== undefined && p.format !== current.format
+        && (db.prepare('SELECT COUNT(*) AS n FROM copies WHERE owner_id = ? AND book_id = ? AND removed_at IS NULL').get(u.id, current.book_id as number) as { n: number }).n > 1) {
+        delete p.format;
+        skipped++;
+      }
+      // Bindung/Farbschnitt gibt es nur gedruckt – E-Books/Hörbücher bleiben dabei unverändert
+      const f = copyFields(p, current);
+      if (f.format === current.format && f.binding === current.binding && f.sprayed === Number(current.sprayed_edges)) continue;
+      db.prepare('UPDATE copies SET format = ?, binding = ?, sprayed_edges = ?, store_id = ?, duration_min = ? WHERE id = ?')
+        .run(f.format, f.binding, f.sprayed, f.storeId, f.durationMin, id);
+      changed++;
+    }
+  });
+  return c.json({ ok: true, changed, skipped });
+});
+
 /** Liste von IDs aus dem Body (max. 2000, ohne Doppelte) */
 function idList(v: unknown): number[] {
   if (!Array.isArray(v)) throw new HTTPException(400, { message: 'Keine Bücher gewählt' });

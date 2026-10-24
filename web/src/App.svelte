@@ -164,12 +164,12 @@
   main {
     max-width: var(--content-w);
     margin: 0 auto;
-    padding: 1.2rem 1.2rem calc(var(--nav-h) + 2.5rem + env(safe-area-inset-bottom));
+    padding: 1.2rem 1.2rem calc(var(--nav-h) + 2.5rem + var(--nav-bottom));
   }
   @media (min-width: 1000px) { main { padding: 1.6rem 2rem 3rem; } }
   .toasts {
     position: fixed; z-index: 100; left: 50%; translate: -50% 0;
-    bottom: calc(var(--nav-h) + 16px + env(safe-area-inset-bottom));
+    bottom: calc(var(--nav-h) + 6px + var(--nav-bottom));
     display: grid; gap: 0.5rem; width: min(420px, 92vw); pointer-events: none;
   }
   @media (min-width: 1000px) { .toasts { bottom: 24px; } }

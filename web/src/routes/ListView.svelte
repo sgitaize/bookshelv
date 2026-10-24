@@ -1,7 +1,7 @@
 <script lang="ts">
   import { publicOrigin } from '../lib/app.svelte.ts';
   import { isLocal } from '../lib/state.svelte.ts';
-  import { api, labels, type ReadingList, type ListVisibility, type ListMember } from '../lib/api.ts';
+  import { api, labels, type BookBrief, type ReadingList, type ListVisibility, type ListMember } from '../lib/api.ts';
   import { session, toast, toastError } from '../lib/state.svelte.ts';
   import Avatar from '../components/Avatar.svelte';
   import { router } from '../lib/router.svelte.ts';
@@ -70,8 +70,12 @@
     toast(t('invite.copied'));
   }
 
-  async function add(bookId: number) {
-    try { await api.put(`/lists/${id}/books/${bookId}`, {}); await load(); } catch (err) { toastError(err); }
+  async function add(b: BookBrief) {
+    try { await api.put(`/lists/${id}/books/${b.id}`, {}); toast(t('list.bookAdded', { title: b.title }), 'ok', 'list-pick'); await load(); } catch (err) { toastError(err); }
+  }
+  async function unpick(b: BookBrief) {
+    await drop(b.id);
+    if (!l!.items.some(x => x.book.id === b.id)) toast(t('list.bookRemoved', { title: b.title }), 'ok', 'list-pick');
   }
 </script>
 
@@ -179,7 +183,7 @@
 
   <Sheet open={adding} onclose={() => (adding = false)} title={t('list.addBooks')}>
     <p class="muted small">{t('list.addHint')}</p>
-    <BookPicker catalog exclude={l.items.map(x => x.book.id)} onpick={b => add(b.id)} />
+    <BookPicker catalog selected={l.items.map(x => x.book.id)} onpick={add} onunpick={unpick} />
   </Sheet>
 {/if}
 
@@ -193,10 +197,10 @@
   .items { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.45rem; }
   .item { display: flex; align-items: center; gap: 0.7rem; padding: 0.55rem 0.7rem; }
   .pos { width: 1.5rem; text-align: center; font-weight: 700; color: var(--accent); flex: none; }
-  .cov { width: 44px; flex: none; }
+  .cov { flex: none; }
   .grow { flex: 1; min-width: 0; display: grid; color: var(--text); }
   .grow:hover { text-decoration: none; }
-  .grow strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .grow strong { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
   .acts { display: flex; flex: none; }
   .members { display: flex; align-items: center; gap: 0.6rem; justify-self: start; border: none; background: none; padding: 0; }
   .avs { display: flex; }
