@@ -63,7 +63,7 @@ struct ScannerScreen: View {
                     }.buttonStyle(.borderedProminent)
                 }.padding(32).foregroundStyle(.white)
             } else {
-                DataScanner(onIsbn: { session.found($0) })
+                DataScanner(torch: torch, onIsbn: { session.found($0) })
                     .ignoresSafeArea()
                 frame
             }
@@ -111,7 +111,7 @@ struct ScannerScreen: View {
                 denied = !(await AVCaptureDevice.requestAccess(for: .video))
             }
         }
-        .onDisappear { setTorch(false) }
+        .onDisappear { if torch { DataScanner.setTorch(false) } }
     }
 
     private var frame: some View {
@@ -125,18 +125,28 @@ struct ScannerScreen: View {
         .allowsHitTesting(false)
     }
 
-    private func toggleTorch() { torch.toggle(); setTorch(torch) }
-    private func setTorch(_ on: Bool) {
-        guard let dev = AVCaptureDevice.default(for: .video), dev.hasTorch else { return }
-        try? dev.lockForConfiguration()
-        dev.torchMode = on ? .on : .off
-        dev.unlockForConfiguration()
-    }
+    private func toggleTorch() { torch.toggle() }
 }
 
 /// VisionKit-Scanner als SwiftUI-View
 private struct DataScanner: UIViewControllerRepresentable {
+    var torch: Bool
     var onIsbn: (String) -> Void
+
+    /// Die Lampe muss an genau dem Gerät geschaltet werden, das VisionKit benutzt – auf Pro-Modellen
+    /// ist das die virtuelle Mehrfachkamera. Schaltet man stattdessen das einzelne Weitwinkel-Modul,
+    /// bricht die laufende Kamera-Session ab (Bild bleibt schwarz/eingefroren).
+    static func setTorch(_ on: Bool) {
+        let types: [AVCaptureDevice.DeviceType] = [.builtInTripleCamera, .builtInDualWideCamera, .builtInDualCamera, .builtInWideAngleCamera]
+        let found = AVCaptureDevice.DiscoverySession(deviceTypes: types, mediaType: .video, position: .back).devices
+        guard let dev = types.lazy.compactMap({ t in found.first { $0.deviceType == t } }).first,
+              dev.hasTorch, dev.isTorchAvailable, dev.isTorchModeSupported(on ? .on : .off) else { return }
+        do {
+            try dev.lockForConfiguration()
+            defer { dev.unlockForConfiguration() }
+            if on { try dev.setTorchModeOn(level: AVCaptureDevice.maxAvailableTorchLevel) } else { dev.torchMode = .off }
+        } catch {}
+    }
 
     func makeUIViewController(context: Context) -> DataScannerViewController {
         let vc = DataScannerViewController(
@@ -155,6 +165,12 @@ private struct DataScanner: UIViewControllerRepresentable {
     func updateUIViewController(_ vc: DataScannerViewController, context: Context) {
         context.coordinator.onIsbn = onIsbn
         if !vc.isScanning { try? vc.startScanning() }
+        if context.coordinator.torch != torch {
+            context.coordinator.torch = torch
+            Self.setTorch(torch)
+            // falls die Session beim Umschalten doch kurz unterbrochen wurde: wieder anwerfen
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { if !vc.isScanning { try? vc.startScanning() } }
+        }
     }
 
     static func dismantleUIViewController(_ vc: DataScannerViewController, coordinator: Coordinator) { vc.stopScanning() }
@@ -163,6 +179,7 @@ private struct DataScanner: UIViewControllerRepresentable {
 
     final class Coordinator: NSObject, DataScannerViewControllerDelegate {
         var onIsbn: (String) -> Void
+        var torch = false
         private var last = ""
         private var lastAt = Date.distantPast
         init(onIsbn: @escaping (String) -> Void) { self.onIsbn = onIsbn }
