@@ -330,7 +330,8 @@ export async function fetchCover(hint: { isbn?: string; ol?: number }): Promise<
   }
   if (!preview) return null;
   const name = `${hint.isbn ?? 'ol' + hint.ol}-${crypto.randomBytes(4).toString('hex')}.${preview.ext}`;
-  fs.copyFileSync(preview.file, path.join(coverDir, name));
+  // kein copyFileSync: libuv ruft dabei fchown auf, das der systemd-Seccomp-Filter (@privileged) mit SIGSYS bestraft
+  fs.writeFileSync(path.join(coverDir, name), fs.readFileSync(preview.file));
   return name;
 }
 
