@@ -4,7 +4,7 @@ import { db, tx } from '../db.ts';
 import { friendSql } from '../friends.ts';
 import { wishAvailable } from '../notify.ts';
 import { requireUser, type User } from '../auth.ts';
-import { lookupIsbn, normalizeIsbn, searchCatalog, fetchCover, previewCover, deleteCoverFile, type BookData } from '../catalog.ts';
+import { dnbUnavailable, lookupIsbn, normalizeIsbn, searchCatalog, fetchCover, previewCover, deleteCoverFile, type BookData } from '../catalog.ts';
 import { router, body, str, int, oneOf, idParam, notFound } from '../util.ts';
 import { setReading, readingJson, READ_STATUS, today, type ReadingRow } from './reading.ts';
 import { openLoanFor } from './loans.ts';
@@ -79,7 +79,7 @@ bookRoutes.post('/catalog/isbn', async c => {
   const isbn = normalizeIsbn(String(b.isbn ?? ''));
   if (!isbn) throw new HTTPException(400, { message: 'Ungültige ISBN' });
   const book = await importIsbn(isbn, u.id);
-  if (!book) return c.json({ found: false, isbn13: isbn }, 404);
+  if (!book) return c.json({ found: false, isbn13: isbn, dnbDown: dnbUnavailable() }, 404);
   return c.json({ found: true, book: bookJson(book) });
 });
 

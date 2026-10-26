@@ -10,6 +10,7 @@ export default {
   "add.manual": "Manuell",
   "add.noHits": "Keine Treffer.",
   "add.notFound": "Nicht gefunden",
+  "add.notFoundDnbDown": "Zur ISBN {isbn} kam nichts zurück – die Deutsche Nationalbibliothek ist gerade nicht erreichbar. Versuch es später noch einmal oder trag das Buch selbst ein.",
   "add.notFoundText": "Zur ISBN {isbn} gibt es weder bei der DNB noch bei Open Library einen Eintrag.",
   "add.owned": "Hast du schon {n}×",
   "add.putOnShelf": "Ins Regal stellen",

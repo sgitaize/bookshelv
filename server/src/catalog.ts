@@ -30,11 +30,22 @@ export type SearchHit = BookData & { coverHint: { isbn?: string; ol?: number } |
 
 const coverDir = path.join(config.dataDir, 'covers');
 
+// Zeitpunkt der letzten gestörten DNB-Antwort (429/5xx/Zeitüberschreitung) – sonst sieht „nicht gefunden“ aus wie „gibt es nicht“
+let dnbTroubleAt = 0;
+export const dnbUnavailable = () => Date.now() - dnbTroubleAt < 5 * 60_000;
+function dnbTrouble(url: string, why: string) {
+  if (!url.startsWith('https://services.dnb.de/')) return;
+  if (!dnbUnavailable()) console.warn(`DNB gestört: ${why}`);
+  dnbTroubleAt = Date.now();
+}
+
 async function get(url: string, timeoutMs = 8000): Promise<Response | null> {
   try {
     const res = await fetch(url, { headers: { 'User-Agent': config.userAgent }, signal: AbortSignal.timeout(timeoutMs) });
+    if (res.status === 429 || res.status >= 500) dnbTrouble(url, `HTTP ${res.status}`);
     return res.ok ? res : null;
-  } catch {
+  } catch (e) {
+    dnbTrouble(url, String((e as Error)?.name ?? e));
     return null;
   }
 }

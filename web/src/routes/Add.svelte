@@ -21,6 +21,7 @@
   let busy = $state(false);
   let lookupIsbn = $state<string | null>(null);
   let notFound = $state<string | null>(null);
+  let dnbDown = $state(false); // DNB antwortete gestört → „nicht gefunden“ ist evtl. nur vorübergehend
   let added = $state<Book[]>([]);
   // Scan-Ziel: Regal (mit Dialog) oder direkt auf die Wunschliste (schnell durchscannen, z. B. am Bauchladen)
   // mass = ganzes Regal durchscannen: jeder Scan kommt ohne Dialog mit den gewählten Einstellungen ins Regal
@@ -64,7 +65,7 @@
       toast(t('add.added', { title: r.book.title }));
     } catch (e) {
       if (isNetworkError(e)) { net.online = false; queue(isbn); }
-      else if (e instanceof ApiError && e.status === 404) notFound = isbn;
+      else if (e instanceof ApiError && e.status === 404) { notFound = isbn; dnbDown = !!(e.data as { dnbDown?: boolean } | undefined)?.dnbDown; }
       else toastError(e);
     } finally {
       busy = false;
@@ -110,7 +111,7 @@
       toast(t('wish.addedTitle', { title: r.book.title }));
     } catch (e) {
       if (isNetworkError(e)) { net.online = false; queue(isbn); }
-      else if (e instanceof ApiError && e.status === 404) notFound = isbn;
+      else if (e instanceof ApiError && e.status === 404) { notFound = isbn; dnbDown = !!(e.data as { dnbDown?: boolean } | undefined)?.dnbDown; }
       else toastError(e);
     } finally {
       busy = false;
@@ -137,7 +138,7 @@
       await select(r.book);
     } catch (e) {
       if (isNetworkError(e)) { net.online = false; queue(isbn); }
-      else if (e instanceof ApiError && e.status === 404) notFound = isbn;
+      else if (e instanceof ApiError && e.status === 404) { notFound = isbn; dnbDown = !!(e.data as { dnbDown?: boolean } | undefined)?.dnbDown; }
       else toastError(e);
     } finally {
       busy = false;
@@ -362,7 +363,7 @@
 </section>
 
 <Sheet open={!!notFound} onclose={() => (notFound = null)} title={t('add.notFound')}>
-  <p class="muted">{t('add.notFoundText', { isbn: notFound ?? '' })}</p>
+  <p class="muted">{t(dnbDown ? 'add.notFoundDnbDown' : 'add.notFoundText', { isbn: notFound ?? '' })}</p>
   <div class="row">
     <button class="primary" onclick={() => startManual(notFound ?? '')}>{t('add.enterManually')}</button>
     <button onclick={() => (notFound = null)}>{t('add.keepScanning')}</button>

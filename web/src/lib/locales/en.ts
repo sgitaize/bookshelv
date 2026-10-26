@@ -10,6 +10,7 @@ export default {
   "add.manual": "Manual",
   "add.noHits": "No results.",
   "add.notFound": "Not found",
+  "add.notFoundDnbDown": "Nothing came back for ISBN {isbn} – the German National Library is unreachable right now. Try again later or enter the book manually.",
   "add.notFoundText": "Neither the DNB nor Open Library have an entry for ISBN {isbn}.",
   "add.owned": "You already own {n}×",
   "add.putOnShelf": "Put on shelf",
