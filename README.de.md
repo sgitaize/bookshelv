@@ -26,7 +26,7 @@ Ich habe sie für meine Frau gebaut. Sie liest viel und hat die meisten Lese-App
 
 ## Was sie kann
 
-Bücher hinzufügen soll schnell gehen. Am Handy hältst du die Kamera auf den ISBN-Barcode (oder scannst ein ganzes Regal am Stück, oder direkt auf die Wunschliste; ohne Verbindung merkt sich die App die ISBNs und schlägt sie später nach), und bookshelv sucht das Buch bei der Deutschen Nationalbibliothek (DNB) und Open Library. Du kannst auch nach Titel oder Autor*in suchen oder alles von Hand eintragen, wenn ein Buch in keinem Katalog steht. Zu jedem Exemplar hältst du fest, ob es gedruckt oder ein E-Book ist, Taschenbuch oder gebunden, und ob es einen Farbschnitt hat.
+Bücher hinzufügen soll schnell gehen. Am Handy hältst du die Kamera auf den ISBN-Barcode (oder scannst ein ganzes Regal am Stück, oder direkt auf die Wunschliste; ohne Verbindung merkt sich die App die ISBNs und schlägt sie später nach), und bookshelv sucht das Buch bei der Deutschen Nationalbibliothek (DNB) und Open Library – ist die DNB überlastet, springt der Bibliotheksverbund-Katalog K10plus ein. Du kannst auch nach Titel oder Autor*in suchen oder alles von Hand eintragen, wenn ein Buch in keinem Katalog steht. Zu jedem Exemplar hältst du fest, ob es gedruckt oder ein E-Book ist, Taschenbuch oder gebunden, und ob es einen Farbschnitt hat.
 
 Für jedes Buch gibt es einen Lesestand (ungelesen, lese ich, gelesen, abgebrochen), den Fortschritt in Seiten oder Prozent und die Daten von Beginn und Ende. Lieblingsbücher stehen in einem kleinen Regal auf deinem Profil, dazu eine Top 5 direkt unter deinem Namen. Leselisten funktionieren wie Playlists: „Herbst 26“ oder „Bücher für den Urlaub“ zusammenstellen, umsortieren und privat halten oder mit allen auf der Instanz teilen. Rezensionen mit halben Sternen können Spoiler markieren, Freund*innen können sie kommentieren. Die Startseite zeigt, was du gerade liest, deinen Stapel und was deine Freund*innen machen. Der Aktivitäten-Feed listet, wer welches Buch wann hinzugefügt, begonnen, beendet, bewertet oder auf eine Liste gesetzt hat, und jede Buchseite zeigt ihre eigene Geschichte im Freundeskreis.
 
@@ -177,7 +177,7 @@ Ideen und Fehler gerne als [Issue](https://github.com/sgitaize/bookshelv/issues)
 
 ## Datenquellen
 
-Buchdaten kommen von der [Deutschen Nationalbibliothek](https://www.dnb.de/sru) (CC0) und [Open Library](https://openlibrary.org/developers/api). Cover kommen von Open Library, ersatzweise vom Cover-Dienst der DNB/MVB.
+Buchdaten kommen von der [Deutschen Nationalbibliothek](https://www.dnb.de/sru) (CC0), dem Verbundkatalog [K10plus](https://wiki.k10plus.de/display/K10PLUS/SRU) (CC0) und [Open Library](https://openlibrary.org/developers/api). Cover kommen von Open Library, ersatzweise vom Cover-Dienst der DNB/MVB.
 
 ## Lizenz
 

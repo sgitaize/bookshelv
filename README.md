@@ -26,7 +26,7 @@ I built it for my wife. She reads a lot and tried most of the reading apps out t
 
 ## What it does
 
-Adding books is meant to be quick. On a phone you point the camera at the ISBN barcode (or scan a whole shelf in one go, or straight onto your wishlist; without a connection the app remembers the ISBNs and looks them up later), and bookshelv looks it up in the German National Library (DNB) and Open Library. You can also search by title or author, or type everything in by hand if a book isn't in either catalogue. For each copy you note whether it's printed or an e-book, paperback or hardcover, and whether it has sprayed edges.
+Adding books is meant to be quick. On a phone you point the camera at the ISBN barcode (or scan a whole shelf in one go, or straight onto your wishlist; without a connection the app remembers the ISBNs and looks them up later), and bookshelv looks it up in the German National Library (DNB) and Open Library, falling back to the K10plus library union catalogue when the DNB is busy. You can also search by title or author, or type everything in by hand if a book isn't in either catalogue. For each copy you note whether it's printed or an e-book, paperback or hardcover, and whether it has sprayed edges.
 
 For each book you keep a reading status (unread, reading, read, did not finish), your progress in pages or percent, and the dates you started and finished. Favourites end up on a little shelf on your profile, and you can pick a top 5 that shows up right under your name. Reading lists work like playlists: put together "Autumn 26" or "Books for the holiday", reorder them, and keep them private or share them with everyone on the instance. Reviews use half stars, can be marked as containing spoilers, and friends can comment on them. The home page shows what you're currently reading, your to-read pile, and what your friends have been up to. The activity feed lists who added, started, finished, rated or listed which book and when, and every book page shows its own history among your friends.
 
@@ -177,7 +177,7 @@ Ideas and bugs are welcome as [issues](https://github.com/sgitaize/bookshelv/iss
 
 ## Data sources
 
-Book metadata comes from the [Deutsche Nationalbibliothek](https://www.dnb.de/sru) (CC0) and [Open Library](https://openlibrary.org/developers/api). Covers come from Open Library, with the DNB/MVB cover service as a fallback.
+Book metadata comes from the [Deutsche Nationalbibliothek](https://www.dnb.de/sru) (CC0), the [K10plus](https://wiki.k10plus.de/display/K10PLUS/SRU) union catalogue (CC0) and [Open Library](https://openlibrary.org/developers/api). Covers come from Open Library, with the DNB/MVB cover service as a fallback.
 
 ## License
 
