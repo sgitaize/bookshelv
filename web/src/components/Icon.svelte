@@ -40,6 +40,8 @@
     image: 'M3 5h18v14H3zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM21 15l-5-5L5 19',
     chart: 'M3 3v18h18M7 16v-5M12 16V8M17 16v-8',
     list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+    grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
+    table: 'M3 5h18v14H3zM3 10h18M3 15h18M9 10v9',
     up: 'm18 15-6-6-6 6',
     down: 'm6 9 6 6 6-6',
     activity: 'M22 12h-4l-3 9L9 3l-3 9H2',

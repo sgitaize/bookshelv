@@ -108,8 +108,18 @@ bookRoutes.get('/catalog/search', async c => {
       coverUrl: local?.cover ? `/covers/${local.cover}` : `/api/catalog/cover?isbn=${isbn}`
     }]);
   }
-  const hits = await searchCatalog(q);
-  return c.json(hits.map(h => {
+  // Bücher, die in dieser Instanz schon jemand erfasst hat: sofort da und mit geprüften Daten → vor den Katalog
+  const words = q.toLowerCase().split(/\s+/).filter(w => w.length > 1).slice(0, 6);
+  const known = words.length ? db.prepare(`SELECT * FROM books WHERE ${words.map(() => `(lower(title) LIKE ? OR lower(COALESCE(subtitle, '')) LIKE ? OR lower(authors) LIKE ?)`).join(' AND ')}
+    ORDER BY (SELECT COUNT(*) FROM copies c WHERE c.book_id = books.id) DESC LIMIT 10`)
+    .all(...words.flatMap(w => Array(3).fill(`%${w.replace(/[%_]/g, '')}%`))) as BookRow[] : [];
+  const knownIsbns = new Set(known.map(b => b.isbn13).filter(Boolean));
+  const hits = (await searchCatalog(q)).filter(h => !knownIsbns.has(h.isbn13));
+  return c.json([...known.map(b => ({
+    isbn13: b.isbn13, title: b.title, subtitle: b.subtitle, authors: JSON.parse(b.authors) as string[], publisher: b.publisher, year: b.year,
+    bookId: b.id, owners: ownersOf(b.id, u.id),
+    coverUrl: b.cover ? `/covers/${b.cover}` : b.isbn13 ? `/api/catalog/cover?isbn=${b.isbn13}` : null
+  })), ...hits.map(h => {
     const local = h.isbn13 ? getBookByIsbn(h.isbn13) : undefined;
     // Buch im Bestand ohne Cover, die Suche kennt aber eins → im Hintergrund übernehmen
     if (local && !local.cover && h.coverHint?.ol) repairCover(local.id, { ol: h.coverHint.ol });
@@ -121,7 +131,7 @@ bookRoutes.get('/catalog/search', async c => {
         : h.coverHint?.ol ? `/api/catalog/cover?ol=${h.coverHint.ol}`
         : h.coverHint?.isbn ? `/api/catalog/cover?isbn=${h.coverHint.isbn}` : null
     };
-  }));
+  })]);
 });
 
 bookRoutes.get('/catalog/cover', async c => {

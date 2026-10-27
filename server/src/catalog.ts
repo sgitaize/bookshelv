@@ -231,24 +231,39 @@ export function parseSeriesLabel(raw: string): { name: string; index: number | n
   return { name, index };
 }
 
-type OlDoc = { title: string; author_name?: string[]; isbn?: string[]; cover_i?: number; first_publish_year?: number };
+type OlSearchEdition = { title?: string; subtitle?: string; isbn?: string[]; cover_i?: number; publisher?: string[]; publish_date?: string[]; language?: string[] };
+type OlDoc = { title: string; author_name?: string[]; isbn?: string[]; cover_i?: number; first_publish_year?: number; editions?: { docs?: OlSearchEdition[] } };
 
+/**
+ * Open-Library-Suche. Mit lang=de liefert OL je Werk die passendste deutsche Ausgabe mit (Titel, ISBN, Cover) –
+ * sonst stünde „Where the Crawdads Sing“ mit deutscher ISBN in der Liste statt „Der Gesang der Flusskrebse“.
+ */
 async function olSearch(q: string, max: number): Promise<SearchHit[]> {
-  const res = await get(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=${max}`
-    + `&fields=title,author_name,isbn,cover_i,first_publish_year`);
+  // `key` muss in fields stehen, sonst liefert OL keine editions
+  const res = await get(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=${max}&lang=de`
+    + `&fields=key,title,author_name,isbn,cover_i,first_publish_year,editions,editions.title,editions.subtitle,editions.isbn,editions.cover_i,editions.publisher,editions.publish_date,editions.language`);
   if (!res) return [];
   const docs = ((await res.json()).docs ?? []) as OlDoc[];
   return docs.map(d => {
-    const isbns = (d.isbn ?? []).filter(i => i.length === 13);
+    const e = d.editions?.docs?.[0];
+    const isbn13 = (list?: string[]) => (list ?? []).filter(i => i.length === 13);
+    const eIsbn = isbn13(e?.isbn)[0];
+    const isbns = isbn13(d.isbn);
     // deutsche Ausgabe bevorzugen, falls vorhanden
-    const isbn = isbns.find(i => i.startsWith('9783')) ?? isbns[0] ?? null;
+    const isbn = eIsbn ?? isbns.find(i => i.startsWith('9783')) ?? isbns[0] ?? null;
+    const cover = (eIsbn && e?.cover_i) || d.cover_i;
     return {
-      isbn13: isbn, title: d.title, subtitle: null, authors: d.author_name ?? [], publisher: null,
-      year: d.first_publish_year ?? null, pages: null, language: null, subjects: [], source: 'openlibrary',
-      coverHint: d.cover_i ? { ol: d.cover_i } : isbn ? { isbn } : null
+      isbn13: isbn, title: (eIsbn && e?.title) || d.title, subtitle: (eIsbn && e?.subtitle) || null, authors: d.author_name ?? [],
+      publisher: (eIsbn && e?.publisher?.[0]) || null,
+      year: (eIsbn && Number(e?.publish_date?.[0]?.match(/\d{4}/)?.[0])) || d.first_publish_year || null,
+      pages: null, language: eIsbn && e?.language?.[0] === 'ger' ? 'de' : null, subjects: [], source: 'openlibrary',
+      coverHint: cover ? { ol: cover } : isbn ? { isbn } : null
     };
   });
 }
+
+/** Begleitmaterial und Merchandise, das bei Titelsuchen sonst die eigentlichen Bücher verdrängt */
+const JUNK = /\b(tarot|colou?ring book|malbuch|box ?set|collection set|books? collection|pen loop|notizbuch|kalender|calendar|lektürehilfe|interpretationshilfe|interpretation|kopiervorlagen?|unterrichtsmaterial|lösungen|arbeitsheft|study guide|summary of|workbook|sparknotes|königs erläuterungen|planner|dayplanner|set of \d+ books|literaturunterricht|didaktische|analyse|untersuchung)\b/i;
 
 // ---------- öffentliche Funktionen ----------
 
@@ -279,22 +294,33 @@ export async function searchCatalog(q: string): Promise<SearchHit[]> {
   const words = q.trim().split(/\s+/).filter(w => w.length > 1).slice(0, 6);
   if (!words.length) return [];
   const dnbQ = words.map(w => `woe=${w.replace(/["=()<>]/g, '')}`).join(' and ') + ' and mat=books'; // ohne Hörbücher/Medien
-  const [dnb, ol] = await Promise.all([dnbQuery(dnbQ, 15), olSearch(q, 15)]);
+  // Die DNB ist oft langsam oder drosselt (429) – nicht länger als 4 s auf sie warten, Open Library reicht dann allein
+  const [dnb, ol] = await Promise.all([
+    Promise.race([dnbQuery(dnbQ, 20), new Promise<BookData[]>(r => setTimeout(() => r([]), 4000))]),
+    olSearch(q, 20)
+  ]);
+  const terms = words.map(w => w.toLowerCase());
+  const asked = (re: RegExp) => terms.some(t => re.test(t)); // wer „Tarot“ sucht, bekommt Tarot
   const hits: SearchHit[] = [];
   const seen = new Set<string>();
+  // DNB zuerst: bei deutschen Büchern die besseren Metadaten; dieselbe ISBN von OL wird dann übersprungen
   for (const h of [...dnb.map(b => ({ ...b, coverHint: b.isbn13 ? { isbn: b.isbn13 } : null })), ...ol]) {
     if (!h.isbn13) continue; // ohne ISBN nicht eindeutig importierbar – dafür gibt es die manuelle Erfassung
     if (seen.has(h.isbn13)) continue;
+    if (JUNK.test(`${h.title} ${h.subtitle ?? ''}`) && !asked(JUNK)) continue;
     seen.add(h.isbn13);
     hits.push(h);
   }
-  // Relevanz: wie viele Suchwörter in Titel/Autor vorkommen; Treffer ohne Autor und Cover nach hinten
-  const terms = words.map(w => w.toLowerCase());
+  // Relevanz: wie viele Suchwörter in Titel/Autor vorkommen, Titel, der genau der Suche entspricht, ganz nach oben;
+  // Treffer ohne Autor und Cover nach hinten, deutsche Ausgaben leicht bevorzugt
+  const query = terms.join(' ');
   const score = (h: SearchHit) => {
     const hay = `${h.title} ${h.subtitle ?? ''} ${h.authors.join(' ')}`.toLowerCase();
-    const title = h.title.toLowerCase();
+    const title = h.title.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, ' ').replace(/\s+/g, ' ').trim();
     return terms.filter(t => hay.includes(t)).length * 10 + terms.filter(t => title.includes(t)).length * 3
-      + (h.authors.length ? 2 : 0) + (h.coverHint?.ol ? 1 : 0);
+      + (title === query || title.replace(/^(der|die|das|the) /, '') === query.replace(/^(der|die|das|the) /, '') ? 8 : 0)
+      + (h.authors.length ? 3 : -5) + (h.coverHint?.ol || h.source === 'dnb' ? 1 : 0)
+      + (h.isbn13!.startsWith('9783') || h.language === 'ger' || h.language === 'de' ? 2 : 0);
   };
   return hits
     .map((h, i) => ({ h, s: score(h), i }))
