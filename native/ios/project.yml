@@ -30,8 +30,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: $(BS_BUNDLE_ID)
         PRODUCT_NAME: Bookshelv
         CODE_SIGN_ENTITLEMENTS: Bookshelv/Bookshelv.entitlements
-        MARKETING_VERSION: "1.1.1"
-        CURRENT_PROJECT_VERSION: "6"
+        MARKETING_VERSION: "1.1.2"
+        CURRENT_PROJECT_VERSION: "7"
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_STYLE: Automatic
