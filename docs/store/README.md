@@ -53,7 +53,7 @@ Je Produkt verlangt Apple einen Review-Screenshot (Einstellungen → App → boo
 | Nutzerinhalte → Andere Nutzerinhalte (Bibliothek, Bewertungen, Kommentare, Leselisten, Verleih) | App-Funktionalität | Ja | Nein |
 
 Nicht erfasst: E-Mail, Telefon, Standort, Kontakte, Diagnose, Nutzungsdaten, Werbe-Kennungen, Kaufdaten (Trinkgeld läuft komplett über Apple).
-Buchsuche/ISBN gehen ohne Konto direkt an DNB/Open Library (Drittanbieter, kein Partner, nichts wird dort gespeichert, was dir zuordenbar wäre) – siehe `/privacy`.
+Titelsuche und Vorschau-Cover gehen in der App immer direkt an DNB/Open Library/K10plus (mit Konto bekommt die Instanz zusätzlich Suchbegriff + Treffer-ISBNs für den Abgleich); ISBN-Nachschlagen ohne Konto ebenfalls direkt (Drittanbieter, kein Partner, nichts wird dort gespeichert, was dir zuordenbar wäre) – siehe `/privacy`.
 
 **Altersfreigabe:** wird per Skript gesetzt (`metadata/age-rating.json`: überall „Keine“, nutzergenerierte Inhalte + Nachrichten = Ja). Falls Apple Fragen hinzugefügt hat, meldet das Skript es – dann in ASC beantworten.
 

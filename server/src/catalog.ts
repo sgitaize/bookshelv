@@ -1,9 +1,11 @@
 /**
- * Anbindung an öffentliche Kataloge. Alle Anfragen laufen über den Server, damit die Browser der Nutzer
- * nie direkt mit Dritten sprechen (DSGVO). Cover werden lokal gespeichert.
+ * Anbindung an öffentliche Kataloge. Für den Browser laufen alle Anfragen über den Server, damit er nie direkt mit
+ * Dritten spricht (DSGVO). In den Apps läuft derselbe Code auf dem Gerät (Lokal-Modus und Titelsuche im Instanz-Modus,
+ * siehe mobile/host.ts) – so steht es auch in der Datenschutzerklärung (web/src/routes/Legal.svelte). Cover werden lokal gespeichert.
  *
  *  - Deutsche Nationalbibliothek (SRU, oai_dc): beste Quelle für deutschsprachige Titel
  *  - Open Library: international, Cover, Seitenzahlen
+ *  - K10plus (GBV/SWB): Ausweichkatalog, wenn die DNB drosselt
  *  - DNB/MVB-Cover als Fallback, wenn Open Library kein Cover hat
  */
 import fs from 'node:fs';
