@@ -333,48 +333,102 @@ const JUNK = /\b(tarot|colou?ring book|malbuch|box ?set|collection set|books? co
 
 // ---------- öffentliche Funktionen ----------
 
-/** Metadaten zu einer ISBN aus allen Quellen zusammenführen. */
-export async function lookupIsbn(isbn13: string): Promise<BookData | null> {
-  // K10plus gleich mitstarten (nicht erst nach der DNB warten), genutzt wird es nur, wenn die DNB ausfällt
-  const k10p = k10Query(`pica.isb=${isbn13}`, 5);
-  const [dnbHit, ol, dnbM, ols] = await Promise.all([dnbQuery(`num=${isbn13}`, 1).then(r => r[0] ?? null), olByIsbn(isbn13), dnbMarc(isbn13), olSeries(isbn13).catch(() => null)]);
-  // DNB gedrosselt oder ohne Treffer → K10plus springt ein (gleiche Datenqualität, auch Genres und Reihe)
-  const k10 = !dnbHit || !dnbM ? (await k10p)[0] ?? null : null;
-  const dnb = dnbHit ?? k10;
-  const marc = dnbM ?? (k10 ? { genres: [], series: k10.series ?? null } : null);
-  const genres = marc?.genres ?? [];
-  if (!dnb && !ol) return null;
-  // DNB-Titel sind für deutsche Bücher meist korrekter, Open Library ergänzt Lücken
-  const a = dnb ?? ol!, b = ol ?? dnb!;
-  return {
-    isbn13,
-    title: a.title || b.title,
-    subtitle: a.subtitle ?? b.subtitle,
-    authors: a.authors.length ? a.authors : b.authors,
-    publisher: a.publisher ?? b.publisher,
-    year: a.year ?? b.year,
-    pages: b.pages ?? a.pages,
-    language: a.language ?? b.language,
-    // Genres zuerst, dann Sachgruppen; die DDC-Sprachgruppe ("830 Deutsche Literatur" → "Deutsche Literatur") bleibt dahinter
-    subjects: [...new Set([...genres, ...a.subjects, ...b.subjects])].slice(0, 15),
-    source: [dnb?.source, ol && 'openlibrary'].filter(Boolean).join('+'),
-    series: marc?.series ?? ols ?? null
-  };
+/** Erstes Ergebnis, das nicht leer ist (oder null, wenn keins etwas liefert) – wartet nicht auf die langsameren */
+function firstHit<T>(ps: Promise<T | null>[]): Promise<T | null> {
+  return new Promise(resolve => {
+    let left = ps.length;
+    for (const p of ps) p.then(v => { if (v) resolve(v); }, () => {}).finally(() => { if (!--left) resolve(null); });
+  });
 }
 
-export async function searchCatalog(q: string): Promise<SearchHit[]> {
+/**
+ * Metadaten zu einer ISBN. Die ISBN ist eindeutig, also reicht zum Anlegen die erste Quelle mit Treffer (`first`,
+ * meist die DNB nach ~0,5 s); `full` führt alle Quellen zusammen (Genres, Reihe, Seiten) und wird nachgetragen.
+ */
+export function lookupIsbnFast(isbn13: string): { first: Promise<BookData | null>; full: Promise<BookData | null> } {
+  // K10plus gleich mitstarten (nicht erst nach der DNB warten), genutzt wird es nur, wenn die DNB ausfällt
+  const k10p = k10Query(`pica.isb=${isbn13}`, 5).then(r => r[0] ?? null);
+  const dnbP = dnbQuery(`num=${isbn13}`, 1).then(r => r[0] ?? null);
+  const olP = olByIsbn(isbn13);
+  const marcP = dnbMarc(isbn13);
+  const olsP = olSeries(isbn13).catch(() => null);
+  const full = (async () => {
+    const [dnbHit, ol, dnbM, ols] = await Promise.all([dnbP, olP, marcP, olsP]);
+    // DNB gedrosselt oder ohne Treffer → K10plus springt ein (gleiche Datenqualität, auch Genres und Reihe)
+    const k10 = !dnbHit || !dnbM ? await k10p : null;
+    const dnb = dnbHit ?? k10;
+    const marc = dnbM ?? (k10 ? { genres: [], series: k10.series ?? null } : null);
+    const genres = marc?.genres ?? [];
+    if (!dnb && !ol) return null;
+    // DNB-Titel sind für deutsche Bücher meist korrekter, Open Library ergänzt Lücken
+    const a = dnb ?? ol!, b = ol ?? dnb!;
+    return {
+      isbn13,
+      title: a.title || b.title,
+      subtitle: a.subtitle ?? b.subtitle,
+      authors: a.authors.length ? a.authors : b.authors,
+      publisher: a.publisher ?? b.publisher,
+      year: a.year ?? b.year,
+      pages: b.pages ?? a.pages,
+      language: a.language ?? b.language,
+      // Genres zuerst, dann Sachgruppen; die DDC-Sprachgruppe ("830 Deutsche Literatur" → "Deutsche Literatur") bleibt dahinter
+      subjects: [...new Set([...genres, ...a.subjects, ...b.subjects])].slice(0, 15),
+      source: [dnb?.source, ol && 'openlibrary'].filter(Boolean).join('+'),
+      series: marc?.series ?? ols ?? null
+    };
+  })().catch(() => null);
+  const first = firstHit<BookData>([dnbP, olP, k10p]).then(d => d && { ...d, isbn13 });
+  return { first, full };
+}
+
+/** Metadaten zu einer ISBN aus allen Quellen zusammenführen. */
+export const lookupIsbn = (isbn13: string) => lookupIsbnFast(isbn13).full;
+
+type Tracked<T> = { p: Promise<T>; v?: T };
+const track = <T>(p: Promise<T>): Tracked<T> => { const t: Tracked<T> = { p }; p.then(v => { t.v = v; }, () => {}); return t; };
+type Sources = { dnb: Tracked<BookData[]>; ol: Tracked<SearchHit[]>; k10: Tracked<BookData[]> };
+
+/**
+ * Laufende/fertige Katalogabfragen je Suchbegriff (10 min): die schnelle und die vollständige Stufe derselben Suche
+ * (und erneutes Tippen) teilen sich eine Abfrage pro Quelle
+ */
+const searches = new Map<string, { at: number; s: Sources }>();
+function catalogSources(q: string, words: string[]): Sources {
+  const key = words.join(' ').toLowerCase();
+  const cached = searches.get(key);
+  if (cached && Date.now() - cached.at < 10 * 60_000) return cached.s;
+  const dnbQ = words.map(w => `woe=${w.replace(/["=()<>]/g, '')}`).join(' and ') + ' and mat=books'; // ohne Hörbücher/Medien
+  const k10Q = words.map(w => `pica.all=${w.replace(/["=()<>]/g, '')}`).join(' and ');
+  const s: Sources = {
+    // Die DNB ist oft langsam oder drosselt (429) – nicht länger als 4 s auf sie warten
+    dnb: track(Promise.race([dnbQuery(dnbQ, 20), new Promise<BookData[]>(r => setTimeout(() => r([]), 4000))])),
+    ol: track(olSearch(q, 20)),
+    // K10plus läuft mit, zählt aber nur, wenn die DNB nichts liefert (drosselt, zu langsam oder ohne Treffer)
+    k10: track(k10Query(k10Q, 20, 5000))
+  };
+  searches.delete(key);
+  searches.set(key, { at: Date.now(), s });
+  if (searches.size > 200) searches.delete(searches.keys().next().value!);
+  // Alles leer (Netz weg, Quellen gestört)? Nicht merken, beim nächsten Mal neu fragen
+  Promise.all([s.dnb.p, s.ol.p, s.k10.p]).then(r => { if (r.every(x => !x.length) && searches.get(key)?.s === s) searches.delete(key); }, () => searches.delete(key));
+  return s;
+}
+
+/**
+ * Titelsuche über DNB, Open Library und K10plus.
+ * `fast`: antwortet, sobald die erste Quelle Treffer hat (meist die DNB nach ~0,5 s), mit allem, was bis dahin da ist;
+ * die Oberfläche fragt parallel ohne `fast` nach und ersetzt die Liste, sobald auch Open Library (oft 2–8 s) da ist.
+ */
+export async function searchCatalog(q: string, opts: { fast?: boolean } = {}): Promise<SearchHit[]> {
   const words = q.trim().split(/\s+/).filter(w => w.length > 1).slice(0, 6);
   if (!words.length) return [];
-  const dnbQ = words.map(w => `woe=${w.replace(/["=()<>]/g, '')}`).join(' and ') + ' and mat=books'; // ohne Hörbücher/Medien
-  // Die DNB ist oft langsam oder drosselt (429) – nicht länger als 4 s auf sie warten, Open Library reicht dann allein
-  const k10Q = words.map(w => `pica.all=${w.replace(/["=()<>]/g, '')}`).join(' and ');
-  const [dnbHits, ol, k10] = await Promise.all([
-    Promise.race([dnbQuery(dnbQ, 20), new Promise<BookData[]>(r => setTimeout(() => r([]), 4000))]),
-    olSearch(q, 20),
-    // K10plus läuft mit, zählt aber nur, wenn die DNB nichts liefert (drosselt, zu langsam oder ohne Treffer)
-    k10Query(k10Q, 20, 5000)
-  ]);
-  const dnb = dnbHits.length ? dnbHits : k10;
+  const s = catalogSources(q, words);
+  const some = <T>(t: Tracked<T[]>) => t.p.then(r => (r.length ? r : null));
+  if (opts.fast) await firstHit<unknown>([some(s.dnb), some(s.ol), some(s.k10)]);
+  else await Promise.all([s.dnb.p, s.ol.p, s.k10.p]);
+  // DNB-Treffer, sonst K10plus; im schnellen Modus nur, was schon da ist
+  const dnb = s.dnb.v?.length ? s.dnb.v : s.k10.v ?? [];
+  const ol = s.ol.v ?? [];
   const terms = words.map(w => w.toLowerCase());
   const asked = (re: RegExp) => terms.some(t => re.test(t)); // wer „Tarot“ sucht, bekommt Tarot
   const hits: SearchHit[] = [];

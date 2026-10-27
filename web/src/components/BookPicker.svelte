@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { api, labels, type BookBrief, type Book, type ReadStatus, type SearchHit } from '../lib/api.ts';
+  import { api, catalogSearch, labels, type BookBrief, type Book, type ReadStatus, type SearchHit } from '../lib/api.ts';
   import { toastError } from '../lib/state.svelte.ts';
   import { t } from '../lib/i18n.svelte.ts';
   import Cover from './Cover.svelte';
@@ -45,8 +45,7 @@
     if (query.trim().length < 3) { searching = false; return; }
     searching = true;
     // Katalog ist langsamer und extern → länger warten, bis fertig getippt ist
-    rtimer = setTimeout(() => api.get<SearchHit[]>(`/catalog/search?q=${encodeURIComponent(query.trim())}`)
-      .then(r => { if (query === q) remote = r; })
+    rtimer = setTimeout(() => catalogSearch(query.trim(), r => { if (query === q) remote = r; })
       .catch(toastError)
       .finally(() => { if (query === q) searching = false; }), 600);
   });

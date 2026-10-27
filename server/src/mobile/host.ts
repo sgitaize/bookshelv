@@ -102,8 +102,8 @@ const splitCookies = (h: string) => h.split(/,(?=\s*[A-Za-z0-9_-]+=)/);
 
 let local: Promise<void> | null = null;
 let localServer: http.Server | null = null;
-function startLocal(name?: string): Promise<void> {
-  if (local) return local;
+/** Umgebung für den Server-Code (config.ts liest sie beim ersten Laden) – auch für die Katalogsuche im Instanz-Modus */
+function serverEnv() {
   process.env.BOOKSHELV_LOCAL = '1';
   process.env.BOOKSHELV_APP_TOKEN = TOKEN;
   process.env.BOOKSHELV_DATA_DIR = DATA;
@@ -111,6 +111,10 @@ function startLocal(name?: string): Promise<void> {
   process.env.BOOKSHELV_APP_DIR = DATA;
   process.env.PORT = String(LOCAL_PORT);
   process.env.HOST = '127.0.0.1';
+}
+function startLocal(name?: string): Promise<void> {
+  if (local) return local;
+  serverEnv();
   if (name) process.env.BOOKSHELV_LOCAL_NAME = name;
   local = (async () => {
     localServer = (require('../main.ts') as typeof import('../main.ts')).server;
@@ -379,8 +383,68 @@ function proxy(req: http.IncomingMessage, res: http.ServerResponse) {
   req.pipe(out);
 }
 
+// ---------- Katalogsuche auf dem Gerät (Instanz-Modus) ----------
+// DNB, Open Library und K10plus fragt das Gerät selbst – die Instanz muss nicht für alle zentral suchen und Cover laden.
+// Von ihr kommt nur, was nur sie weiß: schon erfasste Bücher und wer im Freundeskreis sie hat (POST /api/catalog/known).
+
+let catalogMod: typeof import('../catalog.ts') | null = null;
+function catalog() {
+  if (!catalogMod) {
+    serverEnv();
+    catalogMod = require('../catalog.ts') as typeof import('../catalog.ts');
+    try { catalogMod.prunePreviews(); } catch { /* egal */ }
+  }
+  return catalogMod;
+}
+
+type Hit = { isbn13: string | null; bookId: number | null; coverUrl: string | null; owners?: unknown[] } & Record<string, unknown>;
+type Known = { known: Hit[]; matches: Record<string, Pick<Hit, 'bookId' | 'owners' | 'coverUrl'> | undefined> };
+
+async function catalogSearch(req: http.IncomingMessage, res: http.ServerResponse) {
+  const u = new URL(req.url ?? '/', 'http://host');
+  const q = (u.searchParams.get('q') ?? '').trim().slice(0, 100);
+  const cat = catalog();
+  // ISBN: legt die Instanz beim Übernehmen ohnehin an, dort nachschlagen (sie nimmt die erste Quelle mit Treffer)
+  if (q.length < 2 || cat.normalizeIsbn(q)) return proxy(req, res);
+  // Schon erfasste Bücher parallel zur Katalogsuche holen; ohne Instanz (offline) gibt es eben nur den Katalog
+  const knownP = remoteApi<Known>('POST', '/api/catalog/known', { q }).catch(() => null);
+  const hits = await cat.searchCatalog(q, { fast: u.searchParams.get('fast') === '1' }).catch(() => []);
+  const known = await knownP;
+  if (known?.status === 404) return proxy(req, res); // ältere Instanz ohne /catalog/known → wie bisher dort suchen
+  if (known && known.status >= 400) return json(res, known.status, known.data);
+  const knownHits = known?.data.known ?? [];
+  const knownIsbns = new Set(knownHits.map(h => h.isbn13).filter(Boolean));
+  const fresh = hits.filter(h => !knownIsbns.has(h.isbn13));
+  const m = fresh.length && known
+    ? await remoteApi<Known>('POST', '/api/catalog/known', { hits: fresh.map(h => ({ isbn13: h.isbn13, ol: h.coverHint?.ol })) }).catch(() => null)
+    : null;
+  const matches = m && m.status < 400 ? m.data.matches : {};
+  json(res, 200, [...knownHits, ...fresh.map(h => ({
+    isbn13: h.isbn13, title: h.title, subtitle: h.subtitle, authors: h.authors, publisher: h.publisher, year: h.year,
+    bookId: null, owners: [],
+    coverUrl: h.coverHint?.ol ? `/api/catalog/cover?ol=${h.coverHint.ol}` : h.coverHint?.isbn ? `/api/catalog/cover?isbn=${h.coverHint.isbn}` : null,
+    ...matches[h.isbn13!]
+  }))]);
+}
+
+/** Vorschau-Cover der Suchtreffer: lädt das Gerät selbst (und behält sie im eigenen Cache) */
+async function catalogCover(req: http.IncomingMessage, res: http.ServerResponse) {
+  const u = new URL(req.url ?? '/', 'http://host');
+  const cat = catalog();
+  const ol = Number(u.searchParams.get('ol')) || undefined;
+  const isbn = u.searchParams.get('isbn') ? cat.normalizeIsbn(u.searchParams.get('isbn')!) ?? undefined : undefined;
+  if (!(ol && Number.isInteger(ol) && ol > 0) && !isbn) return json(res, 400, { error: 'ol oder isbn fehlt' });
+  const img = await cat.previewCover(ol ? { ol } : { isbn });
+  if (!img) { res.writeHead(404); res.end(); return; }
+  res.writeHead(200, { 'content-type': `image/${img.ext === 'jpg' ? 'jpeg' : img.ext}`, 'cache-control': 'private, max-age=604800' });
+  fs.createReadStream(img.file).pipe(res);
+}
+
 const remoteServer = http.createServer((req, res) => {
   const p = (req.url ?? '/').split('?')[0];
+  const fail = (e: unknown) => { log('Katalog:', e); if (!res.headersSent) json(res, 502, { error: 'catalog' }); else res.destroy(); };
+  if (req.method === 'GET' && p === '/api/catalog/search' && remote.url) return void catalogSearch(req, res).catch(fail);
+  if (req.method === 'GET' && p === '/api/catalog/cover') return void catalogCover(req, res).catch(fail);
   if (p.startsWith('/api/') || cacheable(p)) return proxy(req, res);
   if (req.method !== 'GET' && req.method !== 'HEAD') return json(res, 405, { error: 'method' });
   serveStatic(req, res);

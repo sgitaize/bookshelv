@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { api, ApiError, emptyCopy, labels, type Reading, type ReadStatus, type Book, type Copy, type CopyValues, type SearchHit } from '../lib/api.ts';
+  import { api, ApiError, catalogSearch, emptyCopy, labels, type Reading, type ReadStatus, type Book, type Copy, type CopyValues, type SearchHit } from '../lib/api.ts';
   import { toast, toastError } from '../lib/state.svelte.ts';
   import { router } from '../lib/router.svelte.ts';
   import { t, tn, i18n, fmtDate } from '../lib/i18n.svelte.ts';
@@ -184,7 +184,7 @@
     if (term.length < 3) { hits = null; return; }
     timer = setTimeout(async () => {
       searching = true;
-      try { hits = await api.get<SearchHit[]>(`/catalog/search?q=${encodeURIComponent(term)}`); }
+      try { await catalogSearch(term, r => { if (term === q.trim()) hits = r; }); }
       catch (e) { toastError(e); }
       finally { searching = false; }
     }, 450);

@@ -217,6 +217,18 @@ export type SearchHit = {
   owners?: { id: number; displayName: string }[];
 };
 
+/**
+ * Katalogsuche in zwei Stufen: `fast=1` kommt mit der ersten Quelle, die etwas findet (meist DNB, ~0,5 s),
+ * die vollständige Antwort (mit Open Library) ersetzt sie. Beide teilen sich auf dem Server dieselben Abfragen.
+ */
+export async function catalogSearch(q: string, show: (hits: SearchHit[]) => void): Promise<void> {
+  const url = `/catalog/search?q=${encodeURIComponent(q)}`;
+  let done = false;
+  const fast = api.get<SearchHit[]>(url + '&fast=1').then(r => { if (!done) show(r); }, () => {});
+  try { const r = await api.get<SearchHit[]>(url); done = true; show(r); }
+  catch (e) { await fast; throw e; }
+}
+
 export type Invite = { id: number; token: string; note: string | null; createdAt: string; expiresAt: string; usedAt: string | null; usedBy: string | null; createdBy?: string };
 
 // Getter: Texte folgen der aktuellen Sprache

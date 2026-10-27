@@ -4,7 +4,7 @@ import { db, tx } from '../db.ts';
 import { friendSql } from '../friends.ts';
 import { wishAvailable } from '../notify.ts';
 import { requireUser, type User } from '../auth.ts';
-import { dnbUnavailable, lookupIsbn, normalizeIsbn, searchCatalog, fetchCover, previewCover, deleteCoverFile, type BookData } from '../catalog.ts';
+import { dnbUnavailable, lookupIsbnFast, normalizeIsbn, searchCatalog, fetchCover, previewCover, deleteCoverFile, type BookData } from '../catalog.ts';
 import { router, body, str, int, oneOf, idParam, notFound } from '../util.ts';
 import { setReading, readingJson, READ_STATUS, today, type ReadingRow } from './reading.ts';
 import { openLoanFor } from './loans.ts';
@@ -53,12 +53,36 @@ export async function importIsbn(isbn: string, userId: number): Promise<BookRow 
   if (existing) return existing;
   if (!pending.has(isbn)) {
     pending.set(isbn, (async () => {
-      const data = await lookupIsbn(isbn);
+      // Die ISBN ist eindeutig: mit der ersten Quelle, die das Buch kennt, sofort anlegen;
+      // die übrigen Quellen (Genres, Reihe, Seiten …) und das Cover kommen im Hintergrund dazu
+      const { first, full } = lookupIsbnFast(isbn);
+      const data = await first;
       if (!data) return null;
-      return insertBook(data, await fetchCover({ isbn }), userId);
+      const book = insertBook(data, null, userId);
+      enrichBook(book.id, data, full);
+      repairCover(book.id, { isbn });
+      return book;
     })().finally(() => pending.delete(isbn)));
   }
   return pending.get(isbn)!;
+}
+
+const bookFields = (d: BookData) => ({
+  title: d.title, subtitle: d.subtitle, authors: JSON.stringify(d.authors), publisher: d.publisher, year: d.year, pages: d.pages,
+  language: d.language, subjects: JSON.stringify(d.subjects), source: d.source,
+  series: canonicalSeries(d.series?.name), series_index: d.series?.index ?? null
+});
+
+/** Zusammengeführte Daten aller Quellen nachtragen – nur Felder, die seit dem Anlegen niemand geändert hat */
+function enrichBook(id: number, first: BookData, full: Promise<BookData | null>) {
+  full.then(d => {
+    const row = d && getBook(id) as Record<string, unknown> | undefined;
+    if (!d || !row) return;
+    const was = bookFields(first) as Record<string, unknown>, now = bookFields(d) as Record<string, unknown>;
+    const keys = Object.keys(now).filter(k => row[k] === was[k] && now[k] !== was[k]);
+    if (keys.length) db.prepare(`UPDATE books SET ${keys.map(k => `${k} = ?`).join(', ')} WHERE id = ?`)
+      .run(...keys.map(k => now[k] as string | number | null), id);
+  }).catch(() => {});
 }
 
 function insertBook(d: BookData, cover: string | null, userId: number): BookRow {
@@ -80,7 +104,9 @@ bookRoutes.post('/catalog/isbn', async c => {
   if (!isbn) throw new HTTPException(400, { message: 'Ungültige ISBN' });
   const book = await importIsbn(isbn, u.id);
   if (!book) return c.json({ found: false, isbn13: isbn, dnbDown: dnbUnavailable() }, 404);
-  return c.json({ found: true, book: bookJson(book) });
+  const json = bookJson(book);
+  // Cover lädt gerade im Hintergrund → solange die Vorschau zeigen
+  return c.json({ found: true, book: { ...json, coverUrl: json.coverUrl ?? `/api/catalog/cover?isbn=${isbn}` } });
 });
 
 /** Wer im Freundeskreis hat das Buch? (sichtbare Regale, ohne mich) */
@@ -90,16 +116,43 @@ const ownersOf = (bookId: number, me: number) => (db.prepare(`
   ORDER BY u.display_name LIMIT 5
 `).all(bookId, me) as { id: number; displayName: string }[]);
 
+/** Bücher, die in dieser Instanz schon jemand erfasst hat: sofort da und mit geprüften Daten → vor den Katalog */
+function knownBooks(q: string, me: number) {
+  const words = q.toLowerCase().split(/\s+/).filter(w => w.length > 1).slice(0, 6);
+  const known = words.length ? db.prepare(`SELECT * FROM books WHERE ${words.map(() => `(lower(title) LIKE ? OR lower(COALESCE(subtitle, '')) LIKE ? OR lower(authors) LIKE ?)`).join(' AND ')}
+    ORDER BY (SELECT COUNT(*) FROM copies c WHERE c.book_id = books.id) DESC LIMIT 10`)
+    .all(...words.flatMap(w => Array(3).fill(`%${w.replace(/[%_]/g, '')}%`))) as BookRow[] : [];
+  return known.map(b => ({
+    isbn13: b.isbn13, title: b.title, subtitle: b.subtitle, authors: JSON.parse(b.authors) as string[], publisher: b.publisher, year: b.year,
+    bookId: b.id, owners: ownersOf(b.id, me),
+    coverUrl: b.cover ? `/covers/${b.cover}` : b.isbn13 ? `/api/catalog/cover?isbn=${b.isbn13}` : null
+  }));
+}
+
+/** Katalogtreffer mit dem Bestand der Instanz abgleichen: Buch-ID, wer es hat, Cover */
+function matchHit(h: { isbn13: string | null; coverHint?: { isbn?: string; ol?: number } | null }, me: number) {
+  const local = h.isbn13 ? getBookByIsbn(h.isbn13) : undefined;
+  // Buch im Bestand ohne Cover, die Suche kennt aber eins → im Hintergrund übernehmen
+  if (local && !local.cover && h.coverHint?.ol) repairCover(local.id, { ol: h.coverHint.ol });
+  return {
+    bookId: local?.id ?? null,
+    owners: local ? ownersOf(local.id, me) : [],
+    coverUrl: local?.cover ? `/covers/${local.cover}`
+      : h.coverHint?.ol ? `/api/catalog/cover?ol=${h.coverHint.ol}`
+      : h.coverHint?.isbn ? `/api/catalog/cover?isbn=${h.coverHint.isbn}` : null
+  };
+}
+
 bookRoutes.get('/catalog/search', async c => {
   const u = requireUser(c);
   const q = (c.req.query('q') ?? '').trim().slice(0, 100);
   if (q.length < 2) return c.json([]);
   // ISBN direkt eingegeben? Dann nicht suchen, sondern nachschlagen
   const isbn = normalizeIsbn(q);
-  // ISBN: genau dieses Buch (aus dem Bestand oder nachgeschlagen, ohne es anzulegen)
+  // ISBN: genau dieses Buch (aus dem Bestand oder nachgeschlagen, ohne es anzulegen) – die erste Quelle mit Treffer reicht
   if (isbn) {
     const local = getBookByIsbn(isbn);
-    const d = local ? null : await lookupIsbn(isbn);
+    const d = local ? null : await lookupIsbnFast(isbn).first;
     if (!local && !d) return c.json([]);
     return c.json([{
       isbn13: isbn, title: local?.title ?? d!.title, subtitle: local?.subtitle ?? d!.subtitle, authors: local ? JSON.parse(local.authors) : d!.authors,
@@ -108,30 +161,32 @@ bookRoutes.get('/catalog/search', async c => {
       coverUrl: local?.cover ? `/covers/${local.cover}` : `/api/catalog/cover?isbn=${isbn}`
     }]);
   }
-  // Bücher, die in dieser Instanz schon jemand erfasst hat: sofort da und mit geprüften Daten → vor den Katalog
-  const words = q.toLowerCase().split(/\s+/).filter(w => w.length > 1).slice(0, 6);
-  const known = words.length ? db.prepare(`SELECT * FROM books WHERE ${words.map(() => `(lower(title) LIKE ? OR lower(COALESCE(subtitle, '')) LIKE ? OR lower(authors) LIKE ?)`).join(' AND ')}
-    ORDER BY (SELECT COUNT(*) FROM copies c WHERE c.book_id = books.id) DESC LIMIT 10`)
-    .all(...words.flatMap(w => Array(3).fill(`%${w.replace(/[%_]/g, '')}%`))) as BookRow[] : [];
+  const known = knownBooks(q, u.id);
   const knownIsbns = new Set(known.map(b => b.isbn13).filter(Boolean));
-  const hits = (await searchCatalog(q)).filter(h => !knownIsbns.has(h.isbn13));
-  return c.json([...known.map(b => ({
-    isbn13: b.isbn13, title: b.title, subtitle: b.subtitle, authors: JSON.parse(b.authors) as string[], publisher: b.publisher, year: b.year,
-    bookId: b.id, owners: ownersOf(b.id, u.id),
-    coverUrl: b.cover ? `/covers/${b.cover}` : b.isbn13 ? `/api/catalog/cover?isbn=${b.isbn13}` : null
-  })), ...hits.map(h => {
-    const local = h.isbn13 ? getBookByIsbn(h.isbn13) : undefined;
-    // Buch im Bestand ohne Cover, die Suche kennt aber eins → im Hintergrund übernehmen
-    if (local && !local.cover && h.coverHint?.ol) repairCover(local.id, { ol: h.coverHint.ol });
-    return {
-      isbn13: h.isbn13, title: h.title, subtitle: h.subtitle, authors: h.authors, publisher: h.publisher, year: h.year,
-      bookId: local?.id ?? null,
-      owners: local ? ownersOf(local.id, u.id) : [],
-      coverUrl: local?.cover ? `/covers/${local.cover}`
-        : h.coverHint?.ol ? `/api/catalog/cover?ol=${h.coverHint.ol}`
-        : h.coverHint?.isbn ? `/api/catalog/cover?isbn=${h.coverHint.isbn}` : null
-    };
-  })]);
+  const hits = (await searchCatalog(q, { fast: c.req.query('fast') === '1' })).filter(h => !knownIsbns.has(h.isbn13));
+  return c.json([...known, ...hits.map(h => ({
+    isbn13: h.isbn13, title: h.title, subtitle: h.subtitle, authors: h.authors, publisher: h.publisher, year: h.year, ...matchHit(h, u.id)
+  }))]);
+});
+
+/**
+ * Für die Apps: die durchsuchen DNB/Open Library/K10plus selbst auf dem Gerät und fragen die Instanz nur nach dem,
+ * was nur sie weiß – schon erfasste Bücher zum Suchbegriff (`q`) und der Abgleich ihrer Katalogtreffer (`hits`).
+ */
+bookRoutes.post('/catalog/known', async c => {
+  const u = requireUser(c);
+  const b = await body(c);
+  const q = typeof b.q === 'string' ? b.q.trim().slice(0, 100) : '';
+  const hits = (Array.isArray(b.hits) ? b.hits : []).slice(0, 50).flatMap((h: unknown) => {
+    const x = h as { isbn13?: unknown; ol?: unknown };
+    const isbn = typeof x.isbn13 === 'string' ? normalizeIsbn(x.isbn13) : null;
+    const ol = Number.isInteger(x.ol) && (x.ol as number) > 0 ? x.ol as number : undefined;
+    return isbn ? [{ isbn13: isbn, coverHint: ol ? { ol } : { isbn } }] : [];
+  });
+  return c.json({
+    known: q.length >= 2 ? knownBooks(q, u.id) : [],
+    matches: Object.fromEntries(hits.map(h => [h.isbn13, matchHit(h, u.id)]))
+  });
 });
 
 bookRoutes.get('/catalog/cover', async c => {
