@@ -58,6 +58,7 @@ struct RootView: View {
             case .active:
                 Task {
                     await host.waitReady(timeout: 8)
+                    await host.wake()
                     await host.refresh()
                     WebBridge.shared.dispatch(["type": "refresh"])
                 }

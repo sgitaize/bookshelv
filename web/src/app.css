@@ -183,6 +183,12 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* In der App (html.native): kein Zoom per Doppeltipp, kein Markieren und kein Kontextmenü auf Bedienelementen */
+html.native { touch-action: pan-x pan-y; }
+html.native body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+html.native :is(input, textarea, select, [contenteditable]) { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+html.native img { -webkit-user-drag: none; }
+
 h1, h2, h3 {
   font-family: var(--font-head);
   font-weight: var(--head-weight);

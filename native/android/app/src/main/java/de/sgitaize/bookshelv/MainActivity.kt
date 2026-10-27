@@ -211,6 +211,7 @@ class MainActivity : ComponentActivity() {
         if (!NodeHost.ready) return
         lifecycleScope.launch {
             NodeHost.waitReady(8000)
+            NodeHost.wake()
             NodeHost.refresh()
             Web.dispatch(JSONObject().put("type", "refresh"))
         }

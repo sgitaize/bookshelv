@@ -29,6 +29,13 @@ const w = window as unknown as {
 export const app = $state<{ info: AppInfo | null }>({ info: w.bookshelvApp ?? null });
 export const inApp = () => !!app.info;
 
+// In der App soll sich die Seite wie eine App anfühlen: nicht zoombar (auch kein Doppeltipp), kein Markieren/Kontextmenü
+// auf Bedienelementen – die Regeln dazu stehen in app.css unter html.native
+if (app.info) {
+  document.documentElement.classList.add('native');
+  document.querySelector('meta[name=viewport]')?.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
+}
+
 export function post(action: string, payload: Record<string, unknown> = {}) {
   const msg = { a: action, ...payload };
   if (w.webkit?.messageHandlers?.bookshelv) w.webkit.messageHandlers.bookshelv.postMessage(msg);

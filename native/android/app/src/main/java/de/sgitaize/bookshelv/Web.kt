@@ -84,6 +84,9 @@ class LibraryWeb(private val activity: MainActivity) {
             setSupportMultipleWindows(true)
             javaScriptCanOpenWindowsAutomatically = false
             allowFileAccess = false
+            setSupportZoom(false)               // wie eine App: nicht zoombar
+            builtInZoomControls = false
+            displayZoomControls = false
             userAgentString = "$userAgentString BookshelvApp/1"
         }
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)

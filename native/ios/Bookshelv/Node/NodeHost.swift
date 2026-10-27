@@ -105,6 +105,13 @@ final class NodeHost: ObservableObject {
         return false
     }
 
+    /// Zurück im Vordergrund: iOS hat die horchenden Sockets evtl. weggenommen → der Host öffnet sie sofort neu
+    /// (statt erst bei seiner 2-s-Prüfung), damit die ersten Anfragen der WebView nicht ins Leere gehen
+    func wake() async {
+        struct R: Decodable { var ok: Bool }
+        _ = try? await call("POST", "wake", timeout: 3) as R
+    }
+
     func refresh() async {
         if let s: State = try? await call("GET", "state") { state = s }
     }

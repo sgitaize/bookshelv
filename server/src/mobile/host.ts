@@ -237,6 +237,8 @@ async function archiveLocal() {
 
 type Handler = (body: Record<string, unknown>) => Promise<unknown> | unknown;
 const routes: Record<string, Handler> = {
+  // Zurück im Vordergrund: Ports sofort prüfen und tote neu öffnen, bevor die WebView wieder anfragt
+  'POST /wake': async () => { await heal(); return { ok: true }; },
   'GET /state': () => ({
     version: VERSION,
     local: { running: !!local, exists: hasLocalLibrary(), summary: localSummary() },
@@ -492,6 +494,16 @@ function relisten(srv: http.Server, port: number, what: string) {
   log(`Port ${port} (${what}) neu geöffnet`);
   try { srv.close(); } catch { /* war schon zu */ }
   try { srv.listen(port, '127.0.0.1'); } catch (e) { log(what, e); }
+}
+/** Alle Ports der WebView prüfen und tote gleich neu öffnen; kommt erst zurück, wenn sie wieder antworten */
+async function heal() {
+  const check = (port: number) => new Promise<boolean>(r => alive(port, r));
+  const fix = async (srv: http.Server | null, port: number, what: string) => {
+    if (!srv || await check(port)) return;
+    relisten(srv, port, what);
+    for (let i = 0; i < 20 && !(await check(port)); i++) await new Promise(r => setTimeout(r, 50));
+  };
+  await Promise.all([fix(remoteServer, REMOTE_PORT, 'Instanz'), fix(localServer, LOCAL_PORT, 'Lokal')]);
 }
 setInterval(() => {
   alive(CONTROL_PORT, ok => { if (!ok) relisten(controlServer, CONTROL_PORT, 'Steuerung'); });

@@ -15,6 +15,8 @@ export class ApiError extends Error {
 async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
   try {
     const data = await send<T>(method, url, body);
+    // Antwort bekommen = wieder online (das Browser-Ereignis „online“ kommt nicht, wenn nur der App-Host kurz weg war)
+    net.online = true;
     if (method === 'GET' && !url.startsWith('/notifications') && !url.startsWith('/status')) cacheGet(`/api${url}`, data);
     return data;
   } catch (e) {

@@ -106,6 +106,8 @@ object NodeHost {
         return false
     }
 
+    /** Zurück im Vordergrund: tote Ports sofort neu öffnen lassen, bevor die WebView wieder anfragt */
+    suspend fun wake() { runCatching { call("POST", "wake", JSONObject(), 3_000) } }
     suspend fun refresh() { runCatching { fetchState(10_000) }.getOrNull()?.let { state = it } }
 
     private suspend fun fetchState(timeout: Int): State {

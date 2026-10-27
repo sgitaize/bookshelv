@@ -63,6 +63,8 @@ struct LibraryWebView: UIViewRepresentable {
         web.navigationDelegate = context.coordinator
         web.uiDelegate = context.coordinator
         web.allowsBackForwardNavigationGestures = true
+        web.allowsLinkPreview = false                           // kein Safari-Vorschaufenster bei langem Druck auf Links
+        web.scrollView.bouncesZoom = false
         web.scrollView.contentInsetAdjustmentBehavior = .never   // die Seite nutzt env(safe-area-inset-*)
         web.isOpaque = false
         web.backgroundColor = UIColor(named: "LaunchBackground")
@@ -211,6 +213,8 @@ struct LibraryWebView: UIViewRepresentable {
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             retries = 0
+            // wie eine App: nicht zoombar (die Seite setzt zusätzlich user-scalable=no)
+            webView.scrollView.pinchGestureRecognizer?.isEnabled = false
             #if DEBUG
             // Testen/Screenshots: xcrun simctl launch … -js 'window.scrollTo(0, 1e6)' (nach jedem Laden, kurz verzögert)
             if let js = UserDefaults.standard.string(forKey: "js"), !js.isEmpty {

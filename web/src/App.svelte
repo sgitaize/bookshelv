@@ -41,10 +41,19 @@
 
   // App: Ereignisse der nativen Seite (zurück im Vordergrund, geteilte Datei, Sprung zu einer Seite)
   onAppEvent(ev => {
-    if (ev.type === 'refresh') loadSession().then(() => { sync(); syncNow(); }).catch(() => {});
+    if (ev.type === 'refresh') refreshAfterResume();
     else if (ev.type === 'navigate') router.go(ev.path);
     else if (ev.type === 'file') { incoming.file = { name: ev.name, text: ev.text }; router.go('/import'); }
   });
+  // Zurück im Vordergrund: der App-Host kann ein paar Augenblicke brauchen, bis seine Ports wieder antworten →
+  // ein paar Mal kurz nachfassen, statt beim ersten Fehlschlag offline stehen zu bleiben
+  async function refreshAfterResume() {
+    for (let i = 0; i < 6; i++) {
+      try { await loadSession(); } catch { /* gleich nochmal */ }
+      if (net.online) { sync(); syncNow(); return; }
+      await new Promise(r => setTimeout(r, 500 * (i + 1)));
+    }
+  }
   // Konto in der App: eigenen Stand für unterwegs vorhalten
   $effect(() => { if (session.me && net.online && app.info?.mode === 'remote') syncNow(); });
   // der App mitteilen, ob jemand angemeldet ist (Startbildschirm, Konto-Anzeige) und welche Sprache gilt
