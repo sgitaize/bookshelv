@@ -1,0 +1,6 @@
+{
+ "url": "https://openlibrary.org/isbn/9783453317178.json",
+ "status": 200,
+ "type": "application/json",
+ "body": "{\"type\": {\"key\": \"/type/edition\"}, \"title\": \"Der W\\u00fcstenplanet\", \"authors\": [{\"key\": \"/authors/OL79034A\"}], \"publish_date\": \"Jan 11, 2016\", \"source_records\": [\"amazon:3453317173\"], \"publishers\": [\"Heyne Verlag\"], \"physical_format\": \"perfect paperback\", \"full_title\": \"Der W\\u00fcstenplanet Roman\", \"notes\": \"Source title: Der W\\u00fcstenplanet: Roman\", \"covers\": [15247677], \"works\": [{\"key\": \"/works/OL893414W\"}], \"key\": \"/books/OL32663508M\", \"isbn_10\": [\"3453317173\"], \"isbn_13\": [\"9783453317178\"], \"number_of_pages\": 800, \"pagination\": \"797 S.\", \"latest_revision\": 9, \"revision\": 9, \"created\": {\"type\": \"/type/datetime\", \"value\": \"2021-06-22T10:50:15.219012\"}, \"last_modified\": {\"type\": \"/type/datetime\", \"value\": \"2026-08-23T00:12:15.444127\"}}"
+}

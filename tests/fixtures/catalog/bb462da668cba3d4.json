@@ -1,0 +1,6 @@
+{
+ "url": "https://openlibrary.org/isbn/9780613922081.json",
+ "status": 200,
+ "type": "application/json",
+ "body": "{\"title\": \"Hackers\", \"subtitle\": \"Heroes of the Computer Revolution\", \"authors\": [{\"key\": \"/authors/OL527816A\"}], \"publish_date\": \"January 2001\", \"publishers\": [\"Tandem Library\"], \"physical_format\": \"Hardcover\", \"isbn_13\": [\"9780613922081\"], \"languages\": [{\"key\": \"/languages/eng\"}], \"isbn_10\": [\"0613922085\"], \"type\": {\"key\": \"/type/edition\"}, \"subjects\": [\"Computer Industry\", \"Computers\", \"History\", \"Computer Bks - General Information\", \"Computers - General Information\"], \"source_records\": [\"amazon:0613922085\"], \"key\": \"/books/OL9513913M\", \"works\": [{\"key\": \"/works/OL804638W\"}], \"latest_revision\": 5, \"revision\": 5, \"created\": {\"type\": \"/type/datetime\", \"value\": \"2008-04-30T09:38:13.731961\"}, \"last_modified\": {\"type\": \"/type/datetime\", \"value\": \"2025-12-28T00:06:27.335964\"}}"
+}

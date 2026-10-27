@@ -39,9 +39,13 @@ function dnbTrouble(url: string, why: string) {
   dnbTroubleAt = Date.now();
 }
 
+// Nur für Tests: alle Katalogabrufe über einen Proxy, der aufgezeichnete Antworten abspielt (tests/catalog-fixtures.mjs),
+// damit die Testsuite nicht an einer gedrosselten DNB scheitert
+const catalogProxy = process.env.BOOKSHELV_CATALOG_PROXY;
+
 async function get(url: string, timeoutMs = 8000): Promise<Response | null> {
   try {
-    const res = await fetch(url, { headers: { 'User-Agent': config.userAgent }, signal: AbortSignal.timeout(timeoutMs) });
+    const res = await fetch(catalogProxy ? `${catalogProxy}/?url=${encodeURIComponent(url)}` : url, { headers: { 'User-Agent': config.userAgent }, signal: AbortSignal.timeout(timeoutMs) });
     if (res.status === 429 || res.status >= 500) dnbTrouble(url, `HTTP ${res.status}`);
     return res.ok ? res : null;
   } catch (e) {
@@ -138,11 +142,72 @@ export async function dnbMarc(isbn: string): Promise<{ genres: string[]; series:
   const res = await get(`https://services.dnb.de/sru/dnb?version=1.1&operation=searchRetrieve&recordSchema=MARC21-xml`
     + `&maximumRecords=1&query=${encodeURIComponent('num=' + isbn)}`);
   if (!res) return null;
-  const xml = await res.text();
+  const { blocks, sub, fields } = marcAccess(await res.text());
+  return { genres: marcGenres(fields), series: marcSeries(blocks, sub) };
+}
+
+/** Zugriff auf Datenfelder eines MARC21-XML-Datensatzes */
+function marcAccess(xml: string) {
   const blocks = (tag: string) => [...xml.matchAll(new RegExp(`<datafield tag="${tag}"[^>]*>([\\s\\S]*?)</datafield>`, 'g'))].map(m => m[1]);
   const sub = (block: string, code: string) => [...block.matchAll(new RegExp(`<subfield code="${code}">([^<]*)</subfield>`, 'g'))].map(x => cleanMarc(x[1]));
   const fields = (tag: string) => blocks(tag).map(b => sub(b, 'a'));
-  return { genres: marcGenres(fields), series: marcSeries(blocks, sub) };
+  return { blocks, sub, fields };
+}
+
+// ---------- K10plus (Verbundkatalog GBV/SWB) ----------
+// Ausweichkatalog, wenn die DNB drosselt (429) oder nicht antwortet: frei, ohne Schlüssel, enthält auch die DNB-Datensätze
+// und liefert MARC21 – also dieselben Genres und Reihen wie die DNB.
+
+const K10 = 'https://sru.k10plus.de/{db}?version=1.1&operation=searchRetrieve&recordSchema=marcxml';
+
+/** "Owens, Delia" → "Delia Owens" */
+const flipName = (n: string) => n.replace(/[,.\s]+$/, '').split(', ').reverse().join(' ');
+
+/** Gedrucktes Buch aus einem MARC21-Datensatz; Filme, Musik, E-Books und Datensätze ohne ISBN → null */
+function parseMarcBook(rec: string): (BookData & { isbn13: string }) | null {
+  const leader = rec.match(/<leader>([^<]*)<\/leader>/)?.[1] ?? '';
+  if (leader[6] !== 'a' || leader[7] !== 'm') return null; // nur Text, Monografie
+  const { blocks, sub, fields } = marcAccess(rec);
+  const one = (tag: string, code: string) => blocks(tag).map(b => sub(b, code)[0]).find(Boolean) ?? null;
+  const physical = [...fields('300').flat(), ...fields('338').flat()].join(' ');
+  if (/online|ressource|resource/i.test(physical)) return null;
+  const isbn13 = blocks('020').flatMap(b => sub(b, 'a')).map(normalizeIsbn).find(Boolean);
+  const title = one('245', 'a')?.replace(/\s*[/:;=.]\s*$/, '').trim();
+  if (!isbn13 || !title) return null;
+  const f008 = rec.match(/<controlfield tag="008">([^<]*)</)?.[1] ?? '';
+  const authors = [
+    ...blocks('100').map(b => sub(b, 'a')[0]),
+    // weitere Personen nur als Verfasser*in, keine Übersetzer*innen/Herausgeber*innen
+    ...blocks('700').filter(b => sub(b, '4').includes('aut') || sub(b, 'e').some(e => /verfasser/i.test(e))).map(b => sub(b, 'a')[0])
+  ].filter(Boolean).map(flipName);
+  return {
+    isbn13, title,
+    subtitle: one('245', 'b')?.replace(/\s*[/:;=.]\s*$/, '').trim() || null,
+    authors: [...new Set(authors)],
+    publisher: (one('264', 'b') ?? one('260', 'b'))?.replace(/\s*[,;:]\s*$/, '') || null,
+    year: Number((one('264', 'c') ?? one('260', 'c') ?? '').match(/\d{4}/)?.[0] ?? f008.slice(7, 11)) || null,
+    pages: Number(physical.match(/(\d+)\s*(Seiten|S\.|pages|p\.)/)?.[1]) || null,
+    language: one('041', 'a') ?? (f008.slice(35, 38).trim() || null),
+    subjects: [...marcGenres(fields), ...fields('650').map(a => a[0]).filter(Boolean)].slice(0, 15),
+    source: 'k10plus',
+    series: marcSeries(blocks, sub)
+  };
+}
+
+async function k10Query(query: string, max: number, timeoutMs = 8000): Promise<(BookData & { isbn13: string })[]> {
+  // GVK ist vollständiger, braucht aber zufällig mal 0,5 s, mal 20 s; SWB ist schnell, kennt aber weniger →
+  // beide parallel fragen, GVK nach 2,5 und 5 s nochmal (meist ist die Wiederholung schnell), die erste Antwort mit Treffern gewinnt
+  let done = false;
+  const ask = async (db: string, delay = 0) => {
+    if (delay) await new Promise(r => setTimeout(r, delay));
+    if (done) throw new Error('schon fertig');
+    const res = await get(`${K10.replace('{db}', db)}&maximumRecords=${max}&query=${encodeURIComponent(query)}`, timeoutMs);
+    const books = res ? [...(await res.text()).matchAll(/<record xmlns[^>]*>([\s\S]*?)<\/record>/g)].map(m => parseMarcBook(m[0])).filter(b => b !== null) : [];
+    if (!books.length) throw new Error('leer');
+    done = true;
+    return books;
+  };
+  return Promise.any([ask('gvk'), ask('swb'), ask('gvk', 2500), ask('gvk', 5000)]).catch(() => []);
 }
 
 /** MARC-Text: Nichtsortier-Zeichen (&#152;Der&#156;) entfernen */
@@ -269,7 +334,13 @@ const JUNK = /\b(tarot|colou?ring book|malbuch|box ?set|collection set|books? co
 
 /** Metadaten zu einer ISBN aus allen Quellen zusammenführen. */
 export async function lookupIsbn(isbn13: string): Promise<BookData | null> {
-  const [dnb, ol, marc, ols] = await Promise.all([dnbQuery(`num=${isbn13}`, 1).then(r => r[0] ?? null), olByIsbn(isbn13), dnbMarc(isbn13), olSeries(isbn13).catch(() => null)]);
+  // K10plus gleich mitstarten (nicht erst nach der DNB warten), genutzt wird es nur, wenn die DNB ausfällt
+  const k10p = k10Query(`pica.isb=${isbn13}`, 5);
+  const [dnbHit, ol, dnbM, ols] = await Promise.all([dnbQuery(`num=${isbn13}`, 1).then(r => r[0] ?? null), olByIsbn(isbn13), dnbMarc(isbn13), olSeries(isbn13).catch(() => null)]);
+  // DNB gedrosselt oder ohne Treffer → K10plus springt ein (gleiche Datenqualität, auch Genres und Reihe)
+  const k10 = !dnbHit || !dnbM ? (await k10p)[0] ?? null : null;
+  const dnb = dnbHit ?? k10;
+  const marc = dnbM ?? (k10 ? { genres: [], series: k10.series ?? null } : null);
   const genres = marc?.genres ?? [];
   if (!dnb && !ol) return null;
   // DNB-Titel sind für deutsche Bücher meist korrekter, Open Library ergänzt Lücken
@@ -285,7 +356,7 @@ export async function lookupIsbn(isbn13: string): Promise<BookData | null> {
     language: a.language ?? b.language,
     // Genres zuerst, dann Sachgruppen; die DDC-Sprachgruppe ("830 Deutsche Literatur" → "Deutsche Literatur") bleibt dahinter
     subjects: [...new Set([...genres, ...a.subjects, ...b.subjects])].slice(0, 15),
-    source: [dnb && 'dnb', ol && 'openlibrary'].filter(Boolean).join('+'),
+    source: [dnb?.source, ol && 'openlibrary'].filter(Boolean).join('+'),
     series: marc?.series ?? ols ?? null
   };
 }
@@ -295,10 +366,14 @@ export async function searchCatalog(q: string): Promise<SearchHit[]> {
   if (!words.length) return [];
   const dnbQ = words.map(w => `woe=${w.replace(/["=()<>]/g, '')}`).join(' and ') + ' and mat=books'; // ohne Hörbücher/Medien
   // Die DNB ist oft langsam oder drosselt (429) – nicht länger als 4 s auf sie warten, Open Library reicht dann allein
-  const [dnb, ol] = await Promise.all([
+  const k10Q = words.map(w => `pica.all=${w.replace(/["=()<>]/g, '')}`).join(' and ');
+  const [dnbHits, ol, k10] = await Promise.all([
     Promise.race([dnbQuery(dnbQ, 20), new Promise<BookData[]>(r => setTimeout(() => r([]), 4000))]),
-    olSearch(q, 20)
+    olSearch(q, 20),
+    // K10plus läuft mit, zählt aber nur, wenn die DNB nichts liefert (drosselt, zu langsam oder ohne Treffer)
+    k10Query(k10Q, 20, 5000)
   ]);
+  const dnb = dnbHits.length ? dnbHits : k10;
   const terms = words.map(w => w.toLowerCase());
   const asked = (re: RegExp) => terms.some(t => re.test(t)); // wer „Tarot“ sucht, bekommt Tarot
   const hits: SearchHit[] = [];
@@ -319,7 +394,7 @@ export async function searchCatalog(q: string): Promise<SearchHit[]> {
     const title = h.title.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, ' ').replace(/\s+/g, ' ').trim();
     return terms.filter(t => hay.includes(t)).length * 10 + terms.filter(t => title.includes(t)).length * 3
       + (title === query || title.replace(/^(der|die|das|the) /, '') === query.replace(/^(der|die|das|the) /, '') ? 8 : 0)
-      + (h.authors.length ? 3 : -5) + (h.coverHint?.ol || h.source === 'dnb' ? 1 : 0)
+      + (h.authors.length ? 3 : -5) + (h.coverHint?.ol || h.source !== 'openlibrary' ? 1 : 0)
       + (h.isbn13!.startsWith('9783') || h.language === 'ger' || h.language === 'de' ? 2 : 0);
   };
   return hits

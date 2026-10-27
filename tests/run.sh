@@ -11,11 +11,14 @@ set -euo pipefail
 cd "$(dirname "$0")"
 [ -f ../dist/server.js ] || { echo "Erst bauen: npm run build"; exit 1; }
 if curl -sf localhost:3999/api/status >/dev/null; then echo "Port 3999 ist belegt – läuft noch ein Testserver?"; exit 1; fi
+# Katalogabrufe über den Fixture-Proxy (aufgezeichnete DNB-/Open-Library-Antworten, siehe catalog-fixtures.mjs)
+node catalog-fixtures.mjs 3988 & CP=$!
+export BOOKSHELV_CATALOG_PROXY=http://localhost:3988
 T=$(mktemp -d)
 cp -r ../dist/package.json ../dist/public "$T/"; cp "${SERVER_JS:-../dist/server.js}" "$T/server.js"
 (cd "$T" && PORT=3999 BOOKSHELV_INSECURE_COOKIES=1 BOOKSHELV_PUSH_ALLOW_HTTP=1 BOOKSHELV_PUSHOVER_API=http://localhost:3989/pushover BOOKSHELV_TELEGRAM_API=http://localhost:3989/tg NODE_NO_WARNINGS=1 exec ${SERVER_NODE:-node} server.js > server.log 2>&1) &
 PID=$!
-trap 'kill $PID 2>/dev/null; rm -rf "$T"' EXIT
+trap 'kill $PID $CP 2>/dev/null; rm -rf "$T"' EXIT
 for i in $(seq 1 50); do curl -sf localhost:3999/api/status >/dev/null && break; sleep 0.2; done
 node api.mjs "$T"
 node loans.mjs
@@ -41,7 +44,7 @@ for d in "$FA" "$FB"; do cp -r ../dist/package.json ../dist/public "$d/"; cp "${
 PA=$!
 (cd "$FB" && PORT=3996 BOOKSHELV_PUBLIC_URL=http://localhost:3996 BOOKSHELV_FED_ALLOW_HTTP=1 BOOKSHELV_INSECURE_COOKIES=1 NODE_NO_WARNINGS=1 exec ${SERVER_NODE:-node} server.js > server.log 2>&1) &
 PB=$!
-trap 'kill $PID $PA $PB 2>/dev/null; rm -rf "$T" "$FA" "$FB"' EXIT
+trap 'kill $PID $CP $PA $PB 2>/dev/null; rm -rf "$T" "$FA" "$FB"' EXIT
 for i in $(seq 1 50); do curl -sf localhost:3997/api/status >/dev/null && curl -sf localhost:3996/api/status >/dev/null && break; sleep 0.2; done
 node federation.mjs "$FA" "$FB"
 # App-Host (Lokal-Modus, Proxy, Zusammenführen) – nur mit BOOKSHELV_SQLITE_ADDON, sonst übersprungen

@@ -1,0 +1,6 @@
+{
+ "url": "https://openlibrary.org/api/books?bibkeys=ISBN:9783462005011&format=json&jscmd=data",
+ "status": 200,
+ "type": "application/json",
+ "body": "{\"ISBN:9783462005011\": {\"url\": \"http://openlibrary.org/books/OL62663228M/Die_L\\u00fccken\", \"key\": \"/books/OL62663228M\", \"title\": \"Die L\\u00fccken\", \"authors\": [{\"url\": \"http://openlibrary.org/authors/OL7950746A/Shida_Bazyar\", \"name\": \"Shida Bazyar\"}], \"identifiers\": {\"isbn_13\": [\"9783462005011\"], \"openlibrary\": [\"OL62663228M\"]}, \"publishers\": [{\"name\": \"Kiepenheuer und Witsch Verlag\"}], \"publish_places\": [{\"name\": \"K\\u00f6ln\"}], \"publish_date\": \"2026\"}}"
+}

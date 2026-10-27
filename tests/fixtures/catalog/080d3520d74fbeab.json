@@ -1,0 +1,6 @@
+{
+ "url": "https://openlibrary.org/api/books?bibkeys=ISBN:9783446284135&format=json&jscmd=data",
+ "status": 200,
+ "type": "application/json",
+ "body": "{}"
+}

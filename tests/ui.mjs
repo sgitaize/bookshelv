@@ -53,6 +53,12 @@ await ctxA.close();
 
 // Leserunde (aus reads.mjs): Simon sieht verdeckte Beiträge ohne Text
 const rid = (await page.evaluate(() => fetch('/api/reads').then(r => r.json())))[0]?.id;
+// Simon wieder auf 50 % setzen – spätere Tests können das Buch der Runde als gelesen markiert haben (je nach Katalogdaten ein anderes Buch)
+await page.evaluate(async id => {
+  const rd = await fetch(`/api/reads/${id}`).then(r => r.json());
+  const pages = rd.book.pages;
+  await fetch(`/api/books/${rd.book.id}/reading`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'reading', progress: pages ? Math.round(pages * 0.5) : 50 }) });
+}, rid);
 await page.goto(base + `/reads/${rid}`, { waitUntil: 'networkidle0' });
 const rd = await page.evaluate(() => ({ locked: document.querySelectorAll('.post.locked').length, txt: document.body.innerText }));
 check('buddy read shows locked posts', rd.locked >= 1 && !rd.txt.includes('Das Ende hat mich umgehauen'), JSON.stringify(rd.locked));

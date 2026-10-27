@@ -1,0 +1,6 @@
+{
+ "url": "https://sru.k10plus.de/gvk?version=1.1&operation=searchRetrieve&recordSchema=marcxml&maximumRecords=5&query=pica.isb%3D9783518456576",
+ "status": 200,
+ "type": "text/xml",
+ "body": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<zs:searchRetrieveResponse xmlns:zs=\"http://www.loc.gov/zing/srw/\"><zs:version>1.1</zs:version><zs:numberOfRecords>0</zs:numberOfRecords><zs:echoedSearchRetrieveRequest><zs:version>1.1</zs:version><zs:query>pica.isb=9783518456576</zs:query><zs:maximumRecords>5</zs:maximumRecords><zs:recordPacking>xml</zs:recordPacking><zs:recordSchema>marcxml</zs:recordSchema></zs:echoedSearchRetrieveRequest></zs:searchRetrieveResponse>\n"
+}
