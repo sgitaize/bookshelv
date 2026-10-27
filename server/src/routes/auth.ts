@@ -16,6 +16,7 @@ import { operator, openRegistration, instanceFull, capacity } from './admin.ts';
 import { avatarUrl, purgeAvatar } from './social.ts';
 import { retractFederatedReviews } from './reviews.ts';
 import { retractRemoteFriends } from './friends.ts';
+import { googleEnabled } from '../catalog.ts';
 import { NOTE_TAGS } from './contentnotes.ts';
 
 export const authRoutes = router();
@@ -61,7 +62,8 @@ authRoutes.get('/status', c => c.json({
 }));
 
 /** Impressum + Datenschutz (öffentlich, auch abgemeldet) */
-authRoutes.get('/legal', c => c.json({ imprintUrl: setting('imprint_url') || null, operator: operator() }));
+// googleBooks: die Datenschutzerklärung nennt Google Books nur, wenn diese Instanz es wirklich nutzt
+authRoutes.get('/legal', c => c.json({ imprintUrl: setting('imprint_url') || null, operator: operator(), googleBooks: googleEnabled() }));
 
 authRoutes.post('/setup', async c => {
   const b = await body(c);

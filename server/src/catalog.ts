@@ -6,6 +6,7 @@
  *  - Deutsche Nationalbibliothek (SRU, oai_dc): beste Quelle für deutschsprachige Titel
  *  - Open Library: international, Cover, Seitenzahlen
  *  - K10plus (GBV/SWB): Ausweichkatalog, wenn die DNB drosselt
+ *  - Google Books: nur auf dem Server mit Key (BOOKSHELV_GOOGLE_BOOKS_KEY), die Apps fragen Google nie selbst
  *  - DNB/MVB-Cover als Fallback, wenn Open Library kein Cover hat
  */
 import fs from 'node:fs';
@@ -29,7 +30,8 @@ export type BookData = {
   series?: { name: string; index: number | null } | null;
 };
 
-export type SearchHit = BookData & { coverHint: { isbn?: string; ol?: number } | null };
+export type CoverHint = { isbn?: string; ol?: number; gb?: string };
+export type SearchHit = BookData & { coverHint: CoverHint | null };
 
 const coverDir = path.join(config.dataDir, 'covers');
 
@@ -330,6 +332,35 @@ async function olSearch(q: string, max: number): Promise<SearchHit[]> {
   });
 }
 
+// ---------- Google Books (nur mit Key) ----------
+
+type GbVolume = { id: string; volumeInfo?: {
+  title?: string; subtitle?: string; authors?: string[]; publisher?: string; publishedDate?: string; pageCount?: number;
+  language?: string; categories?: string[]; industryIdentifiers?: { type: string; identifier: string }[]; imageLinks?: unknown;
+} };
+export const googleEnabled = () => !!config.googleBooksKey;
+
+async function gbVolumes(q: string, max: number, timeoutMs = 5000): Promise<SearchHit[]> {
+  if (!config.googleBooksKey) return [];
+  const res = await get(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=${max}&printType=books`
+    + `&fields=items(id,volumeInfo(title,subtitle,authors,publisher,publishedDate,pageCount,language,categories,industryIdentifiers,imageLinks))`
+    + `&key=${config.googleBooksKey}`, timeoutMs);
+  if (!res) return [];
+  const items = ((await res.json().catch(() => ({}))) as { items?: GbVolume[] }).items ?? [];
+  return items.flatMap(v => {
+    const i = v.volumeInfo;
+    const isbn = i?.industryIdentifiers?.find(x => x.type === 'ISBN_13')?.identifier;
+    if (!i?.title || !isbn) return [];
+    return [{
+      isbn13: isbn, title: i.title, subtitle: i.subtitle ?? null, authors: i.authors ?? [], publisher: i.publisher ?? null,
+      year: Number(i.publishedDate?.match(/\d{4}/)?.[0]) || null, pages: i.pageCount || null,
+      language: i.language === 'de' ? 'de' : i.language ?? null, subjects: (i.categories ?? []).slice(0, 5), source: 'google',
+      // Cover nur, wenn Google eins hat (sonst liefert es ein „kein Bild“-Platzhalterbild)
+      coverHint: i.imageLinks ? { gb: v.id, isbn } : { isbn }
+    }];
+  });
+}
+
 /** Begleitmaterial und Merchandise, das bei Titelsuchen sonst die eigentlichen Bücher verdrängt */
 const JUNK = /\b(tarot|colou?ring book|malbuch|box ?set|collection set|books? collection|pen loop|notizbuch|kalender|calendar|lektürehilfe|interpretationshilfe|interpretation|kopiervorlagen?|unterrichtsmaterial|lösungen|arbeitsheft|study guide|summary of|workbook|sparknotes|königs erläuterungen|planner|dayplanner|set of \d+ books|literaturunterricht|didaktische|analyse|untersuchung)\b/i;
 
@@ -354,32 +385,33 @@ export function lookupIsbnFast(isbn13: string): { first: Promise<BookData | null
   const olP = olByIsbn(isbn13);
   const marcP = dnbMarc(isbn13);
   const olsP = olSeries(isbn13).catch(() => null);
+  const gbP = gbVolumes(`isbn:${isbn13}`, 1).then(r => r[0] ?? null).catch(() => null);
   const full = (async () => {
-    const [dnbHit, ol, dnbM, ols] = await Promise.all([dnbP, olP, marcP, olsP]);
+    const [dnbHit, ol, dnbM, ols, gb] = await Promise.all([dnbP, olP, marcP, olsP, gbP]);
     // DNB gedrosselt oder ohne Treffer → K10plus springt ein (gleiche Datenqualität, auch Genres und Reihe)
     const k10 = !dnbHit || !dnbM ? await k10p : null;
     const dnb = dnbHit ?? k10;
     const marc = dnbM ?? (k10 ? { genres: [], series: k10.series ?? null } : null);
     const genres = marc?.genres ?? [];
-    if (!dnb && !ol) return null;
-    // DNB-Titel sind für deutsche Bücher meist korrekter, Open Library ergänzt Lücken
-    const a = dnb ?? ol!, b = ol ?? dnb!;
+    if (!dnb && !ol && !gb) return null;
+    // DNB-Titel sind für deutsche Bücher meist korrekter, Open Library ergänzt Lücken, Google Books den Rest
+    const a = dnb ?? ol ?? gb!, b = ol ?? dnb ?? gb!, c = gb ?? b;
     return {
       isbn13,
       title: a.title || b.title,
-      subtitle: a.subtitle ?? b.subtitle,
-      authors: a.authors.length ? a.authors : b.authors,
-      publisher: a.publisher ?? b.publisher,
-      year: a.year ?? b.year,
-      pages: b.pages ?? a.pages,
-      language: a.language ?? b.language,
+      subtitle: a.subtitle ?? b.subtitle ?? c.subtitle,
+      authors: a.authors.length ? a.authors : b.authors.length ? b.authors : c.authors,
+      publisher: a.publisher ?? b.publisher ?? c.publisher,
+      year: a.year ?? b.year ?? c.year,
+      pages: b.pages ?? a.pages ?? c.pages,
+      language: a.language ?? b.language ?? c.language,
       // Genres zuerst, dann Sachgruppen; die DDC-Sprachgruppe ("830 Deutsche Literatur" → "Deutsche Literatur") bleibt dahinter
       subjects: [...new Set([...genres, ...a.subjects, ...b.subjects])].slice(0, 15),
-      source: [dnb?.source, ol && 'openlibrary'].filter(Boolean).join('+'),
+      source: [dnb?.source, ol && 'openlibrary', gb && 'google'].filter(Boolean).join('+'),
       series: marc?.series ?? ols ?? null
     };
   })().catch(() => null);
-  const first = firstHit<BookData>([dnbP, olP, k10p]).then(d => d && { ...d, isbn13 });
+  const first = firstHit<BookData>([dnbP, olP, k10p, gbP]).then(d => d && { ...d, isbn13 });
   return { first, full };
 }
 
@@ -388,7 +420,7 @@ export const lookupIsbn = (isbn13: string) => lookupIsbnFast(isbn13).full;
 
 type Tracked<T> = { p: Promise<T>; v?: T };
 const track = <T>(p: Promise<T>): Tracked<T> => { const t: Tracked<T> = { p }; p.then(v => { t.v = v; }, () => {}); return t; };
-type Sources = { dnb: Tracked<BookData[]>; ol: Tracked<SearchHit[]>; k10: Tracked<BookData[]> };
+type Sources = { dnb: Tracked<BookData[]>; ol: Tracked<SearchHit[]>; k10: Tracked<BookData[]>; gb: Tracked<SearchHit[]> };
 
 /**
  * Laufende/fertige Katalogabfragen je Suchbegriff (10 min): die schnelle und die vollständige Stufe derselben Suche
@@ -406,13 +438,14 @@ function catalogSources(q: string, words: string[]): Sources {
     dnb: track(Promise.race([dnbQuery(dnbQ, 20), new Promise<BookData[]>(r => setTimeout(() => r([]), 4000))])),
     ol: track(olSearch(q, 20)),
     // K10plus läuft mit, zählt aber nur, wenn die DNB nichts liefert (drosselt, zu langsam oder ohne Treffer)
-    k10: track(k10Query(k10Q, 20, 5000))
+    k10: track(k10Query(k10Q, 20, 5000)),
+    gb: track(gbVolumes(q, 20).catch(() => []))
   };
   searches.delete(key);
   searches.set(key, { at: Date.now(), s });
   if (searches.size > 200) searches.delete(searches.keys().next().value!);
   // Alles leer (Netz weg, Quellen gestört)? Nicht merken, beim nächsten Mal neu fragen
-  Promise.all([s.dnb.p, s.ol.p, s.k10.p]).then(r => { if (r.every(x => !x.length) && searches.get(key)?.s === s) searches.delete(key); }, () => searches.delete(key));
+  Promise.all([s.dnb.p, s.ol.p, s.k10.p, s.gb.p]).then(r => { if (r.every(x => !x.length) && searches.get(key)?.s === s) searches.delete(key); }, () => searches.delete(key));
   return s;
 }
 
@@ -426,17 +459,17 @@ export async function searchCatalog(q: string, opts: { fast?: boolean } = {}): P
   if (!words.length) return [];
   const s = catalogSources(q, words);
   const some = <T>(t: Tracked<T[]>) => t.p.then(r => (r.length ? r : null));
-  if (opts.fast) await firstHit<unknown>([some(s.dnb), some(s.ol), some(s.k10)]);
-  else await Promise.all([s.dnb.p, s.ol.p, s.k10.p]);
+  if (opts.fast) await firstHit<unknown>([some(s.dnb), some(s.ol), some(s.k10), some(s.gb)]);
+  else await Promise.all([s.dnb.p, s.ol.p, s.k10.p, s.gb.p]);
   // DNB-Treffer, sonst K10plus; im schnellen Modus nur, was schon da ist
   const dnb = s.dnb.v?.length ? s.dnb.v : s.k10.v ?? [];
-  const ol = s.ol.v ?? [];
+  const ol = s.ol.v ?? [], gb = s.gb.v ?? [];
   const terms = words.map(w => w.toLowerCase());
   const asked = (re: RegExp) => terms.some(t => re.test(t)); // wer „Tarot“ sucht, bekommt Tarot
   const hits: SearchHit[] = [];
   const seen = new Set<string>();
   // DNB zuerst: bei deutschen Büchern die besseren Metadaten; dieselbe ISBN von OL wird dann übersprungen
-  for (const h of [...dnb.map(b => ({ ...b, coverHint: b.isbn13 ? { isbn: b.isbn13 } : null })), ...ol]) {
+  for (const h of [...dnb.map(b => ({ ...b, coverHint: b.isbn13 ? { isbn: b.isbn13 } : null })), ...ol, ...gb]) {
     if (!h.isbn13) continue; // ohne ISBN nicht eindeutig importierbar – dafür gibt es die manuelle Erfassung
     if (seen.has(h.isbn13)) continue;
     if (JUNK.test(`${h.title} ${h.subtitle ?? ''}`) && !asked(JUNK)) continue;
@@ -475,9 +508,10 @@ async function downloadImage(url: string): Promise<{ buf: Buffer; ext: string } 
   return { buf, ext };
 }
 
-async function findCoverImage(hint: { isbn?: string; ol?: number }) {
+async function findCoverImage(hint: CoverHint) {
   const tries: string[] = [];
   if (hint.ol) tries.push(`https://covers.openlibrary.org/b/id/${hint.ol}-L.jpg`);
+  if (hint.gb) tries.push(`https://books.google.com/books/content?id=${encodeURIComponent(hint.gb)}&printsec=frontcover&img=1&zoom=1`);
   if (hint.isbn) {
     tries.push(`https://covers.openlibrary.org/b/isbn/${hint.isbn}-L.jpg?default=false`);
     tries.push(`https://portal.dnb.de/opac/mvb/cover?isbn=${hint.isbn}`);
@@ -490,15 +524,20 @@ async function findCoverImage(hint: { isbn?: string; ol?: number }) {
 }
 
 /** Cover herunterladen und lokal ablegen; gibt den Dateinamen zurück. */
-export async function fetchCover(hint: { isbn?: string; ol?: number }): Promise<string | null> {
+export async function fetchCover(hint: CoverHint): Promise<string | null> {
   let preview = await previewCover(hint); // meist schon von der Suche im Cache
   // Für viele Ausgaben hat Open Library kein Bild unter der ISBN, wohl aber am Werk (dasselbe Cover zeigt die Suche)
   if (!preview && hint.isbn && !hint.ol) {
     const ol = await olCoverId(hint.isbn);
     if (ol) preview = await previewCover({ ol });
   }
+  // zuletzt Google Books (nur mit Key)
+  if (!preview && hint.isbn && !hint.gb) {
+    const gb = (await gbVolumes(`isbn:${hint.isbn}`, 1).catch(() => []))[0]?.coverHint?.gb;
+    if (gb) preview = await previewCover({ gb });
+  }
   if (!preview) return null;
-  const name = `${hint.isbn ?? 'ol' + hint.ol}-${crypto.randomBytes(4).toString('hex')}.${preview.ext}`;
+  const name = `${hint.isbn ?? (hint.ol ? 'ol' + hint.ol : 'gb' + hint.gb)}-${crypto.randomBytes(4).toString('hex')}.${preview.ext}`;
   // kein copyFileSync: libuv ruft dabei fchown auf, das der systemd-Seccomp-Filter (@privileged) mit SIGSYS bestraft
   fs.writeFileSync(path.join(coverDir, name), fs.readFileSync(preview.file));
   return name;
@@ -523,8 +562,8 @@ export function prunePreviews(maxAgeDays = 30) {
   }
 }
 
-export async function previewCover(hint: { isbn?: string; ol?: number }): Promise<{ file: string; ext: string } | null> {
-  const key = hint.ol ? `ol${hint.ol}` : `isbn${hint.isbn}`;
+export async function previewCover(hint: CoverHint): Promise<{ file: string; ext: string } | null> {
+  const key = hint.ol ? `ol${hint.ol}` : hint.gb ? `gb${hint.gb.replace(/[^A-Za-z0-9_-]/g, '')}` : `isbn${hint.isbn}`;
   for (const ext of ['jpg', 'png', 'webp']) {
     const file = path.join(previewDir, `${key}.${ext}`);
     if (fs.existsSync(file)) return { file, ext };

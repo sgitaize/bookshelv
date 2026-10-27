@@ -4,7 +4,7 @@ import { db, tx } from '../db.ts';
 import { friendSql } from '../friends.ts';
 import { wishAvailable } from '../notify.ts';
 import { requireUser, type User } from '../auth.ts';
-import { dnbUnavailable, lookupIsbnFast, normalizeIsbn, searchCatalog, fetchCover, previewCover, deleteCoverFile, type BookData } from '../catalog.ts';
+import { dnbUnavailable, lookupIsbnFast, normalizeIsbn, searchCatalog, fetchCover, previewCover, deleteCoverFile, type BookData, type CoverHint } from '../catalog.ts';
 import { router, body, str, int, oneOf, idParam, notFound } from '../util.ts';
 import { setReading, readingJson, READ_STATUS, today, type ReadingRow } from './reading.ts';
 import { openLoanFor } from './loans.ts';
@@ -41,7 +41,7 @@ export const getBookByIsbn = (isbn: string) => db.prepare('SELECT * FROM books W
 const pending = new Map<string, Promise<BookRow | null>>();
 
 /** Fehlendes Cover nachladen (wartet nicht, Fehler sind egal) */
-export function repairCover(bookId: number, hint: { isbn?: string; ol?: number }) {
+export function repairCover(bookId: number, hint: CoverHint) {
   fetchCover(hint).then(name => {
     if (!name) return;
     if (!db.prepare('UPDATE books SET cover = ? WHERE id = ? AND cover IS NULL').run(name, bookId).changes) deleteCoverFile(name);
@@ -130,15 +130,16 @@ function knownBooks(q: string, me: number) {
 }
 
 /** Katalogtreffer mit dem Bestand der Instanz abgleichen: Buch-ID, wer es hat, Cover */
-function matchHit(h: { isbn13: string | null; coverHint?: { isbn?: string; ol?: number } | null }, me: number) {
+function matchHit(h: { isbn13: string | null; coverHint?: CoverHint | null }, me: number) {
   const local = h.isbn13 ? getBookByIsbn(h.isbn13) : undefined;
   // Buch im Bestand ohne Cover, die Suche kennt aber eins → im Hintergrund übernehmen
-  if (local && !local.cover && h.coverHint?.ol) repairCover(local.id, { ol: h.coverHint.ol });
+  if (local && !local.cover && (h.coverHint?.ol || h.coverHint?.gb)) repairCover(local.id, h.coverHint.ol ? { ol: h.coverHint.ol } : { gb: h.coverHint.gb, isbn: h.isbn13 ?? undefined });
   return {
     bookId: local?.id ?? null,
     owners: local ? ownersOf(local.id, me) : [],
     coverUrl: local?.cover ? `/covers/${local.cover}`
       : h.coverHint?.ol ? `/api/catalog/cover?ol=${h.coverHint.ol}`
+      : h.coverHint?.gb ? `/api/catalog/cover?gb=${encodeURIComponent(h.coverHint.gb)}&isbn=${h.isbn13}`
       : h.coverHint?.isbn ? `/api/catalog/cover?isbn=${h.coverHint.isbn}` : null
   };
 }
@@ -193,8 +194,9 @@ bookRoutes.get('/catalog/cover', async c => {
   requireUser(c);
   const ol = int(c.req.query('ol'), 1, 1e10) ?? undefined;
   const isbn = c.req.query('isbn') ? normalizeIsbn(c.req.query('isbn')!) ?? undefined : undefined;
-  if (!ol && !isbn) throw new HTTPException(400, { message: 'ol oder isbn fehlt' });
-  const img = await previewCover({ ol, isbn });
+  const gb = /^[A-Za-z0-9_-]{4,24}$/.test(c.req.query('gb') ?? '') ? c.req.query('gb') : undefined;
+  if (!ol && !isbn && !gb) throw new HTTPException(400, { message: 'ol, gb oder isbn fehlt' });
+  const img = await previewCover({ ol, gb, isbn });
   if (!img) return c.body(null, 404);
   c.header('Content-Type', `image/${img.ext === 'jpg' ? 'jpeg' : img.ext}`);
   c.header('Cache-Control', 'private, max-age=604800');

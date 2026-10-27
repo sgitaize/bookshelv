@@ -27,6 +27,8 @@ export const config = {
   secureCookies: process.env.BOOKSHELV_INSECURE_COOKIES !== '1',
   sessionDays: 60,
   inviteDays: 14,
+  /** Google Books API (optional, nur auf dem Server – nie ins Repo oder in die Apps): zusätzliche Katalogquelle */
+  googleBooksKey: process.env.BOOKSHELV_GOOGLE_BOOKS_KEY ?? '',
   /** Kontakt für den User-Agent bei Katalog-Anfragen (Open Library bittet darum) */
   userAgent: `bookshelv/${built ? __VERSION__ : 'dev'} (+https://github.com/sgitaize/bookshelv)`
 };

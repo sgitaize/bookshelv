@@ -400,18 +400,18 @@ function catalog() {
 type Hit = { isbn13: string | null; bookId: number | null; coverUrl: string | null; owners?: unknown[] } & Record<string, unknown>;
 type Known = { known: Hit[]; matches: Record<string, Pick<Hit, 'bookId' | 'owners' | 'coverUrl'> | undefined> };
 
-async function catalogSearch(req: http.IncomingMessage, res: http.ServerResponse) {
-  const u = new URL(req.url ?? '/', 'http://host');
-  const q = (u.searchParams.get('q') ?? '').trim().slice(0, 100);
+/**
+ * Suche auf dem Gerät: Katalog selbst fragen, die Instanz nur für erfasste Bücher und den Abgleich.
+ * null = die Instanz kann das nicht (ältere Version ohne /catalog/known) → nur die Server-Suche zählt.
+ */
+async function deviceSearch(q: string, fast: boolean): Promise<{ status: number; data: unknown } | null> {
   const cat = catalog();
-  // ISBN: legt die Instanz beim Übernehmen ohnehin an, dort nachschlagen (sie nimmt die erste Quelle mit Treffer)
-  if (q.length < 2 || cat.normalizeIsbn(q)) return proxy(req, res);
   // Schon erfasste Bücher parallel zur Katalogsuche holen; ohne Instanz (offline) gibt es eben nur den Katalog
   const knownP = remoteApi<Known>('POST', '/api/catalog/known', { q }).catch(() => null);
-  const hits = await cat.searchCatalog(q, { fast: u.searchParams.get('fast') === '1' }).catch(() => []);
+  const hits = await cat.searchCatalog(q, { fast }).catch(() => []);
   const known = await knownP;
-  if (known?.status === 404) return proxy(req, res); // ältere Instanz ohne /catalog/known → wie bisher dort suchen
-  if (known && known.status >= 400) return json(res, known.status, known.data);
+  if (known?.status === 404) return null;
+  if (known && known.status >= 400) return known;
   const knownHits = known?.data.known ?? [];
   const knownIsbns = new Set(knownHits.map(h => h.isbn13).filter(Boolean));
   const fresh = hits.filter(h => !knownIsbns.has(h.isbn13));
@@ -419,17 +419,44 @@ async function catalogSearch(req: http.IncomingMessage, res: http.ServerResponse
     ? await remoteApi<Known>('POST', '/api/catalog/known', { hits: fresh.map(h => ({ isbn13: h.isbn13, ol: h.coverHint?.ol })) }).catch(() => null)
     : null;
   const matches = m && m.status < 400 ? m.data.matches : {};
-  json(res, 200, [...knownHits, ...fresh.map(h => ({
+  return { status: 200, data: [...knownHits, ...fresh.map(h => ({
     isbn13: h.isbn13, title: h.title, subtitle: h.subtitle, authors: h.authors, publisher: h.publisher, year: h.year,
     bookId: null, owners: [],
     coverUrl: h.coverHint?.ol ? `/api/catalog/cover?ol=${h.coverHint.ol}` : h.coverHint?.isbn ? `/api/catalog/cover?isbn=${h.coverHint.isbn}` : null,
     ...matches[h.isbn13!]
-  }))]);
+  }))] };
+}
+
+/**
+ * Titelsuche im Instanz-Modus: Gerät und Server suchen gleichzeitig, die erste Antwort mit Treffern gewinnt.
+ * Der Server hat zusätzlich Google Books (der Key bleibt dort), das Gerät spart den Umweg über den Server.
+ */
+async function catalogSearch(req: http.IncomingMessage, res: http.ServerResponse) {
+  const u = new URL(req.url ?? '/', 'http://host');
+  const q = (u.searchParams.get('q') ?? '').trim().slice(0, 100);
+  // ISBN: legt die Instanz beim Übernehmen ohnehin an, dort nachschlagen (sie nimmt die erste Quelle mit Treffer)
+  if (q.length < 2 || catalog().normalizeIsbn(q)) return proxy(req, res);
+  const fast = u.searchParams.get('fast') === '1';
+  type R = { status: number; data: unknown } | null;
+  const server: Promise<R> = remoteApi<unknown>('GET', `/api/catalog/search?q=${encodeURIComponent(q)}${fast ? '&fast=1' : ''}`).catch(() => null);
+  const device: Promise<R> = deviceSearch(q, fast).catch(() => null);
+  const good = (r: R) => !!r && r.status === 200 && Array.isArray(r.data) && r.data.length > 0;
+  // erste Antwort mit Treffern; liefert keine welche, zählt die erste ohne Fehler (sonst der Fehler, sonst offline)
+  const first = await new Promise<R>(resolve => {
+    let left = 2;
+    const done = () => { if (--left) return; Promise.all([server, device]).then(([a, b]) => resolve(
+      [a, b].find(r => r?.status === 200) ?? a ?? b)); };
+    for (const p of [server, device]) p.then(r => { if (good(r)) resolve(r); done(); });
+  });
+  if (!first) { req.socket.destroy(); return; } // weder Server noch Katalog erreichbar → Oberfläche geht in den Offline-Modus
+  json(res, first.status, first.data);
 }
 
 /** Vorschau-Cover der Suchtreffer: lädt das Gerät selbst (und behält sie im eigenen Cache) */
 async function catalogCover(req: http.IncomingMessage, res: http.ServerResponse) {
   const u = new URL(req.url ?? '/', 'http://host');
+  // Google-Cover (nur in Treffern der Server-Suche) holt der Server
+  if (u.searchParams.get('gb')) return proxy(req, res);
   const cat = catalog();
   const ol = Number(u.searchParams.get('ol')) || undefined;
   const isbn = u.searchParams.get('isbn') ? cat.normalizeIsbn(u.searchParams.get('isbn')!) ?? undefined : undefined;
