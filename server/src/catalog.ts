@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { config } from './config.ts';
+import { lettersOnly } from './util.ts';
 
 export type BookData = {
   isbn13: string | null;
@@ -391,7 +392,7 @@ export async function searchCatalog(q: string): Promise<SearchHit[]> {
   const query = terms.join(' ');
   const score = (h: SearchHit) => {
     const hay = `${h.title} ${h.subtitle ?? ''} ${h.authors.join(' ')}`.toLowerCase();
-    const title = h.title.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, ' ').replace(/\s+/g, ' ').trim();
+    const title = lettersOnly(h.title.toLowerCase());
     return terms.filter(t => hay.includes(t)).length * 10 + terms.filter(t => title.includes(t)).length * 3
       + (title === query || title.replace(/^(der|die|das|the) /, '') === query.replace(/^(der|die|das|the) /, '') ? 8 : 0)
       + (h.authors.length ? 3 : -5) + (h.coverHint?.ol || h.source !== 'openlibrary' ? 1 : 0)
