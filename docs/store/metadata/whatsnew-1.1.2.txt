@@ -1,0 +1,8 @@
+• Fertig gelesen? Das Bewerten-Fenster geht jetzt sofort auf
+• Schnellere Buchsuche: erste Treffer sofort, mehr Treffer und Cover (u. a. Google Books, K10plus)
+• Bücher per ISBN werden sofort angelegt, Cover und Details kommen nach
+• Klarere Meldung, wenn ein Katalog gerade nicht erreichbar ist
+• Favoriten-Regal, einfachere Listen-Auswahl, Massenbearbeitung im Regal, besserer Booky-Import
+• Listen als Liste, Tabelle oder Raster
+• Taschenlampe beim Scannen repariert
+• Nach dem Zurückwechseln nicht mehr fälschlich offline; die App fühlt sich nativer an

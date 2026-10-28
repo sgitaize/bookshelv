@@ -21,8 +21,8 @@ android {
         applicationId = "de.sgitaize.bookshelv"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "1.1.0"
+        versionCode = 6
+        versionName = "1.1.2"
         // 16-KB-Speicherseiten (Play-Pflicht für 64-Bit): eigene libbsnode so linken; libnode selbst gebaut, siehe scripts/fetch-deps.sh
         externalNativeBuild { cmake { arguments += listOf("-DANDROID_STL=c++_shared", "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON") } }
     }

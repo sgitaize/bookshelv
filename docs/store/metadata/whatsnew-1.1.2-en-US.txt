@@ -1,0 +1,8 @@
+• Finished a book? The rating sheet now opens right away
+• Faster book search: first results instantly, more results and covers (incl. Google Books, K10plus)
+• Books added by ISBN appear immediately, cover and details follow
+• Clearer message when a catalogue is temporarily unavailable
+• Favourites shelf, easier list picker, bulk edit on the shelf, better Booky import
+• Lists as list, table or grid
+• Torch while scanning fixed
+• No longer stuck offline after switching back; the app feels more native
