@@ -103,15 +103,22 @@
   const others = $derived(data?.copies.filter(c => !c.mine) ?? []);
 
   async function setReading(patch: Partial<Reading>) {
+    const before = data!.reading.status;
     try {
-      const before = data!.reading.status;
       data!.reading = await api.put<Reading>(`/books/${id}/reading`, patch);
-      // gerade fertig gelesen/abgebrochen → erst fragen, wann (vorbelegt mit heute), danach zum Bewerten einladen
-      if ((patch.status === 'read' || patch.status === 'dnf') && before !== patch.status) { datesJust = true; datesOpen = true; }
+      justDone(before, patch.status);
     } catch (e) {
       toastError(e);
-      if (e instanceof QueuedError) data!.reading = { ...data!.reading, ...patch };
+      if (e instanceof QueuedError) { data!.reading = { ...data!.reading, ...patch }; justDone(before, patch.status); }
     }
+  }
+
+  // gerade fertig gelesen → wie bei Booky sofort bewerten (Enddatum setzt der Server auf heute, änderbar über die Datumszeile);
+  // abgebrochen → fragen, wann
+  function justDone(before: string, status?: string) {
+    if (status === before) return;
+    if (status === 'read') askReview = true;
+    else if (status === 'dnf') { datesJust = true; datesOpen = true; }
   }
 
   const fmtDate = (d: string | null) => fmtD(d);
@@ -403,14 +410,14 @@
 {#if data}
   {#if data}
   <DatesSheet bookId={id} reading={data.reading} open={datesOpen} just={datesJust}
-    onclose={() => { datesOpen = false; if (datesJust && data?.reading.status === 'read') askReview = true; datesJust = false; }}
-    onsaved={r => { data!.reading = r; datesOpen = false; if (datesJust && r.status === 'read') askReview = true; datesJust = false; }} />
+    onclose={() => { datesOpen = false; datesJust = false; }}
+    onsaved={r => { data!.reading = r; datesOpen = false; datesJust = false; }} />
   <RereadSheet bookId={id} reread={rereadEdit?.reread ?? null} open={!!rereadEdit} onclose={() => (rereadEdit = null)}
     onsaved={list => { data!.rereads = list; data!.reading.status = 'read'; rereadEdit = null; toast(t('common.saved')); }} />
 {/if}
 <ListSheet bookId={id} open={listOpen} onclose={() => (listOpen = false)} />
 <ProgressSheet item={progressOpen ? { book: data.book, progress: data.reading.progress, status: data.reading.status } : null}
-    onclose={() => (progressOpen = false)} onsaved={load} />
+    onclose={() => (progressOpen = false)} onsaved={load} onfinished={() => (askReview = true)} />
 {/if}
 
 <RemoveSheet copyId={removing?.id ?? null} archivedOnly={removing?.archived ?? false} title={data?.book.title ?? ''}

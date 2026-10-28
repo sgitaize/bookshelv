@@ -6,10 +6,10 @@
   import Cover from './Cover.svelte';
   import { t } from '../lib/i18n.svelte.ts';
 
-  // Fortschritt eintragen: Seite oder Prozent, oder direkt "fertig"
-  let { item, onclose, onsaved }: {
+  // Fortschritt eintragen: Seite oder Prozent, oder direkt "fertig" (onfinished → danach bewerten)
+  let { item, onclose, onsaved, onfinished }: {
     item: { book: BookBrief; progress: number | null; status: ReadStatus } | null;
-    onclose: () => void; onsaved: () => void;
+    onclose: () => void; onsaved: () => void; onfinished?: (book: BookBrief) => void;
   } = $props();
 
   let mode = $state<'pages' | 'percent'>('pages');
@@ -24,6 +24,7 @@
 
   async function save(status?: ReadStatus) {
     if (!item) return;
+    const book = item.book, finished = status === 'read' && item.status !== 'read';
     busy = true;
     try {
       const n = Number(value);
@@ -33,9 +34,10 @@
       toast(status === 'read' ? t('progress.finished', { title: item.book.title }) : t('progress.saved'));
       onsaved();
       onclose();
+      if (finished) onfinished?.(book);
     } catch (e) {
       toastError(e);
-      if (e instanceof QueuedError) onclose();
+      if (e instanceof QueuedError) { onclose(); if (finished) onfinished?.(book); }
     } finally { busy = false; }
   }
 </script>

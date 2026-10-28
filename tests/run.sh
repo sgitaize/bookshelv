@@ -51,7 +51,7 @@ node federation.mjs "$FA" "$FB"
 node app.mjs
 
 # Offline-Modus im Browser (auch einzeln: tests/run.sh --offline)
-if [ "${1:-}" = "--ui" ] || [ "${1:-}" = "--offline" ]; then node offline.mjs; node ui.mjs; fi
+if [ "${1:-}" = "--ui" ] || [ "${1:-}" = "--offline" ]; then node offline.mjs; node finish-review.mjs; node ui.mjs; fi
 if [ "${1:-}" = "--ui" ]; then
   # DE und EN parallel (eigene Browser); ONLY=/settings,/stats prüft nur diese Seiten
   node overflow.mjs "$T" "${SHOTS:-}" & OD=$!

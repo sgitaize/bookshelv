@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { api, percent, ago, fmtRating, type Home, type ReadingItem, type RecentReview, type Loans } from '../lib/api.ts';
+  import { api, percent, ago, fmtRating, type Home, type ReadingItem, type RecentReview, type Loans, type BookBrief, type BookReviews, type Review } from '../lib/api.ts';
   import Stars from '../components/Stars.svelte';
   import FeedList from '../components/FeedList.svelte';
   import type { FeedItem } from '../lib/api.ts';
@@ -10,11 +10,18 @@
   import { pending } from '../lib/offline.svelte.ts';
   import ProgressSheet from '../components/ProgressSheet.svelte';
   import NextSheet from '../components/NextSheet.svelte';
+  import ReviewSheet from '../components/ReviewSheet.svelte';
   import GoalCard from '../components/GoalCard.svelte';
 
   let home = $state<Home | null>(null);
   let editing = $state<ReadingItem | null>(null);
   let nextOpen = $state(false);
+  // nach "Fertig" direkt bewerten (vorhandene eigene Bewertung vorbelegen)
+  let reviewing = $state<{ book: BookBrief; existing: Review | null } | null>(null);
+  async function askReview(book: BookBrief) {
+    const r = await api.get<BookReviews>(`/books/${book.id}/reviews`).catch(() => null);
+    reviewing = { book, existing: r?.reviews.find(x => x.mine) ?? null };
+  }
 
   let feed = $state<FeedItem[]>([]);
   let loans = $state<Loans | null>(null);
@@ -152,7 +159,9 @@
   {/if}
 {/if}
 
-<ProgressSheet item={editing} onclose={() => (editing = null)} onsaved={load} />
+<ProgressSheet item={editing} onclose={() => (editing = null)} onsaved={load} onfinished={askReview} />
+<ReviewSheet open={!!reviewing} bookId={reviewing?.book.id ?? 0} title={reviewing?.book.title ?? ''} existing={reviewing?.existing ?? null}
+  onclose={() => (reviewing = null)} onsaved={load} />
 <NextSheet open={nextOpen} onclose={() => (nextOpen = false)} />
 
 <style>
