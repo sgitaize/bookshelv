@@ -20,5 +20,7 @@
   "parentalControls": false,
   "ageAssurance": false,
   "healthOrWellnessTopics": false,
-  "gunsOrOtherWeapons": "NONE"
+  "gunsOrOtherWeapons": "NONE",
+  "socialMedia": true,
+  "socialMediaAgeRestricted": false
 }
